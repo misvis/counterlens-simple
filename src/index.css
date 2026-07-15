@@ -821,3 +821,92 @@ input[type=range]::-moz-range-track {
 .theme-daylight .tutorial-welcome {
     background: rgba(255, 255, 255, 0.7);
 }
+
+/* =========================================================
+   Simplified classroom prototype — daylight theme
+   ========================================================= */
+.simplified-daylight {
+    background: linear-gradient(135deg, #f4f7fb 0%, #ffffff 48%, #eef4ff 100%) !important;
+    color: #334155 !important;
+}
+
+.simplified-daylight [class*="bg-slate-900/"],
+.simplified-daylight [class*="bg-\[\#0f131a\]"] {
+    background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.simplified-daylight [class*="bg-slate-950/"],
+.simplified-daylight [class*="bg-slate-800/"] {
+    background-color: rgba(241, 245, 249, 0.92) !important;
+}
+
+.simplified-daylight .bg-slate-900,
+.simplified-daylight .bg-slate-800 {
+    background-color: #e9eff7 !important;
+}
+
+.simplified-daylight [class*="border-slate-"] {
+    border-color: #cbd5e1 !important;
+}
+
+.simplified-daylight .text-white {
+    color: #0f172a !important;
+}
+
+.simplified-daylight [class*="text-amber-"] {
+    color: #b45309 !important;
+}
+
+.simplified-daylight [class*="text-violet-"] {
+    color: #6d28d9 !important;
+}
+
+.simplified-daylight [class*="text-emerald-"] {
+    color: #047857 !important;
+}
+
+.simplified-daylight [class*="text-rose-"] {
+    color: #be123c !important;
+}
+
+.simplified-daylight [class*="text-blue-"] {
+    color: #1d4ed8 !important;
+}
+
+.simplified-daylight textarea,
+.simplified-daylight input {
+    color: #0f172a;
+}
+
+.simplified-daylight textarea::placeholder,
+.simplified-daylight input::placeholder {
+    color: #94a3b8;
+}
+
+@keyframes simplified-tooltip-fade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.simplified-student-tooltip {
+    animation: simplified-tooltip-fade 120ms ease-out both;
+    transform: none;
+}
+
+/* Mouse clicks should not leave the browser's black/white SVG focus frame. */
+.simplified-scatter-plot:focus,
+.simplified-scatter-plot .recharts-wrapper:focus,
+.simplified-scatter-plot .recharts-surface:focus {
+    outline: none !important;
+}
+
+/* Keep a deliberate, theme-independent cue for keyboard navigation. */
+.simplified-scatter-plot .recharts-surface:focus-visible {
+    outline: 2px solid #3b82f6 !important;
+    outline-offset: 2px;
+}
