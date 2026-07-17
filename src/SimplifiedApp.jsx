@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   Cell,
   CartesianGrid,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -99,6 +100,9 @@ const TRANSLATIONS = {
     reflectionPlaceholder: 'I think this policy is... because...',
     whatIfTitle: 'What if this student were different?',
     whatIfDesc: 'Change one factor at a time to audit the decision.',
+    adjustedPosition: 'Adjusted position',
+    adjustedSamePosition: 'Adjusted profile · same GPA/SAT position',
+    chartAxisNote: 'The chart maps GPA and SAT. A background change can alter the decision without moving the point.',
     reset: 'Reset',
     selectStudent: 'Select a student from the chart',
     selectStudentDesc: 'Then test whether a small academic or background change alters the automated decision.',
@@ -189,6 +193,9 @@ const TRANSLATIONS = {
     reflectionPlaceholder: '我认为这项政策……因为……',
     whatIfTitle: '如果这名学生有所不同呢？',
     whatIfDesc: '每次改变一个因素，审查这项决定。',
+    adjustedPosition: '调整后位置',
+    adjustedSamePosition: '背景已调整 · GPA/SAT 坐标不变',
+    chartAxisNote: '图中只映射 GPA 和 SAT；背景变化可能在点不移动时仍改变决定。',
     reset: '重置',
     selectStudent: '请从图中选择一名学生',
     selectStudentDesc: '然后测试较小的学业或背景变化是否会改变自动化决定。',
@@ -279,6 +286,9 @@ const TRANSLATIONS = {
     reflectionPlaceholder: 'Creo que esta política es... porque...',
     whatIfTitle: '¿Y si cambiamos este caso?',
     whatIfDesc: 'Cambia un factor y audita la decisión.',
+    adjustedPosition: 'Posición ajustada',
+    adjustedSamePosition: 'Perfil ajustado · misma posición GPA/SAT',
+    chartAxisNote: 'El gráfico representa GPA y SAT. Un cambio de contexto puede alterar la decisión sin mover el punto.',
     reset: 'Restablecer',
     selectStudent: 'Selecciona un estudiante en el gráfico',
     selectStudentDesc: 'Después prueba si un pequeño cambio académico o de contexto altera la decisión automatizada.',
@@ -437,6 +447,35 @@ const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className,
   />
 );
 
+const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }) => {
+  const outcomeColor = draftDecision
+    ? (isLight ? '#059669' : '#34d399')
+    : (isLight ? '#e11d48' : '#fb7185');
+  const surfaceColor = isLight ? '#f8fafc' : '#0f172a';
+
+  return (
+    <g className="counterfactual-position-marker" pointerEvents="none">
+      <circle
+        cx={cx}
+        cy={cy}
+        r={samePosition ? 11 : 9}
+        fill={isLight ? 'rgba(255, 251, 235, 0.82)' : 'rgba(15, 23, 42, 0.82)'}
+        stroke={isLight ? '#d97706' : '#fbbf24'}
+        strokeDasharray="3 2.5"
+        strokeWidth="2.25"
+      />
+      <circle
+        cx={samePosition ? cx + 7 : cx}
+        cy={samePosition ? cy - 7 : cy}
+        r={samePosition ? 4.25 : 4}
+        fill={outcomeColor}
+        stroke={surfaceColor}
+        strokeWidth="1.75"
+      />
+    </g>
+  );
+};
+
 const SimplifiedApp = () => {
   const [lang, setLang] = useState('en');
   const [theme, setTheme] = useState('dark');
@@ -506,6 +545,16 @@ const SimplifiedApp = () => {
   const draftDecision = draftStudent ? getDecision(draftStudent, policy) : false;
   const draftScore = draftStudent ? scoreStudent(draftStudent, policy) : 0;
   const decisionFlipped = selectedStudent && draftStudent && originalDecision !== draftDecision;
+  const draftProfileChanged = Boolean(selectedStudent && draftStudent && (
+    selectedStudent.gpa !== draftStudent.gpa ||
+    selectedStudent.sat !== draftStudent.sat ||
+    selectedStudent.firstGen !== draftStudent.firstGen ||
+    selectedStudent.athlete !== draftStudent.athlete ||
+    selectedStudent.resident !== draftStudent.resident
+  ));
+  const plotPositionChanged = Boolean(selectedStudent && draftStudent && (
+    selectedStudent.gpa !== draftStudent.gpa || selectedStudent.sat !== draftStudent.sat
+  ));
 
   const updateDraft = (field, value) => {
     setDraftStudent((current) => (current ? { ...current, [field]: value } : current));
@@ -746,6 +795,12 @@ const SimplifiedApp = () => {
                   </button>
                   <span className="flex items-center gap-1.5 text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />{t.admitted}</span>
                   <span className="flex items-center gap-1.5 text-rose-300"><span className="h-2 w-2 rounded-full bg-rose-400" />{t.notAdmitted}</span>
+                  {draftProfileChanged && (
+                    <span className="flex items-center gap-1.5 font-medium text-amber-300">
+                      <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-amber-400" />
+                      {plotPositionChanged ? t.adjustedPosition : t.adjustedSamePosition}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -798,6 +853,37 @@ const SimplifiedApp = () => {
                         />
                       </>
                     )}
+                    {draftProfileChanged && plotPositionChanged && (
+                      <>
+                        <ReferenceLine
+                          x={draftStudent.gpa}
+                          stroke={isLight ? '#d97706' : '#fbbf24'}
+                          strokeDasharray="2 5"
+                          strokeWidth={1.25}
+                          strokeOpacity={0.68}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <ReferenceLine
+                          y={draftStudent.sat}
+                          stroke={isLight ? '#d97706' : '#fbbf24'}
+                          strokeDasharray="2 5"
+                          strokeWidth={1.25}
+                          strokeOpacity={0.68}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <ReferenceLine
+                          segment={[
+                            { x: selectedStudent.gpa, y: selectedStudent.sat },
+                            { x: draftStudent.gpa, y: draftStudent.sat },
+                          ]}
+                          stroke={isLight ? '#b45309' : '#f59e0b'}
+                          strokeDasharray="6 4"
+                          strokeWidth={2}
+                          strokeOpacity={0.9}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      </>
+                    )}
                     <Tooltip
                       cursor={{ stroke: isLight ? '#94a3b8' : '#475569', strokeDasharray: '3 3' }}
                       content={<StudentTooltip policy={policy} t={t} />}
@@ -821,23 +907,43 @@ const SimplifiedApp = () => {
                             fill={student.admitted ? (isLight ? '#059669' : '#22c55e') : (isLight ? '#e11d48' : '#fb3f64')}
                             fillOpacity={isMining ? (isEdgeCase || isSelected ? 1 : 0.18) : (selectedId && !isSelected ? 0.6 : 1)}
                             stroke={
-                              isMining && isEdgeCase
+                              isSelected
+                                ? (isLight ? '#2563eb' : '#60a5fa')
+                                : isMining && isEdgeCase
                                 ? '#f59e0b'
                                 : (student.admitted
                                   ? (isLight ? '#065f46' : '#86efac')
                                   : (isLight ? '#9f1239' : '#fda4af'))
                             }
-                            strokeWidth={isMining && isEdgeCase ? 2.5 : 1.15}
+                            strokeWidth={isSelected ? 2.5 : (isMining && isEdgeCase ? 2.5 : 1.15)}
                             className={isMining && isEdgeCase ? 'animate-pulse' : ''}
                             style={{
                               cursor: 'pointer',
-                              filter: isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.85))' : 'none',
+                              filter: isSelected
+                                ? 'drop-shadow(0 0 4px rgba(96, 165, 250, 0.9))'
+                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.85))' : 'none'),
                               transition: 'all 0.25s ease',
                             }}
                           />
                         );
                       })}
                     </Scatter>
+                    {draftProfileChanged && (
+                      <ReferenceDot
+                        x={draftStudent.gpa}
+                        y={draftStudent.sat}
+                        isFront
+                        ifOverflow="visible"
+                        shape={(props) => (
+                          <AdjustedPositionMarker
+                            {...props}
+                            draftDecision={draftDecision}
+                            isLight={isLight}
+                            samePosition={!plotPositionChanged}
+                          />
+                        )}
+                      />
+                    )}
                   </ScatterChart>
                 </ResponsiveContainer>
               </div>
@@ -913,8 +1019,8 @@ const SimplifiedApp = () => {
                 </div>
               </section>
 
-              <section className="flex min-h-[390px] flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 p-3 xl:min-h-0">
-                <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2">
+              <section className="flex min-h-[390px] flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 p-3 xl:min-h-0 xl:p-2.5">
+                <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-2">
                   <div className="flex items-start gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
                       <UserRoundSearch className="h-4 w-4 text-blue-300" />
@@ -942,11 +1048,18 @@ const SimplifiedApp = () => {
                     <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{t.selectStudentDesc}</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 xl:space-y-1.5">
                     <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-950/55 px-3 py-2">
                       <div>
                         <div className="text-xs text-slate-500">{t.student} {draftStudent.id}</div>
                         <div className="mt-0.5 text-sm font-semibold text-white">GPA {draftStudent.gpa.toFixed(2)} · SAT {draftStudent.sat}</div>
+                        {draftProfileChanged && (
+                          <div className="mt-0.5 text-[10px] font-medium text-amber-300">
+                            {plotPositionChanged
+                              ? `${t.adjustedPosition} · ΔGPA ${(draftStudent.gpa - selectedStudent.gpa).toFixed(2)} · ΔSAT ${draftStudent.sat - selectedStudent.sat}`
+                              : t.adjustedSamePosition}
+                          </div>
+                        )}
                       </div>
                       <div className={`rounded-full px-3 py-1 text-xs font-bold ${draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
                         {draftDecision ? t.admitted : t.notAdmitted}
@@ -966,7 +1079,7 @@ const SimplifiedApp = () => {
                           max="4"
                           step="0.01"
                           value={draftStudent.gpa}
-                          onChange={(event) => updateDraft('gpa', Number(event.target.value))}
+                          onInput={(event) => updateDraft('gpa', Number(event.currentTarget.value))}
                           className="w-full accent-blue-500"
                         />
                       </div>
@@ -982,7 +1095,7 @@ const SimplifiedApp = () => {
                           max="1600"
                           step="10"
                           value={draftStudent.sat}
-                          onChange={(event) => updateDraft('sat', Number(event.target.value))}
+                          onInput={(event) => updateDraft('sat', Number(event.currentTarget.value))}
                           className="w-full accent-blue-500"
                         />
                       </div>
@@ -1019,7 +1132,9 @@ const SimplifiedApp = () => {
                       </p>
                     </div>
 
-                    <p className="text-[10px] leading-snug text-slate-600">{t.auditNote}</p>
+                    <p className="text-[10px] leading-snug text-slate-600">
+                      {draftProfileChanged && !plotPositionChanged ? t.chartAxisNote : t.auditNote}
+                    </p>
                   </div>
                 )}
               </section>
