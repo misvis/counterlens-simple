@@ -37,21 +37,21 @@ const POLICIES = [
     weights: { gpa: 60, sat: 40, firstGen: 0, athlete: 0, resident: 0 },
     threshold: 62,
     accent: '#60a5fa',
-    darkAccent: '#ffd66b',
+    darkAccent: '#f2c75c',
   },
   {
     id: 'holistic',
     weights: { gpa: 45, sat: 35, firstGen: 8, athlete: 5, resident: 7 },
     threshold: 52,
     accent: '#a78bfa',
-    darkAccent: '#cab8ff',
+    darkAccent: '#b8a3f2',
   },
   {
     id: 'opportunity',
     weights: { gpa: 35, sat: 25, firstGen: 25, athlete: 5, resident: 10 },
     threshold: 43,
     accent: '#34d399',
-    darkAccent: '#82c8ff',
+    darkAccent: '#78b7ff',
   },
 ];
 
@@ -475,9 +475,9 @@ const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className,
 
 const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }) => {
   const outcomeColor = draftDecision
-    ? (isLight ? '#059669' : '#72dda9')
-    : (isLight ? '#e11d48' : '#ff9187');
-  const surfaceColor = isLight ? '#f8fafc' : '#343d55';
+    ? (isLight ? '#059669' : '#5fd19c')
+    : (isLight ? '#e11d48' : '#ff7b72');
+  const surfaceColor = isLight ? '#f8fafc' : '#191c24';
 
   return (
     <g className="counterfactual-position-marker" pointerEvents="none">
@@ -486,7 +486,7 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }
         cy={cy}
         r={samePosition ? 11 : 9}
         fill={isLight ? 'rgba(255, 251, 235, 0.82)' : 'rgba(18, 27, 25, 0.88)'}
-        stroke={isLight ? '#d97706' : '#ffd66b'}
+        stroke={isLight ? '#d97706' : '#f2c75c'}
         strokeDasharray="3 2.5"
         strokeWidth="2.25"
       />
@@ -845,7 +845,7 @@ const SimplifiedApp = () => {
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 20, right: 24, bottom: 22, left: 4 }}>
-                    <CartesianGrid stroke={isLight ? '#dbe3ee' : '#7887a5'} strokeDasharray="3 5" vertical={false} />
+                    <CartesianGrid stroke={isLight ? '#dbe3ee' : '#444b5b'} strokeDasharray="3 5" vertical={false} />
                     <XAxis
                       type="number"
                       dataKey="gpa"
@@ -868,14 +868,14 @@ const SimplifiedApp = () => {
                       <>
                         <ReferenceLine
                           x={selectedStudent.gpa}
-                          stroke={isLight ? '#2563eb' : '#82c8ff'}
+                          stroke={isLight ? '#2563eb' : '#78b7ff'}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
                         />
                         <ReferenceLine
                           y={selectedStudent.sat}
-                          stroke={isLight ? '#2563eb' : '#82c8ff'}
+                          stroke={isLight ? '#2563eb' : '#78b7ff'}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
@@ -886,7 +886,7 @@ const SimplifiedApp = () => {
                       <>
                         <ReferenceLine
                           x={draftStudent.gpa}
-                          stroke={isLight ? '#d97706' : '#ffd66b'}
+                          stroke={isLight ? '#d97706' : '#f2c75c'}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -894,7 +894,7 @@ const SimplifiedApp = () => {
                         />
                         <ReferenceLine
                           y={draftStudent.sat}
-                          stroke={isLight ? '#d97706' : '#ffd66b'}
+                          stroke={isLight ? '#d97706' : '#f2c75c'}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -933,13 +933,13 @@ const SimplifiedApp = () => {
                         return (
                           <Cell
                             key={student.id}
-                            fill={student.admitted ? (isLight ? '#059669' : '#72dda9') : (isLight ? '#e11d48' : '#ff9187')}
+                            fill={student.admitted ? (isLight ? '#059669' : '#5fd19c') : (isLight ? '#e11d48' : '#ff7b72')}
                             fillOpacity={isMining ? (isEdgeCase || isSelected ? 1 : 0.18) : (selectedId && !isSelected ? 0.6 : 1)}
                             stroke={
                               isSelected
-                                ? (isLight ? '#2563eb' : '#82c8ff')
+                                ? (isLight ? '#2563eb' : '#78b7ff')
                                 : isMining && isEdgeCase
-                                ? (isLight ? '#f59e0b' : '#ffd66b')
+                                ? (isLight ? '#f59e0b' : '#f2c75c')
                                 : (student.admitted
                                   ? (isLight ? '#065f46' : '#9be5cf')
                                   : (isLight ? '#9f1239' : '#ffaaa3'))
@@ -949,8 +949,8 @@ const SimplifiedApp = () => {
                             style={{
                               cursor: 'pointer',
                               filter: isSelected
-                                ? 'drop-shadow(0 0 4px rgba(130, 200, 255, 0.92))'
-                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(255, 214, 107, 0.88))' : 'none'),
+                                ? 'drop-shadow(0 0 4px rgba(120, 183, 255, 0.9))'
+                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(242, 199, 92, 0.85))' : 'none'),
                               transition: 'all 0.25s ease',
                             }}
                           />

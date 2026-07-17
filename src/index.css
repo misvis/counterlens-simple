@@ -826,36 +826,36 @@ input[type=range]::-moz-range-track {
    Simplified classroom prototype — Observatory dark theme
    ========================================================= */
 .simplified-observatory {
-    --obs-canvas: #1b2030;
-    --obs-surface: #343d55;
-    --obs-elevated: #485572;
-    --obs-border: #7887a5;
-    --obs-border-active: #b0bdd4;
-    --obs-text: #ffffff;
-    --obs-text-soft: #eef2fb;
-    --obs-muted: #d4daea;
-    --obs-muted-dim: #b8c3d8;
-    --obs-brass: #ffd66b;
-    --obs-verdigris: #82c8ff;
-    --obs-iris: #cab8ff;
-    --obs-admitted: #72dda9;
-    --obs-rejected: #ff9187;
-    background: linear-gradient(180deg, #272e43 0%, var(--obs-canvas) 52%, #171b28 100%) !important;
+    --obs-canvas: #0f1117;
+    --obs-surface: #191c24;
+    --obs-elevated: #252a35;
+    --obs-border: #444b5b;
+    --obs-border-active: #6c758b;
+    --obs-text: #fcfcff;
+    --obs-text-soft: #e7e9f2;
+    --obs-muted: #b9bfce;
+    --obs-muted-dim: #969eb1;
+    --obs-brass: #f2c75c;
+    --obs-verdigris: #78b7ff;
+    --obs-iris: #b8a3f2;
+    --obs-admitted: #5fd19c;
+    --obs-rejected: #ff7b72;
+    background: linear-gradient(180deg, #151722 0%, var(--obs-canvas) 46%, #0b0d12 100%) !important;
     color: var(--obs-text-soft) !important;
     color-scheme: dark;
 }
 
 .simplified-observatory [class*="bg-slate-900/"],
 .simplified-observatory [class*="bg-\[\#0f131a\]"] {
-    background-color: rgba(52, 61, 85, 0.99) !important;
+    background-color: rgba(25, 28, 36, 0.98) !important;
 }
 
 .simplified-observatory [class*="bg-slate-950/"] {
-    background-color: rgba(18, 23, 36, 0.97) !important;
+    background-color: rgba(11, 13, 18, 0.95) !important;
 }
 
 .simplified-observatory [class*="bg-slate-800/"] {
-    background-color: rgba(72, 85, 114, 0.97) !important;
+    background-color: rgba(37, 42, 53, 0.96) !important;
 }
 
 .simplified-observatory .bg-slate-900,
@@ -864,7 +864,7 @@ input[type=range]::-moz-range-track {
 }
 
 .simplified-observatory [class*="hover:bg-slate-"]:hover {
-    background-color: #53617e !important;
+    background-color: #303746 !important;
 }
 
 .simplified-observatory [class*="border-slate-"] {
@@ -894,13 +894,13 @@ input[type=range]::-moz-range-track {
 
 .simplified-observatory [class*="text-slate-600"],
 .simplified-observatory [class*="text-slate-700"] {
-    color: #adb9cf !important;
+    color: #9099ad !important;
 }
 
 .simplified-observatory section {
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.07),
-        0 12px 28px rgba(0, 0, 0, 0.24);
+        inset 0 1px 0 rgba(255, 255, 255, 0.025),
+        0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
 .simplified-observatory [class*="text-blue-"] {
@@ -908,11 +908,11 @@ input[type=range]::-moz-range-track {
 }
 
 .simplified-observatory [class*="border-blue-"] {
-    border-color: rgba(130, 200, 255, 0.56) !important;
+    border-color: rgba(120, 183, 255, 0.5) !important;
 }
 
 .simplified-observatory [class*="bg-blue-"] {
-    background-color: rgba(130, 200, 255, 0.18) !important;
+    background-color: rgba(120, 183, 255, 0.15) !important;
 }
 
 .simplified-observatory .bg-blue-500,
@@ -922,19 +922,19 @@ input[type=range]::-moz-range-track {
 }
 
 .simplified-observatory [class*="hover:bg-blue-"]:hover {
-    background-color: #a8d8ff !important;
+    background-color: #9acbff !important;
 }
 
 .simplified-observatory [class*="text-violet-"] {
-    color: #ded3ff !important;
+    color: #cbbdff !important;
 }
 
 .simplified-observatory [class*="border-violet-"] {
-    border-color: rgba(202, 184, 255, 0.52) !important;
+    border-color: rgba(184, 163, 242, 0.46) !important;
 }
 
 .simplified-observatory [class*="bg-violet-"] {
-    background-color: rgba(202, 184, 255, 0.17) !important;
+    background-color: rgba(184, 163, 242, 0.13) !important;
 }
 
 .simplified-observatory .bg-violet-500 {
@@ -947,19 +947,19 @@ input[type=range]::-moz-range-track {
 
 .simplified-observatory .text-amber-100,
 .simplified-observatory [class*="text-amber-100/"] {
-    color: #fff0b8 !important;
+    color: #ffe6a0 !important;
 }
 
 .simplified-observatory [class*="border-amber-"] {
-    border-color: rgba(255, 214, 107, 0.52) !important;
+    border-color: rgba(242, 199, 92, 0.46) !important;
 }
 
 .simplified-observatory [class*="bg-amber-"] {
-    background-color: rgba(255, 214, 107, 0.17) !important;
+    background-color: rgba(242, 199, 92, 0.13) !important;
 }
 
 .simplified-observatory [class*="ring-amber-"] {
-    --tw-ring-color: rgba(255, 214, 107, 0.46) !important;
+    --tw-ring-color: rgba(242, 199, 92, 0.4) !important;
 }
 
 .simplified-observatory [class*="text-emerald-"] {
@@ -967,11 +967,11 @@ input[type=range]::-moz-range-track {
 }
 
 .simplified-observatory [class*="border-emerald-"] {
-    border-color: rgba(114, 221, 169, 0.52) !important;
+    border-color: rgba(95, 209, 156, 0.46) !important;
 }
 
 .simplified-observatory [class*="bg-emerald-"] {
-    background-color: rgba(114, 221, 169, 0.18) !important;
+    background-color: rgba(95, 209, 156, 0.15) !important;
 }
 
 .simplified-observatory .bg-emerald-400,
@@ -984,11 +984,11 @@ input[type=range]::-moz-range-track {
 }
 
 .simplified-observatory [class*="border-rose-"] {
-    border-color: rgba(255, 145, 135, 0.56) !important;
+    border-color: rgba(255, 123, 114, 0.5) !important;
 }
 
 .simplified-observatory [class*="bg-rose-"] {
-    background-color: rgba(255, 145, 135, 0.18) !important;
+    background-color: rgba(255, 123, 114, 0.15) !important;
 }
 
 .simplified-observatory .bg-rose-400 {
@@ -1032,7 +1032,7 @@ input[type=range]::-moz-range-track {
     border: 2px solid var(--obs-surface);
     border-radius: 999px;
     background: var(--obs-verdigris);
-    box-shadow: 0 0 0 2px rgba(130, 200, 255, 0.3);
+    box-shadow: 0 0 0 2px rgba(120, 183, 255, 0.24);
     cursor: pointer;
 }
 
@@ -1048,17 +1048,17 @@ input[type=range]::-moz-range-track {
     border: 2px solid var(--obs-surface);
     border-radius: 999px;
     background: var(--obs-verdigris);
-    box-shadow: 0 0 0 2px rgba(130, 200, 255, 0.3);
+    box-shadow: 0 0 0 2px rgba(120, 183, 255, 0.24);
     cursor: pointer;
 }
 
 .simplified-observatory textarea::placeholder,
 .simplified-observatory input::placeholder {
-    color: #9ba7be;
+    color: #747e94;
 }
 
 .simplified-observatory ::selection {
-    background: rgba(130, 200, 255, 0.4);
+    background: rgba(120, 183, 255, 0.34);
 }
 
 /* =========================================================
