@@ -24,6 +24,7 @@ import {
   School,
   Sparkles,
   Sun,
+  Sunset,
   Target,
   Telescope,
   UserRoundSearch,
@@ -37,30 +38,72 @@ const POLICIES = [
     weights: { gpa: 60, sat: 40, firstGen: 0, athlete: 0, resident: 0 },
     threshold: 62,
     accent: '#60a5fa',
-    darkAccent: '#f2c75c',
+    graphiteAccent: '#f2c75c',
+    summerAccent: '#f4c95d',
   },
   {
     id: 'holistic',
     weights: { gpa: 45, sat: 35, firstGen: 8, athlete: 5, resident: 7 },
     threshold: 52,
     accent: '#a78bfa',
-    darkAccent: '#b8a3f2',
+    graphiteAccent: '#b8a3f2',
+    summerAccent: '#afa6f5',
   },
   {
     id: 'opportunity',
     weights: { gpa: 35, sat: 25, firstGen: 25, athlete: 5, resident: 10 },
     threshold: 43,
     accent: '#34d399',
-    darkAccent: '#78b7ff',
+    graphiteAccent: '#78b7ff',
+    summerAccent: '#43d3c1',
   },
 ];
+
+const THEME_SEQUENCE = ['graphite', 'summer', 'light'];
+
+const DARK_THEME_PALETTES = {
+  graphite: {
+    surface: '#191c24',
+    markerFill: 'rgba(25, 28, 36, 0.88)',
+    grid: '#444b5b',
+    axis: '#6c758b',
+    muted: '#b9bfce',
+    primary: '#78b7ff',
+    accent: '#f2c75c',
+    connector: '#c79245',
+    admitted: '#5fd19c',
+    rejected: '#ff7b72',
+    admittedStroke: '#9be5cf',
+    rejectedStroke: '#ffaaa3',
+    selectedGlow: 'rgba(120, 183, 255, 0.9)',
+    edgeGlow: 'rgba(242, 199, 92, 0.85)',
+  },
+  summer: {
+    surface: '#102527',
+    markerFill: 'rgba(18, 27, 25, 0.88)',
+    grid: '#35595b',
+    axis: '#71827b',
+    muted: '#9aa9a3',
+    primary: '#43d3c1',
+    accent: '#f4c95d',
+    connector: '#c79245',
+    admitted: '#48d6a6',
+    rejected: '#ff7f73',
+    admittedStroke: '#9be5cf',
+    rejectedStroke: '#ffaaa3',
+    selectedGlow: 'rgba(67, 211, 193, 0.9)',
+    edgeGlow: 'rgba(244, 201, 93, 0.85)',
+  },
+};
 
 const TRANSLATIONS = {
   en: {
     prototype: 'SIMPLIFIED PROTOTYPE',
     credits: 'Credits',
-    lightTheme: 'Light',
-    darkTheme: 'Dark',
+    themeGraphite: 'Graphite',
+    themeSummer: 'Summer',
+    themeLight: 'Light',
+    switchTheme: 'Switch theme',
     mineEdgeCases: 'Mine edge cases',
     edgeCasesFound: 'closest to cutoff',
     fromCutoff: 'from cutoff',
@@ -153,8 +196,10 @@ const TRANSLATIONS = {
   zh: {
     prototype: '简化版原型',
     credits: '项目团队',
-    lightTheme: '亮色',
-    darkTheme: '暗色',
+    themeGraphite: '石墨',
+    themeSummer: '夏日',
+    themeLight: '亮色',
+    switchTheme: '切换主题',
     mineEdgeCases: '挖掘边缘案例',
     edgeCasesFound: '名最接近录取线',
     fromCutoff: '距录取线',
@@ -247,8 +292,10 @@ const TRANSLATIONS = {
   es: {
     prototype: 'PROTOTIPO SIMPLIFICADO',
     credits: 'Créditos',
-    lightTheme: 'Claro',
-    darkTheme: 'Oscuro',
+    themeGraphite: 'Grafito',
+    themeSummer: 'Verano',
+    themeLight: 'Claro',
+    switchTheme: 'Cambiar tema',
     mineEdgeCases: 'Casos límite',
     edgeCasesFound: 'más cerca del corte',
     fromCutoff: 'del corte',
@@ -473,11 +520,11 @@ const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className,
   />
 );
 
-const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }) => {
+const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition, darkPalette }) => {
   const outcomeColor = draftDecision
-    ? (isLight ? '#059669' : '#5fd19c')
-    : (isLight ? '#e11d48' : '#ff7b72');
-  const surfaceColor = isLight ? '#f8fafc' : '#191c24';
+    ? (isLight ? '#059669' : darkPalette.admitted)
+    : (isLight ? '#e11d48' : darkPalette.rejected);
+  const surfaceColor = isLight ? '#f8fafc' : darkPalette.surface;
 
   return (
     <g className="counterfactual-position-marker" pointerEvents="none">
@@ -485,8 +532,8 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }
         cx={cx}
         cy={cy}
         r={samePosition ? 11 : 9}
-        fill={isLight ? 'rgba(255, 251, 235, 0.82)' : 'rgba(18, 27, 25, 0.88)'}
-        stroke={isLight ? '#d97706' : '#f2c75c'}
+        fill={isLight ? 'rgba(255, 251, 235, 0.82)' : darkPalette.markerFill}
+        stroke={isLight ? '#d97706' : darkPalette.accent}
         strokeDasharray="3 2.5"
         strokeWidth="2.25"
       />
@@ -504,7 +551,7 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }
 
 const SimplifiedApp = () => {
   const [lang, setLang] = useState('en');
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('graphite');
   const [showCredits, setShowCredits] = useState(false);
   const [isMining, setIsMining] = useState(false);
   const [policyId, setPolicyId] = useState('academic');
@@ -514,6 +561,14 @@ const SimplifiedApp = () => {
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const isLight = theme === 'light';
+  const darkPalette = DARK_THEME_PALETTES[isLight ? 'graphite' : theme];
+  const themeLabels = {
+    graphite: t.themeGraphite,
+    summer: t.themeSummer,
+    light: t.themeLight,
+  };
+  const nextTheme = THEME_SEQUENCE[(THEME_SEQUENCE.indexOf(theme) + 1) % THEME_SEQUENCE.length];
+  const ThemeIcon = theme === 'graphite' ? Moon : theme === 'summer' ? Sunset : Sun;
   const policy = POLICIES.find((item) => item.id === policyId) || POLICIES[0];
   const policyCopy = t.policies[policy.id];
   const selectedStudent = useMemo(
@@ -598,7 +653,7 @@ const SimplifiedApp = () => {
   };
 
   return (
-    <div className={`min-h-screen overflow-y-auto text-slate-200 selection:bg-blue-500/30 xl:h-screen xl:overflow-hidden ${isLight ? 'theme-daylight simplified-daylight' : 'simplified-observatory'}`}>
+    <div className={`min-h-screen overflow-y-auto text-slate-200 selection:bg-blue-500/30 xl:h-screen xl:overflow-hidden ${isLight ? 'theme-daylight simplified-daylight' : `simplified-observatory ${theme === 'summer' ? 'simplified-summer' : ''}`}`}>
       {showCredits && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
@@ -699,11 +754,13 @@ const SimplifiedApp = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
+              onClick={() => setTheme(nextTheme)}
+              aria-label={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
+              title={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
+              className="flex w-[112px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
             >
-              {isLight ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
-              {isLight ? t.darkTheme : t.lightTheme}
+              <ThemeIcon className="h-3.5 w-3.5 shrink-0" />
+              <span>{themeLabels[theme]}</span>
             </button>
             <div className="flex rounded-xl border border-slate-800 bg-slate-900/70 p-1">
               {[
@@ -749,7 +806,11 @@ const SimplifiedApp = () => {
                   const active = item.id === policy.id;
                   const itemCopy = t.policies[item.id];
                   const admittedCount = policyAdmissionCounts[item.id];
-                  const itemAccent = isLight ? item.accent : item.darkAccent;
+                  const itemAccent = isLight
+                    ? item.accent
+                    : theme === 'summer'
+                      ? item.summerAccent
+                      : item.graphiteAccent;
                   return (
                     <button
                       key={item.id}
@@ -845,37 +906,37 @@ const SimplifiedApp = () => {
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 20, right: 24, bottom: 22, left: 4 }}>
-                    <CartesianGrid stroke={isLight ? '#dbe3ee' : '#444b5b'} strokeDasharray="3 5" vertical={false} />
+                    <CartesianGrid stroke={isLight ? '#dbe3ee' : darkPalette.grid} strokeDasharray="3 5" vertical={false} />
                     <XAxis
                       type="number"
                       dataKey="gpa"
                       domain={[2.4, 4]}
                       ticks={[2.4, 2.8, 3.2, 3.6, 4]}
-                      stroke={isLight ? '#94a3b8' : '#71827b'}
-                      tick={{ fill: isLight ? '#475569' : '#9aa9a3', fontSize: 11 }}
-                      label={{ value: 'GPA', position: 'insideBottomRight', offset: -12, fill: isLight ? '#475569' : '#9aa9a3', fontSize: 12 }}
+                      stroke={isLight ? '#94a3b8' : darkPalette.axis}
+                      tick={{ fill: isLight ? '#475569' : darkPalette.muted, fontSize: 11 }}
+                      label={{ value: 'GPA', position: 'insideBottomRight', offset: -12, fill: isLight ? '#475569' : darkPalette.muted, fontSize: 12 }}
                     />
                     <YAxis
                       type="number"
                       dataKey="sat"
                       domain={[950, 1600]}
                       ticks={[1000, 1200, 1400, 1600]}
-                      stroke={isLight ? '#94a3b8' : '#71827b'}
-                      tick={{ fill: isLight ? '#475569' : '#9aa9a3', fontSize: 11 }}
-                      label={{ value: 'SAT', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : '#9aa9a3', fontSize: 12 }}
+                      stroke={isLight ? '#94a3b8' : darkPalette.axis}
+                      tick={{ fill: isLight ? '#475569' : darkPalette.muted, fontSize: 11 }}
+                      label={{ value: 'SAT', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : darkPalette.muted, fontSize: 12 }}
                     />
                     {selectedStudent && (
                       <>
                         <ReferenceLine
                           x={selectedStudent.gpa}
-                          stroke={isLight ? '#2563eb' : '#78b7ff'}
+                          stroke={isLight ? '#2563eb' : darkPalette.primary}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
                         />
                         <ReferenceLine
                           y={selectedStudent.sat}
-                          stroke={isLight ? '#2563eb' : '#78b7ff'}
+                          stroke={isLight ? '#2563eb' : darkPalette.primary}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
@@ -886,7 +947,7 @@ const SimplifiedApp = () => {
                       <>
                         <ReferenceLine
                           x={draftStudent.gpa}
-                          stroke={isLight ? '#d97706' : '#f2c75c'}
+                          stroke={isLight ? '#d97706' : darkPalette.accent}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -894,7 +955,7 @@ const SimplifiedApp = () => {
                         />
                         <ReferenceLine
                           y={draftStudent.sat}
-                          stroke={isLight ? '#d97706' : '#f2c75c'}
+                          stroke={isLight ? '#d97706' : darkPalette.accent}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -905,7 +966,7 @@ const SimplifiedApp = () => {
                             { x: selectedStudent.gpa, y: selectedStudent.sat },
                             { x: draftStudent.gpa, y: draftStudent.sat },
                           ]}
-                          stroke={isLight ? '#b45309' : '#c79245'}
+                          stroke={isLight ? '#b45309' : darkPalette.connector}
                           strokeDasharray="6 4"
                           strokeWidth={2}
                           strokeOpacity={0.9}
@@ -914,7 +975,7 @@ const SimplifiedApp = () => {
                       </>
                     )}
                     <Tooltip
-                      cursor={{ stroke: isLight ? '#94a3b8' : '#71827b', strokeDasharray: '3 3' }}
+                      cursor={{ stroke: isLight ? '#94a3b8' : darkPalette.axis, strokeDasharray: '3 3' }}
                       content={<StudentTooltip policy={policy} t={t} />}
                       isAnimationActive={false}
                       animationDuration={0}
@@ -933,24 +994,24 @@ const SimplifiedApp = () => {
                         return (
                           <Cell
                             key={student.id}
-                            fill={student.admitted ? (isLight ? '#059669' : '#5fd19c') : (isLight ? '#e11d48' : '#ff7b72')}
+                            fill={student.admitted ? (isLight ? '#059669' : darkPalette.admitted) : (isLight ? '#e11d48' : darkPalette.rejected)}
                             fillOpacity={isMining ? (isEdgeCase || isSelected ? 1 : 0.18) : (selectedId && !isSelected ? 0.6 : 1)}
                             stroke={
                               isSelected
-                                ? (isLight ? '#2563eb' : '#78b7ff')
+                                ? (isLight ? '#2563eb' : darkPalette.primary)
                                 : isMining && isEdgeCase
-                                ? (isLight ? '#f59e0b' : '#f2c75c')
+                                ? (isLight ? '#f59e0b' : darkPalette.accent)
                                 : (student.admitted
-                                  ? (isLight ? '#065f46' : '#9be5cf')
-                                  : (isLight ? '#9f1239' : '#ffaaa3'))
+                                  ? (isLight ? '#065f46' : darkPalette.admittedStroke)
+                                  : (isLight ? '#9f1239' : darkPalette.rejectedStroke))
                             }
                             strokeWidth={isSelected ? 2.5 : (isMining && isEdgeCase ? 2.5 : 1.15)}
                             className={isMining && isEdgeCase ? 'animate-pulse' : ''}
                             style={{
                               cursor: 'pointer',
                               filter: isSelected
-                                ? 'drop-shadow(0 0 4px rgba(120, 183, 255, 0.9))'
-                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(242, 199, 92, 0.85))' : 'none'),
+                                ? `drop-shadow(0 0 4px ${darkPalette.selectedGlow})`
+                                : (isMining && isEdgeCase ? `drop-shadow(0 0 4px ${darkPalette.edgeGlow})` : 'none'),
                               transition: 'all 0.25s ease',
                             }}
                           />
@@ -969,6 +1030,7 @@ const SimplifiedApp = () => {
                             draftDecision={draftDecision}
                             isLight={isLight}
                             samePosition={!plotPositionChanged}
+                            darkPalette={darkPalette}
                           />
                         )}
                       />
