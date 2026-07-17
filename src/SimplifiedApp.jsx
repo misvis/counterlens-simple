@@ -37,25 +37,27 @@ const POLICIES = [
     weights: { gpa: 60, sat: 40, firstGen: 0, athlete: 0, resident: 0 },
     threshold: 62,
     accent: '#60a5fa',
+    darkAccent: '#ffd66b',
   },
   {
     id: 'holistic',
     weights: { gpa: 45, sat: 35, firstGen: 8, athlete: 5, resident: 7 },
     threshold: 52,
     accent: '#a78bfa',
+    darkAccent: '#cab8ff',
   },
   {
     id: 'opportunity',
     weights: { gpa: 35, sat: 25, firstGen: 25, athlete: 5, resident: 10 },
     threshold: 43,
     accent: '#34d399',
+    darkAccent: '#82c8ff',
   },
 ];
 
 const TRANSLATIONS = {
   en: {
     prototype: 'SIMPLIFIED PROTOTYPE',
-    tagline: 'Explore how an automated admission policy can help some students and disadvantage others.',
     credits: 'Credits',
     lightTheme: 'Light',
     darkTheme: 'Dark',
@@ -89,9 +91,11 @@ const TRANSLATIONS = {
     no: 'No',
     studentsAdmitted: 'students admitted',
     overallRate: 'Overall admission rate',
-    compareOutcomes: 'Compare group outcomes',
-    gapCaution: 'Gaps are clues to investigate—not proof of fairness.',
-    pointGap: 'pt gap',
+    compareOutcomes: 'Compare admission rates',
+    gapCaution: 'Within each group, how many were admitted? Differences are clues—not proof of bias.',
+    admittedFraction: '{admitted}/{total}',
+    lowerRateLabel: '{group}: {gap} points lower',
+    sameRateLabel: 'Both groups have the same admission rate.',
     firstGenStatus: 'First-generation',
     athleticStatus: 'Athletics',
     residency: 'Residency',
@@ -148,7 +152,6 @@ const TRANSLATIONS = {
   },
   zh: {
     prototype: '简化版原型',
-    tagline: '探索自动化录取政策如何帮助一些学生，同时让另一些学生处于不利地位。',
     credits: '项目团队',
     lightTheme: '亮色',
     darkTheme: '暗色',
@@ -182,9 +185,11 @@ const TRANSLATIONS = {
     no: '否',
     studentsAdmitted: '名学生被录取',
     overallRate: '总体录取率',
-    compareOutcomes: '比较群体结果',
-    gapCaution: '差距是调查线索，并不能单独证明政策是否公平。',
-    pointGap: '点差',
+    compareOutcomes: '比较群体录取率',
+    gapCaution: '每个群体中有多少人被录取？差距是调查线索，并不能单独证明存在偏见。',
+    admittedFraction: '{admitted}/{total}',
+    lowerRateLabel: '{group}低 {gap} 个百分点',
+    sameRateLabel: '两个群体的录取率相同。',
     firstGenStatus: '第一代身份',
     athleticStatus: '运动员',
     residency: '居住地',
@@ -241,7 +246,6 @@ const TRANSLATIONS = {
   },
   es: {
     prototype: 'PROTOTIPO SIMPLIFICADO',
-    tagline: 'Explora cómo una política automatizada de admisión puede beneficiar a algunos estudiantes y perjudicar a otros.',
     credits: 'Créditos',
     lightTheme: 'Claro',
     darkTheme: 'Oscuro',
@@ -275,9 +279,11 @@ const TRANSLATIONS = {
     no: 'No',
     studentsAdmitted: 'estudiantes admitidos',
     overallRate: 'Tasa general de admisión',
-    compareOutcomes: 'Compara resultados de grupos',
-    gapCaution: 'Las brechas son pistas para investigar, no pruebas de justicia.',
-    pointGap: 'pts',
+    compareOutcomes: 'Compara tasas de admisión',
+    gapCaution: '¿Cuántos fueron admitidos en cada grupo? Las diferencias son pistas, no pruebas de sesgo.',
+    admittedFraction: '{admitted}/{total}',
+    lowerRateLabel: '{group}: {gap} puntos menos',
+    sameRateLabel: 'Ambos grupos tienen la misma tasa de admisión.',
     firstGenStatus: 'Primera generación',
     athleticStatus: 'Deporte',
     residency: 'Residencia',
@@ -333,6 +339,11 @@ const TRANSLATIONS = {
     },
   },
 };
+
+const formatCopy = (template, values) => Object.entries(values).reduce(
+  (copy, [key, value]) => copy.replaceAll(`{${key}}`, String(value)),
+  template,
+);
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -411,23 +422,38 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
   );
 };
 
-const RateComparison = ({ label, leftLabel, leftRate, rightLabel, rightRate, pointGap }) => {
-  const gap = Math.abs(leftRate - rightRate);
+const RateComparison = ({ label, leftLabel, leftStats, rightLabel, rightStats, t }) => {
+  const gap = Math.abs(leftStats.rate - rightStats.rate);
+  const lowerRateGroup = leftStats.rate <= rightStats.rate ? leftLabel : rightLabel;
+  const comparisonText = gap === 0
+    ? t.sameRateLabel
+    : formatCopy(t.lowerRateLabel, { group: lowerRateGroup, gap });
+
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/45 p-1.5">
-      <div className="mb-1 flex items-start justify-between gap-1.5">
-        <span className="text-[10px] font-semibold leading-tight text-slate-200">{label}</span>
-        <span className="shrink-0 text-[9px] text-slate-500">{gap} {pointGap}</span>
+      <div className="mb-1 text-[10px] font-semibold leading-tight text-slate-200">{label}</div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
+          <div className="text-[9px] leading-tight text-slate-500" title={leftLabel}>{leftLabel}</div>
+          <div className="flex shrink-0 items-baseline gap-1 text-right">
+            <div className="text-sm font-bold leading-none text-white">{leftStats.rate}%</div>
+            <div className="text-[8px] leading-none text-slate-500">
+              {formatCopy(t.admittedFraction, leftStats)}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
+          <div className="text-[9px] leading-tight text-slate-500" title={rightLabel}>{rightLabel}</div>
+          <div className="flex shrink-0 items-baseline gap-1 text-right">
+            <div className="text-sm font-bold leading-none text-white">{rightStats.rate}%</div>
+            <div className="text-[8px] leading-none text-slate-500">
+              {formatCopy(t.admittedFraction, rightStats)}
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-slate-900 px-2 py-1">
-          <div className="truncate text-[10px] text-slate-500" title={leftLabel}>{leftLabel}</div>
-          <div className="text-sm font-bold text-white">{leftRate}%</div>
-        </div>
-        <div className="rounded-lg bg-slate-900 px-2 py-1">
-          <div className="truncate text-[10px] text-slate-500" title={rightLabel}>{rightLabel}</div>
-          <div className="text-sm font-bold text-white">{rightRate}%</div>
-        </div>
+      <div className="mt-1.5 border-t border-slate-800 pt-1 text-[9px] leading-tight text-slate-400">
+        {comparisonText}
       </div>
     </div>
   );
@@ -449,9 +475,9 @@ const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className,
 
 const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }) => {
   const outcomeColor = draftDecision
-    ? (isLight ? '#059669' : '#34d399')
-    : (isLight ? '#e11d48' : '#fb7185');
-  const surfaceColor = isLight ? '#f8fafc' : '#0f172a';
+    ? (isLight ? '#059669' : '#72dda9')
+    : (isLight ? '#e11d48' : '#ff9187');
+  const surfaceColor = isLight ? '#f8fafc' : '#343d55';
 
   return (
     <g className="counterfactual-position-marker" pointerEvents="none">
@@ -459,8 +485,8 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition }
         cx={cx}
         cy={cy}
         r={samePosition ? 11 : 9}
-        fill={isLight ? 'rgba(255, 251, 235, 0.82)' : 'rgba(15, 23, 42, 0.82)'}
-        stroke={isLight ? '#d97706' : '#fbbf24'}
+        fill={isLight ? 'rgba(255, 251, 235, 0.82)' : 'rgba(18, 27, 25, 0.88)'}
+        stroke={isLight ? '#d97706' : '#ffd66b'}
         strokeDasharray="3 2.5"
         strokeWidth="2.25"
       />
@@ -524,20 +550,25 @@ const SimplifiedApp = () => {
 
   const impact = useMemo(() => {
     const admitted = outcomes.filter((student) => student.admitted).length;
-    const getRate = (filter) => {
+    const getGroupStats = (filter) => {
       const group = outcomes.filter(filter);
-      return percentage(group.filter((student) => student.admitted).length, group.length);
+      const groupAdmitted = group.filter((student) => student.admitted).length;
+      return {
+        admitted: groupAdmitted,
+        total: group.length,
+        rate: percentage(groupAdmitted, group.length),
+      };
     };
 
     return {
       admitted,
       overallRate: percentage(admitted, outcomes.length),
-      firstGenRate: getRate((student) => student.firstGen),
-      continuingGenRate: getRate((student) => !student.firstGen),
-      athleteRate: getRate((student) => student.athlete),
-      nonAthleteRate: getRate((student) => !student.athlete),
-      residentRate: getRate((student) => student.resident),
-      nonResidentRate: getRate((student) => !student.resident),
+      firstGen: getGroupStats((student) => student.firstGen),
+      continuingGen: getGroupStats((student) => !student.firstGen),
+      athletes: getGroupStats((student) => student.athlete),
+      nonAthletes: getGroupStats((student) => !student.athlete),
+      residents: getGroupStats((student) => student.resident),
+      nonResidents: getGroupStats((student) => !student.resident),
     };
   }, [outcomes]);
 
@@ -567,7 +598,7 @@ const SimplifiedApp = () => {
   };
 
   return (
-    <div className={`min-h-screen overflow-y-auto text-slate-200 selection:bg-blue-500/30 xl:h-screen xl:overflow-hidden ${isLight ? 'theme-daylight simplified-daylight' : 'bg-[#080b11]'}`}>
+    <div className={`min-h-screen overflow-y-auto text-slate-200 selection:bg-blue-500/30 xl:h-screen xl:overflow-hidden ${isLight ? 'theme-daylight simplified-daylight' : 'simplified-observatory'}`}>
       {showCredits && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
@@ -653,19 +684,16 @@ const SimplifiedApp = () => {
       )}
 
       <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-4 sm:px-5 xl:h-screen xl:min-h-0 xl:py-3">
-        <header className="mb-4 flex shrink-0 flex-col justify-between gap-3 border-b border-slate-800 pb-4 md:flex-row md:items-center xl:mb-3 xl:pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-400/30">
-              <Telescope className="h-5 w-5 text-amber-400" />
+        <header className="mb-3 flex shrink-0 flex-col justify-between gap-3 border-b border-slate-800 pb-3 md:flex-row md:items-center xl:mb-2.5 xl:pb-2.5">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 ring-1 ring-amber-400/30">
+              <Telescope className="h-6 w-6 text-amber-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-white">CounterLens</h1>
-                <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                  {t.prototype}
-                </span>
-              </div>
-              <p className="mt-0.5 max-w-3xl text-xs text-slate-400 sm:text-sm xl:line-clamp-1">{t.tagline}</p>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[26px]">CounterLens</h1>
+              <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold tracking-[0.06em] text-amber-300">
+                {t.prototype}
+              </span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -709,7 +737,7 @@ const SimplifiedApp = () => {
           <aside className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-0.5">
             <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3 shadow-xl shadow-black/10">
               <div className="mb-2 flex items-start gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
+                <div className="obs-step-brass flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
                 <div>
                   <h2 className="font-semibold text-white">{t.choosePolicy}</h2>
                   <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.choosePolicyDesc}</p>
@@ -721,6 +749,7 @@ const SimplifiedApp = () => {
                   const active = item.id === policy.id;
                   const itemCopy = t.policies[item.id];
                   const admittedCount = policyAdmissionCounts[item.id];
+                  const itemAccent = isLight ? item.accent : item.darkAccent;
                   return (
                     <button
                       key={item.id}
@@ -747,7 +776,7 @@ const SimplifiedApp = () => {
                           {active ? <CheckCircle2 className="h-4 w-4 text-blue-400" /> : <ArrowRight className="h-4 w-4 text-slate-600" />}
                         </span>
                       </div>
-                      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: item.accent }}>
+                      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: itemAccent }}>
                         {itemCopy.shortName}
                       </div>
                       <p className="mt-1 text-[11px] leading-snug text-slate-500 xl:text-[10px]">{itemCopy.description}</p>
@@ -771,7 +800,7 @@ const SimplifiedApp = () => {
           <section className="flex min-h-[520px] flex-col rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-xl shadow-black/10 xl:min-h-0">
               <div className="mb-2.5 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white">2</div>
+                  <div className="obs-step-verdigris flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white">2</div>
                   <div>
                     <h2 className="font-semibold text-white">{t.seeAffected}</h2>
                     <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.seeAffectedDesc}</p>
@@ -816,37 +845,37 @@ const SimplifiedApp = () => {
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 20, right: 24, bottom: 22, left: 4 }}>
-                    <CartesianGrid stroke={isLight ? '#dbe3ee' : '#1e293b'} strokeDasharray="3 5" vertical={false} />
+                    <CartesianGrid stroke={isLight ? '#dbe3ee' : '#7887a5'} strokeDasharray="3 5" vertical={false} />
                     <XAxis
                       type="number"
                       dataKey="gpa"
                       domain={[2.4, 4]}
                       ticks={[2.4, 2.8, 3.2, 3.6, 4]}
-                      stroke={isLight ? '#94a3b8' : '#64748b'}
-                      tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
-                      label={{ value: 'GPA', position: 'insideBottomRight', offset: -12, fill: isLight ? '#475569' : '#94a3b8', fontSize: 12 }}
+                      stroke={isLight ? '#94a3b8' : '#71827b'}
+                      tick={{ fill: isLight ? '#475569' : '#9aa9a3', fontSize: 11 }}
+                      label={{ value: 'GPA', position: 'insideBottomRight', offset: -12, fill: isLight ? '#475569' : '#9aa9a3', fontSize: 12 }}
                     />
                     <YAxis
                       type="number"
                       dataKey="sat"
                       domain={[950, 1600]}
                       ticks={[1000, 1200, 1400, 1600]}
-                      stroke={isLight ? '#94a3b8' : '#64748b'}
-                      tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
-                      label={{ value: 'SAT', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : '#94a3b8', fontSize: 12 }}
+                      stroke={isLight ? '#94a3b8' : '#71827b'}
+                      tick={{ fill: isLight ? '#475569' : '#9aa9a3', fontSize: 11 }}
+                      label={{ value: 'SAT', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : '#9aa9a3', fontSize: 12 }}
                     />
                     {selectedStudent && (
                       <>
                         <ReferenceLine
                           x={selectedStudent.gpa}
-                          stroke={isLight ? '#2563eb' : '#60a5fa'}
+                          stroke={isLight ? '#2563eb' : '#82c8ff'}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
                         />
                         <ReferenceLine
                           y={selectedStudent.sat}
-                          stroke={isLight ? '#2563eb' : '#60a5fa'}
+                          stroke={isLight ? '#2563eb' : '#82c8ff'}
                           strokeDasharray="4 4"
                           strokeWidth={1.5}
                           strokeOpacity={0.9}
@@ -857,7 +886,7 @@ const SimplifiedApp = () => {
                       <>
                         <ReferenceLine
                           x={draftStudent.gpa}
-                          stroke={isLight ? '#d97706' : '#fbbf24'}
+                          stroke={isLight ? '#d97706' : '#ffd66b'}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -865,7 +894,7 @@ const SimplifiedApp = () => {
                         />
                         <ReferenceLine
                           y={draftStudent.sat}
-                          stroke={isLight ? '#d97706' : '#fbbf24'}
+                          stroke={isLight ? '#d97706' : '#ffd66b'}
                           strokeDasharray="2 5"
                           strokeWidth={1.25}
                           strokeOpacity={0.68}
@@ -876,7 +905,7 @@ const SimplifiedApp = () => {
                             { x: selectedStudent.gpa, y: selectedStudent.sat },
                             { x: draftStudent.gpa, y: draftStudent.sat },
                           ]}
-                          stroke={isLight ? '#b45309' : '#f59e0b'}
+                          stroke={isLight ? '#b45309' : '#c79245'}
                           strokeDasharray="6 4"
                           strokeWidth={2}
                           strokeOpacity={0.9}
@@ -885,7 +914,7 @@ const SimplifiedApp = () => {
                       </>
                     )}
                     <Tooltip
-                      cursor={{ stroke: isLight ? '#94a3b8' : '#475569', strokeDasharray: '3 3' }}
+                      cursor={{ stroke: isLight ? '#94a3b8' : '#71827b', strokeDasharray: '3 3' }}
                       content={<StudentTooltip policy={policy} t={t} />}
                       isAnimationActive={false}
                       animationDuration={0}
@@ -904,24 +933,24 @@ const SimplifiedApp = () => {
                         return (
                           <Cell
                             key={student.id}
-                            fill={student.admitted ? (isLight ? '#059669' : '#22c55e') : (isLight ? '#e11d48' : '#fb3f64')}
+                            fill={student.admitted ? (isLight ? '#059669' : '#72dda9') : (isLight ? '#e11d48' : '#ff9187')}
                             fillOpacity={isMining ? (isEdgeCase || isSelected ? 1 : 0.18) : (selectedId && !isSelected ? 0.6 : 1)}
                             stroke={
                               isSelected
-                                ? (isLight ? '#2563eb' : '#60a5fa')
+                                ? (isLight ? '#2563eb' : '#82c8ff')
                                 : isMining && isEdgeCase
-                                ? '#f59e0b'
+                                ? (isLight ? '#f59e0b' : '#ffd66b')
                                 : (student.admitted
-                                  ? (isLight ? '#065f46' : '#86efac')
-                                  : (isLight ? '#9f1239' : '#fda4af'))
+                                  ? (isLight ? '#065f46' : '#9be5cf')
+                                  : (isLight ? '#9f1239' : '#ffaaa3'))
                             }
                             strokeWidth={isSelected ? 2.5 : (isMining && isEdgeCase ? 2.5 : 1.15)}
                             className={isMining && isEdgeCase ? 'animate-pulse' : ''}
                             style={{
                               cursor: 'pointer',
                               filter: isSelected
-                                ? 'drop-shadow(0 0 4px rgba(96, 165, 250, 0.9))'
-                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.85))' : 'none'),
+                                ? 'drop-shadow(0 0 4px rgba(130, 200, 255, 0.92))'
+                                : (isMining && isEdgeCase ? 'drop-shadow(0 0 4px rgba(255, 214, 107, 0.88))' : 'none'),
                               transition: 'all 0.25s ease',
                             }}
                           />
@@ -962,7 +991,7 @@ const SimplifiedApp = () => {
           <div className="grid grid-cols-1 gap-4 xl:min-h-0 xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-3">
               <section className="rounded-2xl border border-slate-800 bg-slate-900/65 p-2.5 xl:min-h-0">
                 <div className="mb-1.5 flex items-start gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-slate-950">3</div>
+                  <div className="obs-step-iris flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-slate-950">3</div>
                   <div>
                     <h2 className="font-semibold text-white">{t.compareOutcomes}</h2>
                     <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.gapCaution}</p>
@@ -973,26 +1002,26 @@ const SimplifiedApp = () => {
                   <RateComparison
                     label={t.firstGenStatus}
                     leftLabel={t.firstGenerationShort}
-                    leftRate={impact.firstGenRate}
+                    leftStats={impact.firstGen}
                     rightLabel={t.continuingGenerationShort}
-                    rightRate={impact.continuingGenRate}
-                    pointGap={t.pointGap}
+                    rightStats={impact.continuingGen}
+                    t={t}
                   />
                   <RateComparison
                     label={t.athleticStatus}
                     leftLabel={t.athletesShort}
-                    leftRate={impact.athleteRate}
+                    leftStats={impact.athletes}
                     rightLabel={t.nonAthletesShort}
-                    rightRate={impact.nonAthleteRate}
-                    pointGap={t.pointGap}
+                    rightStats={impact.nonAthletes}
+                    t={t}
                   />
                   <RateComparison
                     label={t.residency}
                     leftLabel={t.inStateShort}
-                    leftRate={impact.residentRate}
+                    leftStats={impact.residents}
                     rightLabel={t.outOfStateShort}
-                    rightRate={impact.nonResidentRate}
-                    pointGap={t.pointGap}
+                    rightStats={impact.nonResidents}
+                    t={t}
                   />
                 </div>
 
@@ -1020,14 +1049,14 @@ const SimplifiedApp = () => {
               </section>
 
               <section className="flex min-h-[390px] flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 p-3 xl:min-h-0 xl:p-2.5">
-                <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-2">
+                <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-1.5">
                   <div className="flex items-start gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
                       <UserRoundSearch className="h-4 w-4 text-blue-300" />
                     </div>
                     <div>
-                      <h2 className="font-semibold text-white">{t.whatIfTitle}</h2>
-                      <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.whatIfDesc}</p>
+                      <h2 className="text-sm font-semibold leading-tight text-white">{t.whatIfTitle}</h2>
+                      <p className="mt-0.5 text-[10px] leading-snug text-slate-400">{t.whatIfDesc}</p>
                     </div>
                   </div>
                   {draftStudent && (
@@ -1048,11 +1077,14 @@ const SimplifiedApp = () => {
                     <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{t.selectStudentDesc}</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 xl:space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-950/55 px-3 py-2">
-                      <div>
-                        <div className="text-xs text-slate-500">{t.student} {draftStudent.id}</div>
-                        <div className="mt-0.5 text-sm font-semibold text-white">GPA {draftStudent.gpa.toFixed(2)} · SAT {draftStudent.sat}</div>
+                  <div className="space-y-2 xl:space-y-1">
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-950/55 px-3 py-2 xl:py-1.5">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-semibold text-white">
+                          <span className="font-normal text-slate-500">{t.student} {draftStudent.id}</span>
+                          <span className="mx-1.5 text-slate-700">·</span>
+                          GPA {draftStudent.gpa.toFixed(2)} · SAT {draftStudent.sat}
+                        </div>
                         {draftProfileChanged && (
                           <div className="mt-0.5 text-[10px] font-medium text-amber-300">
                             {plotPositionChanged
@@ -1103,7 +1135,7 @@ const SimplifiedApp = () => {
 
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       {[
-                        ['firstGen', t.firstGeneration],
+                        ['firstGen', t.firstGenerationShort],
                         ['athlete', t.athlete],
                         ['resident', t.inState],
                       ].map(([field, label]) => (
@@ -1111,7 +1143,7 @@ const SimplifiedApp = () => {
                           key={field}
                           type="button"
                           onClick={() => updateDraft(field, !draftStudent[field])}
-                          className={`rounded-xl border px-2 py-1.5 text-[10px] font-medium transition ${
+                          className={`rounded-xl border px-2 py-1.5 text-[10px] font-medium transition xl:py-1 ${
                             draftStudent[field]
                               ? 'border-blue-400/45 bg-blue-500/12 text-blue-200'
                               : 'border-slate-700 bg-slate-950/50 text-slate-500 hover:text-slate-300'
@@ -1122,7 +1154,7 @@ const SimplifiedApp = () => {
                       ))}
                     </div>
 
-                    <div className={`rounded-xl border p-2.5 ${decisionFlipped ? 'border-amber-400/35 bg-amber-400/[0.08]' : 'border-slate-800 bg-slate-950/45'}`}>
+                    <div className={`rounded-xl border p-2.5 xl:p-2 ${decisionFlipped ? 'border-amber-400/35 bg-amber-400/[0.08]' : 'border-slate-800 bg-slate-950/45'}`}>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold text-slate-200">{t.decisionScore}</span>
                         <span className="font-mono text-xs text-slate-300">{draftScore.toFixed(1)} / {policy.threshold}</span>

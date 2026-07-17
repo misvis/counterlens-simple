@@ -823,6 +823,245 @@ input[type=range]::-moz-range-track {
 }
 
 /* =========================================================
+   Simplified classroom prototype — Observatory dark theme
+   ========================================================= */
+.simplified-observatory {
+    --obs-canvas: #1b2030;
+    --obs-surface: #343d55;
+    --obs-elevated: #485572;
+    --obs-border: #7887a5;
+    --obs-border-active: #b0bdd4;
+    --obs-text: #ffffff;
+    --obs-text-soft: #eef2fb;
+    --obs-muted: #d4daea;
+    --obs-muted-dim: #b8c3d8;
+    --obs-brass: #ffd66b;
+    --obs-verdigris: #82c8ff;
+    --obs-iris: #cab8ff;
+    --obs-admitted: #72dda9;
+    --obs-rejected: #ff9187;
+    background: linear-gradient(180deg, #272e43 0%, var(--obs-canvas) 52%, #171b28 100%) !important;
+    color: var(--obs-text-soft) !important;
+    color-scheme: dark;
+}
+
+.simplified-observatory [class*="bg-slate-900/"],
+.simplified-observatory [class*="bg-\[\#0f131a\]"] {
+    background-color: rgba(52, 61, 85, 0.99) !important;
+}
+
+.simplified-observatory [class*="bg-slate-950/"] {
+    background-color: rgba(18, 23, 36, 0.97) !important;
+}
+
+.simplified-observatory [class*="bg-slate-800/"] {
+    background-color: rgba(72, 85, 114, 0.97) !important;
+}
+
+.simplified-observatory .bg-slate-900,
+.simplified-observatory .bg-slate-800 {
+    background-color: var(--obs-elevated) !important;
+}
+
+.simplified-observatory [class*="hover:bg-slate-"]:hover {
+    background-color: #53617e !important;
+}
+
+.simplified-observatory [class*="border-slate-"] {
+    border-color: var(--obs-border) !important;
+}
+
+.simplified-observatory [class*="hover:border-slate-"]:hover {
+    border-color: var(--obs-border-active) !important;
+}
+
+.simplified-observatory .text-white {
+    color: var(--obs-text) !important;
+}
+
+.simplified-observatory [class*="text-slate-200"],
+.simplified-observatory [class*="text-slate-300"] {
+    color: var(--obs-text-soft) !important;
+}
+
+.simplified-observatory [class*="text-slate-400"] {
+    color: var(--obs-muted) !important;
+}
+
+.simplified-observatory [class*="text-slate-500"] {
+    color: var(--obs-muted-dim) !important;
+}
+
+.simplified-observatory [class*="text-slate-600"],
+.simplified-observatory [class*="text-slate-700"] {
+    color: #adb9cf !important;
+}
+
+.simplified-observatory section {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.simplified-observatory [class*="text-blue-"] {
+    color: var(--obs-verdigris) !important;
+}
+
+.simplified-observatory [class*="border-blue-"] {
+    border-color: rgba(130, 200, 255, 0.56) !important;
+}
+
+.simplified-observatory [class*="bg-blue-"] {
+    background-color: rgba(130, 200, 255, 0.18) !important;
+}
+
+.simplified-observatory .bg-blue-500,
+.simplified-observatory .bg-blue-600 {
+    background-color: var(--obs-verdigris) !important;
+    color: #07110e !important;
+}
+
+.simplified-observatory [class*="hover:bg-blue-"]:hover {
+    background-color: #a8d8ff !important;
+}
+
+.simplified-observatory [class*="text-violet-"] {
+    color: #ded3ff !important;
+}
+
+.simplified-observatory [class*="border-violet-"] {
+    border-color: rgba(202, 184, 255, 0.52) !important;
+}
+
+.simplified-observatory [class*="bg-violet-"] {
+    background-color: rgba(202, 184, 255, 0.17) !important;
+}
+
+.simplified-observatory .bg-violet-500 {
+    background-color: var(--obs-iris) !important;
+}
+
+.simplified-observatory [class*="text-amber-"] {
+    color: var(--obs-brass) !important;
+}
+
+.simplified-observatory .text-amber-100,
+.simplified-observatory [class*="text-amber-100/"] {
+    color: #fff0b8 !important;
+}
+
+.simplified-observatory [class*="border-amber-"] {
+    border-color: rgba(255, 214, 107, 0.52) !important;
+}
+
+.simplified-observatory [class*="bg-amber-"] {
+    background-color: rgba(255, 214, 107, 0.17) !important;
+}
+
+.simplified-observatory [class*="ring-amber-"] {
+    --tw-ring-color: rgba(255, 214, 107, 0.46) !important;
+}
+
+.simplified-observatory [class*="text-emerald-"] {
+    color: var(--obs-admitted) !important;
+}
+
+.simplified-observatory [class*="border-emerald-"] {
+    border-color: rgba(114, 221, 169, 0.52) !important;
+}
+
+.simplified-observatory [class*="bg-emerald-"] {
+    background-color: rgba(114, 221, 169, 0.18) !important;
+}
+
+.simplified-observatory .bg-emerald-400,
+.simplified-observatory .bg-emerald-500 {
+    background-color: var(--obs-admitted) !important;
+}
+
+.simplified-observatory [class*="text-rose-"] {
+    color: var(--obs-rejected) !important;
+}
+
+.simplified-observatory [class*="border-rose-"] {
+    border-color: rgba(255, 145, 135, 0.56) !important;
+}
+
+.simplified-observatory [class*="bg-rose-"] {
+    background-color: rgba(255, 145, 135, 0.18) !important;
+}
+
+.simplified-observatory .bg-rose-400 {
+    background-color: var(--obs-rejected) !important;
+}
+
+.simplified-observatory .obs-step-brass {
+    background-color: var(--obs-brass) !important;
+    color: #171006 !important;
+}
+
+.simplified-observatory .obs-step-verdigris {
+    background-color: var(--obs-verdigris) !important;
+    color: #07110e !important;
+}
+
+.simplified-observatory .obs-step-iris {
+    background-color: var(--obs-iris) !important;
+    color: #130f1c !important;
+}
+
+.simplified-observatory textarea,
+.simplified-observatory input {
+    color: var(--obs-text);
+}
+
+.simplified-observatory input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--obs-border);
+    accent-color: var(--obs-verdigris);
+}
+
+.simplified-observatory input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    border: 2px solid var(--obs-surface);
+    border-radius: 999px;
+    background: var(--obs-verdigris);
+    box-shadow: 0 0 0 2px rgba(130, 200, 255, 0.3);
+    cursor: pointer;
+}
+
+.simplified-observatory input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--obs-border);
+}
+
+.simplified-observatory input[type="range"]::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border: 2px solid var(--obs-surface);
+    border-radius: 999px;
+    background: var(--obs-verdigris);
+    box-shadow: 0 0 0 2px rgba(130, 200, 255, 0.3);
+    cursor: pointer;
+}
+
+.simplified-observatory textarea::placeholder,
+.simplified-observatory input::placeholder {
+    color: #9ba7be;
+}
+
+.simplified-observatory ::selection {
+    background: rgba(130, 200, 255, 0.4);
+}
+
+/* =========================================================
    Simplified classroom prototype — daylight theme
    ========================================================= */
 .simplified-daylight {
@@ -907,6 +1146,6 @@ input[type=range]::-moz-range-track {
 
 /* Keep a deliberate, theme-independent cue for keyboard navigation. */
 .simplified-scatter-plot .recharts-surface:focus-visible {
-    outline: 2px solid #3b82f6 !important;
+    outline: 2px solid var(--obs-verdigris, #3b82f6) !important;
     outline-offset: 2px;
 }
