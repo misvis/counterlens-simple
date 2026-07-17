@@ -1,6 +1,6 @@
 {
   "name": "counter-lens-simple",
-  "homepage": "https://misvis.github.io/CounterLensSimple/",
+  "homepage": "https://misvis.github.io/counterlens-simple/",
   "private": true,
   "version": "2.5.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist --nojekyll -r https://github.com/misvis/CounterLensSimple.git"
+    "deploy": "gh-pages -d dist --nojekyll -r https://github.com/misvis/counterlens-simple.git"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.18",
