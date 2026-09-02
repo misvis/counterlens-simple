@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Cell,
   CartesianGrid,
@@ -30,38 +30,35 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { trackAnonymousEvent } from './data/analytics.js';
+import {
+  createBundledClassroomView,
+  isClassroomApiConfigured,
+  loadClassroomView,
+} from './data/classroomClient.js';
 
 const LIGHT_OUTCOME_COLORS = {
   admitted: '#047857',
   rejected: '#be123c',
 };
 
-const POLICIES = [
-  {
-    id: 'academic',
-    weights: { gpa: 60, sat: 40, firstGen: 0, athlete: 0, resident: 0 },
-    threshold: 62,
+const POLICY_PRESENTATION = {
+  academic: {
     accent: '#1d4ed8',
     graphiteAccent: '#f2c75c',
     summerAccent: '#f4c95d',
   },
-  {
-    id: 'holistic',
-    weights: { gpa: 45, sat: 35, firstGen: 8, athlete: 5, resident: 7 },
-    threshold: 52,
+  holistic: {
     accent: '#6d28d9',
     graphiteAccent: '#b8a3f2',
     summerAccent: '#afa6f5',
   },
-  {
-    id: 'opportunity',
-    weights: { gpa: 35, sat: 25, firstGen: 25, athlete: 5, resident: 10 },
-    threshold: 43,
+  opportunity: {
     accent: '#047857',
     graphiteAccent: '#78b7ff',
     summerAccent: '#43d3c1',
   },
-];
+};
 
 const THEME_SEQUENCE = ['graphite', 'summer', 'light'];
 
@@ -118,6 +115,7 @@ const TRANSLATIONS = {
     simulationNote: 'This is a simplified simulation, not a real admission system. The policy reflects human choices about what counts.',
     seeAffected: 'See who is affected',
     seeAffectedDesc: 'Each dot is one simulated student. Click a dot to investigate a decision.',
+    seeAffectedDescApproved: 'Each dot is one record from the approved classroom release. Click a dot to investigate a decision.',
     chartLabel: 'Admission outcomes chart. GPA is on the horizontal axis and SAT is on the vertical axis. Select a student point to investigate the decision.',
     admitted: 'Admitted',
     notAdmitted: 'Not admitted',
@@ -166,7 +164,10 @@ const TRANSLATIONS = {
     flipQuestion: 'The result flipped. Which factor caused it, and should it matter?',
     changeQuestion: 'Change one factor until the result flips. Should that factor matter?',
     auditNote: 'Background changes audit the policy; they are not advice for students.',
-    fixedDataset: 'Fixed classroom dataset · 72 simulated applicants · No real student data',
+    datasetSynthetic: 'Synthetic classroom dataset · {count} simulated applicants · No real student data',
+    datasetApproved: 'Approved de-identified dataset · {count} records · Public classroom view',
+    datasetLoading: 'Loading the classroom dataset…',
+    datasetFallback: 'Data API unavailable · Bundled synthetic demo in use',
     footerTitle: 'CounterLens simplified AI Ethics learning prototype',
     creditsTitle: 'Project Team & Institution',
     principalInvestigator: 'Principal Investigator',
@@ -219,6 +220,7 @@ const TRANSLATIONS = {
     simulationNote: '这是一个简化的模拟实验，并非真实录取系统。政策反映的是人类对于“什么重要”的选择。',
     seeAffected: '观察谁受到影响',
     seeAffectedDesc: '每个点代表一名模拟学生。点击任意点，进一步审查这项决定。',
+    seeAffectedDescApproved: '每个点代表获准公开的课堂数据中的一条记录。点击任意点，进一步审查这项决定。',
     chartLabel: '录取结果图。横轴为 GPA，纵轴为 SAT。请选择一个学生样本点来审查这项决定。',
     admitted: '已录取',
     notAdmitted: '未录取',
@@ -267,7 +269,10 @@ const TRANSLATIONS = {
     flipQuestion: '结果翻转了。哪个因素造成了变化？它应该重要吗？',
     changeQuestion: '改变一个因素直到结果翻转。这个因素应该重要吗？',
     auditNote: '改变背景是审查政策，并非给学生的建议。',
-    fixedDataset: '固定课堂数据 · 72 名模拟申请者 · 不含真实学生数据',
+    datasetSynthetic: '合成课堂数据 · {count} 名模拟申请者 · 不含真实学生数据',
+    datasetApproved: '已授权的去标识化数据 · {count} 条记录 · 公开课堂视图',
+    datasetLoading: '正在载入课堂数据…',
+    datasetFallback: '数据 API 暂不可用 · 当前使用内置合成演示数据',
     footerTitle: 'CounterLens 简化版 AI Ethics 教学原型',
     creditsTitle: '项目团队与机构',
     principalInvestigator: '首席研究员',
@@ -320,6 +325,7 @@ const TRANSLATIONS = {
     simulationNote: 'Esta es una simulación simplificada, no un sistema real de admisión. La política refleja decisiones humanas sobre lo que importa.',
     seeAffected: 'Observa a quién afecta',
     seeAffectedDesc: 'Cada punto representa a un estudiante simulado. Haz clic para investigar una decisión.',
+    seeAffectedDescApproved: 'Cada punto es un registro de la versión autorizada para clase. Haz clic para investigar una decisión.',
     chartLabel: 'Gráfico de resultados de admisión. GPA está en el eje horizontal y SAT en el vertical. Selecciona un punto para investigar la decisión.',
     admitted: 'Admitido',
     notAdmitted: 'No admitido',
@@ -368,7 +374,10 @@ const TRANSLATIONS = {
     flipQuestion: 'El resultado cambió. ¿Qué factor lo causó y debería importar?',
     changeQuestion: 'Cambia un factor hasta invertir el resultado. ¿Debería importar?',
     auditNote: 'Cambiar el contexto audita la política; no aconseja a estudiantes.',
-    fixedDataset: 'Datos fijos para clase · 72 solicitantes simulados · Sin datos reales',
+    datasetSynthetic: 'Datos sintéticos para clase · {count} solicitantes simulados · Sin datos reales',
+    datasetApproved: 'Datos desidentificados autorizados · {count} registros · Vista pública',
+    datasetLoading: 'Cargando los datos para clase…',
+    datasetFallback: 'API de datos no disponible · Se usa la demostración sintética incluida',
     footerTitle: 'Prototipo simplificado de aprendizaje de Ética de IA de CounterLens',
     creditsTitle: 'Equipo del proyecto e institución',
     principalInvestigator: 'Investigadora principal',
@@ -412,38 +421,6 @@ const formatCopy = (template, values) => Object.entries(values).reduce(
 );
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-const createSeededRandom = (seed) => {
-  let state = seed >>> 0;
-  return () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
-};
-
-const createStudents = () => {
-  const random = createSeededRandom(1973);
-  return Array.from({ length: 72 }, (_, index) => {
-    const firstGen = random() < 0.3;
-    const athlete = random() < 0.16;
-    const resident = random() < 0.6;
-    const academicSignal = (random() + random() + random() + random()) / 4;
-    const gpa = clamp(2.45 + academicSignal * 1.55 - (firstGen ? 0.1 : 0), 2.4, 4);
-    const satSignal = (random() + random() + academicSignal) / 3;
-    const sat = clamp(Math.round((1030 + satSignal * 570 - (firstGen ? 55 : 0)) / 10) * 10, 950, 1600);
-
-    return {
-      id: `S${String(index + 1).padStart(2, '0')}`,
-      gpa: Number(gpa.toFixed(2)),
-      sat,
-      firstGen,
-      athlete,
-      resident,
-    };
-  });
-};
-
-const STUDENTS = createStudents();
 
 const scoreStudent = (student, policy) => {
   if (!student) return 0;
@@ -604,8 +581,25 @@ const SimplifiedApp = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [draftStudent, setDraftStudent] = useState(null);
   const [reflection, setReflection] = useState('');
+  const [classroomView, setClassroomView] = useState(createBundledClassroomView);
+  const [dataState, setDataState] = useState(isClassroomApiConfigured ? 'loading' : 'bundled');
+  const [dataError, setDataError] = useState('');
+  const trackedPageView = useRef('');
+  const wasDecisionFlipped = useRef(false);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  const students = classroomView.records;
+  const policies = useMemo(
+    () => classroomView.policies.map((item) => ({
+      ...item,
+      ...(POLICY_PRESENTATION[item.id] ?? {
+        accent: '#2563eb',
+        graphiteAccent: '#78b7ff',
+        summerAccent: '#43d3c1',
+      }),
+    })),
+    [classroomView.policies],
+  );
   const isLight = theme === 'light';
   const darkPalette = DARK_THEME_PALETTES[isLight ? 'graphite' : theme];
   const outcomeColors = {
@@ -619,26 +613,31 @@ const SimplifiedApp = () => {
   };
   const nextTheme = THEME_SEQUENCE[(THEME_SEQUENCE.indexOf(theme) + 1) % THEME_SEQUENCE.length];
   const ThemeIcon = theme === 'graphite' ? Moon : theme === 'summer' ? Sunset : Sun;
-  const policy = POLICIES.find((item) => item.id === policyId) || POLICIES[0];
-  const policyCopy = t.policies[policy.id];
+  const policy = policies.find((item) => item.id === policyId) || policies[0];
+  const policyCopy = t.policies[policy.id] ?? {
+    name: policy.id,
+    shortName: 'Policy',
+    description: '',
+    question: '',
+  };
   const selectedStudent = useMemo(
-    () => STUDENTS.find((student) => student.id === selectedId) || null,
-    [selectedId],
+    () => students.find((student) => student.id === selectedId) || null,
+    [selectedId, students],
   );
 
   const outcomes = useMemo(
-    () => STUDENTS.map((student) => ({ ...student, admitted: getDecision(student, policy) })),
-    [policy],
+    () => students.map((student) => ({ ...student, admitted: getDecision(student, policy) })),
+    [policy, students],
   );
 
   const policyAdmissionCounts = useMemo(
     () => Object.fromEntries(
-      POLICIES.map((item) => [
+      policies.map((item) => [
         item.id,
-        STUDENTS.filter((student) => getDecision(student, item)).length,
+        students.filter((student) => getDecision(student, item)).length,
       ]),
     ),
-    [],
+    [policies, students],
   );
 
   const edgeCases = useMemo(
@@ -691,16 +690,90 @@ const SimplifiedApp = () => {
   const plotPositionChanged = Boolean(selectedStudent && draftStudent && (
     selectedStudent.gpa !== draftStudent.gpa || selectedStudent.sat !== draftStudent.sat
   ));
+  const datasetId = classroomView.dataset.id;
+  const datasetVersion = classroomView.dataset.version;
+
+  useEffect(() => {
+    let active = true;
+    loadClassroomView()
+      .then(({ view, source }) => {
+        if (!active) return;
+        setClassroomView(view);
+        setDataState(source);
+        setDataError('');
+        setPolicyId((current) => (
+          view.policies.some((item) => item.id === current) ? current : view.policies[0].id
+        ));
+        setSelectedId(null);
+        setDraftStudent(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDataState('error');
+        setDataError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (dataState === 'loading') return;
+    const pageViewKey = `${datasetId}:${datasetVersion}:${dataState}`;
+    if (trackedPageView.current === pageViewKey) return;
+    trackedPageView.current = pageViewKey;
+    trackAnonymousEvent('page_view', {
+      datasetId,
+      datasetVersion,
+      policyId: policy.id,
+      locale: lang,
+      theme,
+    });
+  }, [dataState, datasetId, datasetVersion, lang, policy.id, theme]);
+
+  useEffect(() => {
+    if (decisionFlipped && !wasDecisionFlipped.current) {
+      trackAnonymousEvent('counterfactual_flipped', {
+        datasetId,
+        datasetVersion,
+        policyId: policy.id,
+        locale: lang,
+        theme,
+      });
+    }
+    wasDecisionFlipped.current = Boolean(decisionFlipped);
+  }, [datasetId, datasetVersion, decisionFlipped, lang, policy.id, theme]);
 
   const updateDraft = (field, value) => {
     setDraftStudent((current) => (current ? { ...current, [field]: value } : current));
   };
 
   const selectStudent = (studentId) => {
-    const student = STUDENTS.find((item) => item.id === studentId) || null;
+    const student = students.find((item) => item.id === studentId) || null;
     setSelectedId(studentId);
     setDraftStudent(student ? { ...student } : null);
+    if (student) {
+      trackAnonymousEvent('student_selected', {
+        datasetId,
+        datasetVersion,
+        policyId: policy.id,
+        locale: lang,
+        theme,
+      });
+    }
   };
+
+  const datasetStatus = dataState === 'loading'
+    ? t.datasetLoading
+    : dataState === 'error'
+      ? t.datasetFallback
+      : formatCopy(
+        classroomView.dataset.sourceType === 'synthetic' ? t.datasetSynthetic : t.datasetApproved,
+        { count: students.length },
+      );
+  const seeAffectedDescription = classroomView.dataset.sourceType === 'synthetic'
+    ? t.seeAffectedDesc
+    : t.seeAffectedDescApproved;
 
   return (
     <div className={`min-h-screen overflow-y-auto text-slate-200 selection:bg-blue-500/30 xl:h-screen xl:overflow-hidden ${isLight ? 'theme-daylight simplified-daylight' : `simplified-observatory ${theme === 'summer' ? 'simplified-summer' : ''}`}`}>
@@ -807,7 +880,16 @@ const SimplifiedApp = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setTheme(nextTheme)}
+              onClick={() => {
+                setTheme(nextTheme);
+                trackAnonymousEvent('theme_changed', {
+                  datasetId,
+                  datasetVersion,
+                  policyId: policy.id,
+                  locale: lang,
+                  theme: nextTheme,
+                });
+              }}
               aria-label={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
               title={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
               className="flex w-[112px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
@@ -825,7 +907,16 @@ const SimplifiedApp = () => {
                   key={code}
                   type="button"
                   aria-pressed={lang === code}
-                  onClick={() => setLang(code)}
+                  onClick={() => {
+                    setLang(code);
+                    trackAnonymousEvent('language_changed', {
+                      datasetId,
+                      datasetVersion,
+                      policyId: policy.id,
+                      locale: code,
+                      theme,
+                    });
+                  }}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                     lang === code ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'
                   }`}
@@ -856,9 +947,13 @@ const SimplifiedApp = () => {
               </div>
 
               <div className="space-y-1.5">
-                {POLICIES.map((item) => {
+                {policies.map((item) => {
                   const active = item.id === policy.id;
-                  const itemCopy = t.policies[item.id];
+                  const itemCopy = t.policies[item.id] ?? {
+                    name: item.id,
+                    shortName: 'Policy',
+                    description: '',
+                  };
                   const admittedCount = policyAdmissionCounts[item.id];
                   const itemAccent = isLight
                     ? item.accent
@@ -873,6 +968,15 @@ const SimplifiedApp = () => {
                       onClick={() => {
                         setPolicyId(item.id);
                         setIsMining(false);
+                        if (item.id !== policy.id) {
+                          trackAnonymousEvent('policy_selected', {
+                            datasetId,
+                            datasetVersion,
+                            policyId: item.id,
+                            locale: lang,
+                            theme,
+                          });
+                        }
                       }}
                       className={`simplified-policy-card w-full rounded-xl border px-3 py-2 text-left transition ${
                         active
@@ -885,9 +989,9 @@ const SimplifiedApp = () => {
                         <span className="flex items-center gap-1.5">
                           <span
                             className="rounded-full bg-slate-800/70 px-2 py-0.5 text-[10px] font-bold text-slate-400"
-                            aria-label={`${admittedCount} / ${STUDENTS.length} ${t.studentsAdmitted}`}
+                            aria-label={`${admittedCount} / ${students.length} ${t.studentsAdmitted}`}
                           >
-                            {admittedCount}/{STUDENTS.length}
+                            {admittedCount}/{students.length}
                           </span>
                           {active ? <CheckCircle2 className="h-4 w-4 text-blue-400" /> : <ArrowRight className="h-4 w-4 text-slate-600" />}
                         </span>
@@ -924,7 +1028,19 @@ const SimplifiedApp = () => {
                         type="button"
                         aria-pressed={isMining}
                         title={`${edgeCases.length} ${t.edgeCasesFound}`}
-                        onClick={() => setIsMining((current) => !current)}
+                        onClick={() => {
+                          const nextMiningState = !isMining;
+                          setIsMining(nextMiningState);
+                          if (nextMiningState) {
+                            trackAnonymousEvent('borderline_cases_opened', {
+                              datasetId,
+                              datasetVersion,
+                              policyId: policy.id,
+                              locale: lang,
+                              theme,
+                            });
+                          }
+                        }}
                         className={`flex min-h-8 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition ${
                           isMining
                             ? 'border-amber-400/50 bg-amber-400/12 text-amber-300 shadow-sm shadow-amber-500/15'
@@ -936,7 +1052,7 @@ const SimplifiedApp = () => {
                         {isMining && <span className="rounded bg-amber-400/15 px-1 text-[10px]">{edgeCases.length}</span>}
                       </button>
                     </div>
-                    <p className="mt-0.5 text-xs font-semibold leading-snug text-blue-300">{t.seeAffectedDesc}</p>
+                    <p className="mt-0.5 text-xs font-semibold leading-snug text-blue-300">{seeAffectedDescription}</p>
                   </div>
                 </div>
                 <div className="simplified-outcome-legend grid shrink-0 justify-items-start gap-1 pt-0.5 text-xs font-semibold">
@@ -1108,7 +1224,7 @@ const SimplifiedApp = () => {
               <div className="simplified-summary-strip mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-950/50 px-3 py-2">
                 <div>
                   <span className="text-xl font-bold text-white">{impact.admitted}</span>
-                  <span className="ml-2 text-xs text-slate-400">/ {STUDENTS.length} {t.studentsAdmitted}</span>
+                  <span className="ml-2 text-xs text-slate-400">/ {students.length} {t.studentsAdmitted}</span>
                 </div>
                 <div className="text-xs text-slate-400">
                   {t.overallRate}: <span className="font-semibold text-slate-200">{impact.overallRate}%</span>
@@ -1297,7 +1413,13 @@ const SimplifiedApp = () => {
         </main>
 
         <footer className="mt-3 flex shrink-0 flex-col justify-between gap-1 border-t border-slate-800 pt-3 text-[10px] text-slate-600 sm:flex-row xl:mt-2 xl:pt-2">
-          <span>{t.fixedDataset}</span>
+          <span
+            className={dataState === 'error' ? 'font-semibold text-amber-600' : undefined}
+            role={dataState === 'error' ? 'alert' : undefined}
+            title={dataError || undefined}
+          >
+            {datasetStatus}
+          </span>
           <span>{t.footerTitle}</span>
         </footer>
       </div>

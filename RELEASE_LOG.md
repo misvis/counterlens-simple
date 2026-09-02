@@ -1,4 +1,14 @@
-# CounterLens Release Log - V2.2
+# CounterLens Release Log
+
+## [V2.6.0 - Backend Foundation & Private Monitoring] - 2026-09-02
+### Added
+- Added a versioned classroom-data API with public-release privacy checks and extensible feature metadata.
+- Added a token-protected monitoring dashboard for anonymous traffic, teaching interactions, API health, and dataset quality.
+- Added automatic monitoring retention, strict event allowlists, backend tests, and a real-data release checklist.
+
+### Changed
+- Moved the synthetic dataset and policy definitions behind a reusable data contract while preserving the current classroom experience.
+- Removed Google Analytics, Google Fonts, and the Tailwind CDN; frontend assets are now built locally without third-party page requests.
 
 ## [V2.5.0 - Simplified Prototype UI Refresh] - 2026-09-02
 ### Changed
