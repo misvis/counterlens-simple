@@ -1,5 +1,11 @@
 # CounterLens Release Log - V2.2
 
+## [V2.5.0 - Simplified Prototype UI Refresh] - 2026-09-02
+### Changed
+- Made Light the default theme and strengthened text, panel, and selected-state contrast.
+- Clarified the four-step learning flow, group-rate comparisons, borderline cases, and score-versus-cutoff language.
+- Aligned the outcome legend, unified chart and legend colors, and improved point, slider, focus, and multilingual usability.
+
 ## [V2.3.1] - 2026-03-04
 ### Fixed
 - **Animate Scrollbar**: Resolved an unsightly scrollbar issue caused by the `animate-fate-flip` effect by optimizing the layout flow.

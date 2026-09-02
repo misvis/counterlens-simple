@@ -27,17 +27,21 @@ import {
   Sunset,
   Target,
   Telescope,
-  UserRoundSearch,
   Users,
   X,
 } from 'lucide-react';
+
+const LIGHT_OUTCOME_COLORS = {
+  admitted: '#047857',
+  rejected: '#be123c',
+};
 
 const POLICIES = [
   {
     id: 'academic',
     weights: { gpa: 60, sat: 40, firstGen: 0, athlete: 0, resident: 0 },
     threshold: 62,
-    accent: '#60a5fa',
+    accent: '#1d4ed8',
     graphiteAccent: '#f2c75c',
     summerAccent: '#f4c95d',
   },
@@ -45,7 +49,7 @@ const POLICIES = [
     id: 'holistic',
     weights: { gpa: 45, sat: 35, firstGen: 8, athlete: 5, resident: 7 },
     threshold: 52,
-    accent: '#a78bfa',
+    accent: '#6d28d9',
     graphiteAccent: '#b8a3f2',
     summerAccent: '#afa6f5',
   },
@@ -53,7 +57,7 @@ const POLICIES = [
     id: 'opportunity',
     weights: { gpa: 35, sat: 25, firstGen: 25, athlete: 5, resident: 10 },
     threshold: 43,
-    accent: '#34d399',
+    accent: '#047857',
     graphiteAccent: '#78b7ff',
     summerAccent: '#43d3c1',
   },
@@ -104,7 +108,8 @@ const TRANSLATIONS = {
     themeSummer: 'Summer',
     themeLight: 'Light',
     switchTheme: 'Switch theme',
-    mineEdgeCases: 'Mine edge cases',
+    languageLabel: 'Language',
+    mineEdgeCases: 'Find borderline cases',
     edgeCasesFound: 'closest to cutoff',
     fromCutoff: 'from cutoff',
     choosePolicy: 'Choose a policy',
@@ -113,6 +118,7 @@ const TRANSLATIONS = {
     simulationNote: 'This is a simplified simulation, not a real admission system. The policy reflects human choices about what counts.',
     seeAffected: 'See who is affected',
     seeAffectedDesc: 'Each dot is one simulated student. Click a dot to investigate a decision.',
+    chartLabel: 'Admission outcomes chart. GPA is on the horizontal axis and SAT is on the vertical axis. Select a student point to investigate the decision.',
     admitted: 'Admitted',
     notAdmitted: 'Not admitted',
     student: 'Student',
@@ -135,16 +141,18 @@ const TRANSLATIONS = {
     studentsAdmitted: 'students admitted',
     overallRate: 'Overall admission rate',
     compareOutcomes: 'Compare admission rates',
-    gapCaution: 'Within each group, how many were admitted? Differences are clues—not proof of bias.',
+    gapCaution: 'A rate gap is a clue to investigate—not proof of bias.',
     admittedFraction: '{admitted}/{total}',
     lowerRateLabel: '{group}: {gap} points lower',
+    pointsLower: '{gap} pts lower',
     sameRateLabel: 'Both groups have the same admission rate.',
+    sameRateShort: 'Same rate',
     firstGenStatus: 'First-generation',
     athleticStatus: 'Athletics',
     residency: 'Residency',
     discuss: 'Discuss',
     reflectionLabel: 'Your reflection (not saved)',
-    reflectionPlaceholder: 'I think this policy is... because...',
+    reflectionPlaceholder: 'Fair or unfair? Why?',
     whatIfTitle: 'What if this student were different?',
     whatIfDesc: 'Change one factor at a time to audit the decision.',
     adjustedPosition: 'Adjusted position',
@@ -154,6 +162,7 @@ const TRANSLATIONS = {
     selectStudent: 'Select a student from the chart',
     selectStudentDesc: 'Then test whether a small academic or background change alters the automated decision.',
     decisionScore: 'Decision score',
+    cutoff: 'Cutoff',
     flipQuestion: 'The result flipped. Which factor caused it, and should it matter?',
     changeQuestion: 'Change one factor until the result flips. Should that factor matter?',
     auditNote: 'Background changes audit the policy; they are not advice for students.',
@@ -200,7 +209,8 @@ const TRANSLATIONS = {
     themeSummer: '夏日',
     themeLight: '亮色',
     switchTheme: '切换主题',
-    mineEdgeCases: '挖掘边缘案例',
+    languageLabel: '语言',
+    mineEdgeCases: '查看临界案例',
     edgeCasesFound: '名最接近录取线',
     fromCutoff: '距录取线',
     choosePolicy: '选择一项政策',
@@ -209,6 +219,7 @@ const TRANSLATIONS = {
     simulationNote: '这是一个简化的模拟实验，并非真实录取系统。政策反映的是人类对于“什么重要”的选择。',
     seeAffected: '观察谁受到影响',
     seeAffectedDesc: '每个点代表一名模拟学生。点击任意点，进一步审查这项决定。',
+    chartLabel: '录取结果图。横轴为 GPA，纵轴为 SAT。请选择一个学生样本点来审查这项决定。',
     admitted: '已录取',
     notAdmitted: '未录取',
     student: '学生',
@@ -231,16 +242,18 @@ const TRANSLATIONS = {
     studentsAdmitted: '名学生被录取',
     overallRate: '总体录取率',
     compareOutcomes: '比较群体录取率',
-    gapCaution: '每个群体中有多少人被录取？差距是调查线索，并不能单独证明存在偏见。',
+    gapCaution: '录取率差距是调查线索，不能单独证明存在偏见。',
     admittedFraction: '{admitted}/{total}',
     lowerRateLabel: '{group}低 {gap} 个百分点',
+    pointsLower: '低 {gap} 个百分点',
     sameRateLabel: '两个群体的录取率相同。',
+    sameRateShort: '录取率相同',
     firstGenStatus: '第一代身份',
     athleticStatus: '运动员',
     residency: '居住地',
     discuss: '讨论',
     reflectionLabel: '写下你的思考（不会保存）',
-    reflectionPlaceholder: '我认为这项政策……因为……',
+    reflectionPlaceholder: '公平还是不公平？为什么？',
     whatIfTitle: '如果这名学生有所不同呢？',
     whatIfDesc: '每次改变一个因素，审查这项决定。',
     adjustedPosition: '调整后位置',
@@ -250,6 +263,7 @@ const TRANSLATIONS = {
     selectStudent: '请从图中选择一名学生',
     selectStudentDesc: '然后测试较小的学业或背景变化是否会改变自动化决定。',
     decisionScore: '决策分数',
+    cutoff: '录取线',
     flipQuestion: '结果翻转了。哪个因素造成了变化？它应该重要吗？',
     changeQuestion: '改变一个因素直到结果翻转。这个因素应该重要吗？',
     auditNote: '改变背景是审查政策，并非给学生的建议。',
@@ -296,7 +310,8 @@ const TRANSLATIONS = {
     themeSummer: 'Verano',
     themeLight: 'Claro',
     switchTheme: 'Cambiar tema',
-    mineEdgeCases: 'Casos límite',
+    languageLabel: 'Idioma',
+    mineEdgeCases: 'Buscar casos límite',
     edgeCasesFound: 'más cerca del corte',
     fromCutoff: 'del corte',
     choosePolicy: 'Elige una política',
@@ -305,6 +320,7 @@ const TRANSLATIONS = {
     simulationNote: 'Esta es una simulación simplificada, no un sistema real de admisión. La política refleja decisiones humanas sobre lo que importa.',
     seeAffected: 'Observa a quién afecta',
     seeAffectedDesc: 'Cada punto representa a un estudiante simulado. Haz clic para investigar una decisión.',
+    chartLabel: 'Gráfico de resultados de admisión. GPA está en el eje horizontal y SAT en el vertical. Selecciona un punto para investigar la decisión.',
     admitted: 'Admitido',
     notAdmitted: 'No admitido',
     student: 'Estudiante',
@@ -327,16 +343,18 @@ const TRANSLATIONS = {
     studentsAdmitted: 'estudiantes admitidos',
     overallRate: 'Tasa general de admisión',
     compareOutcomes: 'Compara tasas de admisión',
-    gapCaution: '¿Cuántos fueron admitidos en cada grupo? Las diferencias son pistas, no pruebas de sesgo.',
+    gapCaution: 'Una diferencia de tasas es una pista, no una prueba de sesgo.',
     admittedFraction: '{admitted}/{total}',
     lowerRateLabel: '{group}: {gap} puntos menos',
+    pointsLower: '{gap} pts menos',
     sameRateLabel: 'Ambos grupos tienen la misma tasa de admisión.',
+    sameRateShort: 'Misma tasa',
     firstGenStatus: 'Primera generación',
     athleticStatus: 'Deporte',
     residency: 'Residencia',
     discuss: 'Debate',
     reflectionLabel: 'Tu reflexión (no se guarda)',
-    reflectionPlaceholder: 'Creo que esta política es... porque...',
+    reflectionPlaceholder: '¿Justa o injusta? ¿Por qué?',
     whatIfTitle: '¿Y si cambiamos este caso?',
     whatIfDesc: 'Cambia un factor y audita la decisión.',
     adjustedPosition: 'Posición ajustada',
@@ -346,6 +364,7 @@ const TRANSLATIONS = {
     selectStudent: 'Selecciona un estudiante en el gráfico',
     selectStudentDesc: 'Después prueba si un pequeño cambio académico o de contexto altera la decisión automatizada.',
     decisionScore: 'Puntuación de decisión',
+    cutoff: 'Corte',
     flipQuestion: 'El resultado cambió. ¿Qué factor lo causó y debería importar?',
     changeQuestion: 'Cambia un factor hasta invertir el resultado. ¿Debería importar?',
     auditNote: 'Cambiar el contexto audita la política; no aconseja a estudiantes.',
@@ -458,7 +477,7 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
       </div>
       <div className="text-slate-300">GPA {student.gpa.toFixed(2)} · SAT {student.sat}</div>
       <div className="mt-1 font-mono text-[10px] text-slate-400">
-        {t.decisionScore}: {score.toFixed(1)} / {policy.threshold} · {distance.toFixed(1)} {t.fromCutoff}
+        {t.decisionScore}: {score.toFixed(1)} · {t.cutoff} {policy.threshold} · {distance.toFixed(1)} {t.fromCutoff}
       </div>
       <div className="mt-1 text-slate-500">
         {[student.firstGen && t.firstGeneration, student.athlete && t.athlete, student.resident && t.inState]
@@ -472,58 +491,85 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
 const RateComparison = ({ label, leftLabel, leftStats, rightLabel, rightStats, t }) => {
   const gap = Math.abs(leftStats.rate - rightStats.rate);
   const lowerRateGroup = leftStats.rate <= rightStats.rate ? leftLabel : rightLabel;
+  const leftIsLower = leftStats.rate < rightStats.rate;
+  const rightIsLower = rightStats.rate < leftStats.rate;
   const comparisonText = gap === 0
     ? t.sameRateLabel
     : formatCopy(t.lowerRateLabel, { group: lowerRateGroup, gap });
+  const lowerNote = formatCopy(t.pointsLower, { gap });
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/45 p-1.5">
-      <div className="mb-1 text-[10px] font-semibold leading-tight text-slate-200">{label}</div>
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
-          <div className="text-[9px] leading-tight text-slate-500" title={leftLabel}>{leftLabel}</div>
-          <div className="flex shrink-0 items-baseline gap-1 text-right">
-            <div className="text-sm font-bold leading-none text-white">{leftStats.rate}%</div>
-            <div className="text-[8px] leading-none text-slate-500">
-              {formatCopy(t.admittedFraction, leftStats)}
-            </div>
-          </div>
+    <div
+      className="grid grid-cols-[minmax(82px,0.72fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-1.5 border-b border-slate-800 px-1 py-0.5 last:border-b-0"
+      role="group"
+      aria-label={`${label}. ${comparisonText}`}
+    >
+      <div className="min-w-0 self-center">
+        <div className="text-[11px] font-bold leading-tight text-slate-200">{label}</div>
+        {gap === 0 && <div className="mt-0.5 text-[10px] font-medium text-slate-400">{t.sameRateShort}</div>}
+      </div>
+      <div className="simplified-rate-group flex min-w-0 items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold leading-tight text-slate-500" title={leftLabel}>{leftLabel}</div>
+          {leftIsLower && <div className="mt-0.5 text-[10px] font-bold leading-none text-amber-300">{lowerNote}</div>}
         </div>
-        <div className="flex items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
-          <div className="text-[9px] leading-tight text-slate-500" title={rightLabel}>{rightLabel}</div>
-          <div className="flex shrink-0 items-baseline gap-1 text-right">
-            <div className="text-sm font-bold leading-none text-white">{rightStats.rate}%</div>
-            <div className="text-[8px] leading-none text-slate-500">
-              {formatCopy(t.admittedFraction, rightStats)}
-            </div>
+        <div className="shrink-0 text-right">
+          <div className="text-base font-extrabold leading-none text-white">{leftStats.rate}%</div>
+          <div className="mt-0.5 text-[10px] leading-none text-slate-500">
+            {formatCopy(t.admittedFraction, leftStats)}
           </div>
         </div>
       </div>
-      <div className="mt-1.5 border-t border-slate-800 pt-1 text-[9px] leading-tight text-slate-400">
-        {comparisonText}
+      <div className="simplified-rate-group flex min-w-0 items-center justify-between gap-1 rounded-lg bg-slate-900 px-1.5 py-1">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold leading-tight text-slate-500" title={rightLabel}>{rightLabel}</div>
+          {rightIsLower && <div className="mt-0.5 text-[10px] font-bold leading-none text-amber-300">{lowerNote}</div>}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-base font-extrabold leading-none text-white">{rightStats.rate}%</div>
+          <div className="mt-0.5 text-[10px] leading-none text-slate-500">
+            {formatCopy(t.admittedFraction, rightStats)}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className, style }) => (
-  <circle
-    className={`recharts-symbols ${className || ''}`}
-    cx={cx}
-    cy={cy}
-    r="5.5"
-    fill={fill}
-    fillOpacity={fillOpacity}
-    stroke={stroke}
-    strokeWidth={strokeWidth}
-    style={style}
-  />
+const StudentDot = ({ cx, cy, fill, fillOpacity, stroke, strokeWidth, className, style, payload }) => (
+  <g className={`recharts-symbols ${className || ''}`} style={style}>
+    <circle cx={cx} cy={cy} r="12" fill="transparent" stroke="transparent" />
+    {payload?.admitted ? (
+      <circle
+        cx={cx}
+        cy={cy}
+        r="5.5"
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+      />
+    ) : (
+      <rect
+        x={cx - 4.5}
+        y={cy - 4.5}
+        width="9"
+        height="9"
+        rx="1.5"
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        transform={`rotate(45 ${cx} ${cy})`}
+      />
+    )}
+  </g>
 );
 
 const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition, darkPalette }) => {
   const outcomeColor = draftDecision
-    ? (isLight ? '#059669' : darkPalette.admitted)
-    : (isLight ? '#e11d48' : darkPalette.rejected);
+    ? (isLight ? LIGHT_OUTCOME_COLORS.admitted : darkPalette.admitted)
+    : (isLight ? LIGHT_OUTCOME_COLORS.rejected : darkPalette.rejected);
   const surfaceColor = isLight ? '#f8fafc' : darkPalette.surface;
 
   return (
@@ -551,7 +597,7 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition, 
 
 const SimplifiedApp = () => {
   const [lang, setLang] = useState('en');
-  const [theme, setTheme] = useState('graphite');
+  const [theme, setTheme] = useState('light');
   const [showCredits, setShowCredits] = useState(false);
   const [isMining, setIsMining] = useState(false);
   const [policyId, setPolicyId] = useState('academic');
@@ -562,6 +608,10 @@ const SimplifiedApp = () => {
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const isLight = theme === 'light';
   const darkPalette = DARK_THEME_PALETTES[isLight ? 'graphite' : theme];
+  const outcomeColors = {
+    admitted: isLight ? LIGHT_OUTCOME_COLORS.admitted : darkPalette.admitted,
+    rejected: isLight ? LIGHT_OUTCOME_COLORS.rejected : darkPalette.rejected,
+  };
   const themeLabels = {
     graphite: t.themeGraphite,
     summer: t.themeSummer,
@@ -661,6 +711,9 @@ const SimplifiedApp = () => {
         >
           <div
             className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-[#0f131a] p-6 shadow-2xl sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="credits-title"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-6 flex items-start justify-between gap-4">
@@ -670,7 +723,7 @@ const SimplifiedApp = () => {
                 </div>
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-amber-400">CounterLens</div>
-                  <h2 className="text-xl font-bold text-white">{t.creditsTitle}</h2>
+                  <h2 id="credits-title" className="text-xl font-bold text-white">{t.creditsTitle}</h2>
                 </div>
               </div>
               <button
@@ -762,7 +815,7 @@ const SimplifiedApp = () => {
               <ThemeIcon className="h-3.5 w-3.5 shrink-0" />
               <span>{themeLabels[theme]}</span>
             </button>
-            <div className="flex rounded-xl border border-slate-800 bg-slate-900/70 p-1">
+            <div className="flex rounded-xl border border-slate-800 bg-slate-900/70 p-1" role="group" aria-label={t.languageLabel}>
               {[
                 ['en', 'EN'],
                 ['zh', '中文'],
@@ -771,6 +824,7 @@ const SimplifiedApp = () => {
                 <button
                   key={code}
                   type="button"
+                  aria-pressed={lang === code}
                   onClick={() => setLang(code)}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                     lang === code ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'
@@ -792,11 +846,11 @@ const SimplifiedApp = () => {
 
         <main className="grid grid-cols-1 gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[245px_minmax(520px,1.55fr)_minmax(370px,0.9fr)] xl:gap-3">
           <aside className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-0.5">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3 shadow-xl shadow-black/10">
+            <section className="simplified-panel rounded-2xl border border-slate-800 bg-slate-900/70 p-3 shadow-xl shadow-black/10">
               <div className="mb-2 flex items-start gap-2.5">
-                <div className="obs-step-brass flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
+                <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
                 <div>
-                  <h2 className="font-semibold text-white">{t.choosePolicy}</h2>
+                  <h2 className="text-base font-bold leading-tight text-white">{t.choosePolicy}</h2>
                   <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.choosePolicyDesc}</p>
                 </div>
               </div>
@@ -815,21 +869,22 @@ const SimplifiedApp = () => {
                     <button
                       key={item.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => {
                         setPolicyId(item.id);
                         setIsMining(false);
                       }}
-                      className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                      className={`simplified-policy-card w-full rounded-xl border px-3 py-2 text-left transition ${
                         active
-                          ? 'border-blue-400/60 bg-blue-500/12 shadow-lg shadow-blue-500/5'
-                          : 'border-slate-800 bg-slate-950/45 hover:border-slate-700 hover:bg-slate-900'
+                          ? 'simplified-selected border-blue-400/60 bg-blue-500/12 shadow-lg shadow-blue-500/5'
+                          : 'simplified-inset border-slate-800 bg-slate-950/45 hover:border-slate-700 hover:bg-slate-900'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className={active ? 'font-semibold text-white' : 'font-semibold text-slate-300'}>{itemCopy.name}</span>
                         <span className="flex items-center gap-1.5">
                           <span
-                            className="rounded-full bg-slate-800/70 px-1.5 py-0.5 text-[9px] font-bold text-slate-400"
+                            className="rounded-full bg-slate-800/70 px-2 py-0.5 text-[10px] font-bold text-slate-400"
                             aria-label={`${admittedCount} / ${STUDENTS.length} ${t.studentsAdmitted}`}
                           >
                             {admittedCount}/{STUDENTS.length}
@@ -840,7 +895,7 @@ const SimplifiedApp = () => {
                       <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: itemAccent }}>
                         {itemCopy.shortName}
                       </div>
-                      <p className="mt-1 text-[11px] leading-snug text-slate-500 xl:text-[10px]">{itemCopy.description}</p>
+                      <p className="mt-1 text-[11px] leading-snug text-slate-500">{itemCopy.description}</p>
                     </button>
                   );
                 })}
@@ -852,39 +907,47 @@ const SimplifiedApp = () => {
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
                 <div>
                   <h3 className="text-sm font-semibold text-amber-100">{t.remember}</h3>
-                  <p className="mt-1 text-[11px] leading-snug text-amber-100/65 xl:text-[10px]">{t.simulationNote}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-amber-100/75">{t.simulationNote}</p>
                 </div>
               </div>
             </section>
           </aside>
 
-          <section className="flex min-h-[520px] flex-col rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-xl shadow-black/10 xl:min-h-0">
-              <div className="mb-2.5 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                <div className="flex items-start gap-3">
-                  <div className="obs-step-verdigris flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white">2</div>
-                  <div>
-                    <h2 className="font-semibold text-white">{t.seeAffected}</h2>
-                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.seeAffectedDesc}</p>
+          <section className="simplified-panel flex min-h-[520px] flex-col rounded-2xl border border-slate-800 bg-slate-900/65 p-4 shadow-xl shadow-black/10 xl:min-h-0">
+              <div className="mb-2.5 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">2</div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-bold leading-tight text-white">{t.seeAffected}</h2>
+                      <button
+                        type="button"
+                        aria-pressed={isMining}
+                        title={`${edgeCases.length} ${t.edgeCasesFound}`}
+                        onClick={() => setIsMining((current) => !current)}
+                        className={`flex min-h-8 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                          isMining
+                            ? 'border-amber-400/50 bg-amber-400/12 text-amber-300 shadow-sm shadow-amber-500/15'
+                            : 'border-slate-700 bg-slate-950/45 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Target className={`h-3.5 w-3.5 ${isMining ? 'animate-pulse' : ''}`} />
+                        {t.mineEdgeCases}
+                        {isMining && <span className="rounded bg-amber-400/15 px-1 text-[10px]">{edgeCases.length}</span>}
+                      </button>
+                    </div>
+                    <p className="mt-0.5 text-xs font-semibold leading-snug text-blue-300">{t.seeAffectedDesc}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                  <button
-                    type="button"
-                    aria-pressed={isMining}
-                    title={`${edgeCases.length} ${t.edgeCasesFound}`}
-                    onClick={() => setIsMining((current) => !current)}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 font-semibold transition ${
-                      isMining
-                        ? 'border-amber-400/50 bg-amber-400/12 text-amber-300 shadow-sm shadow-amber-500/15'
-                        : 'border-slate-700 bg-slate-950/45 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Target className={`h-3.5 w-3.5 ${isMining ? 'animate-pulse' : ''}`} />
-                    {t.mineEdgeCases}
-                    {isMining && <span className="rounded bg-amber-400/15 px-1 text-[9px]">8</span>}
-                  </button>
-                  <span className="flex items-center gap-1.5 text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />{t.admitted}</span>
-                  <span className="flex items-center gap-1.5 text-rose-300"><span className="h-2 w-2 rounded-full bg-rose-400" />{t.notAdmitted}</span>
+                <div className="simplified-outcome-legend grid shrink-0 justify-items-start gap-1 pt-0.5 text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 text-emerald-300">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: outcomeColors.admitted }} />
+                    {t.admitted}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-rose-300">
+                    <span className="h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ backgroundColor: outcomeColors.rejected }} />
+                    {t.notAdmitted}
+                  </span>
                   {draftProfileChanged && (
                     <span className="flex items-center gap-1.5 font-medium text-amber-300">
                       <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-amber-400" />
@@ -895,7 +958,9 @@ const SimplifiedApp = () => {
               </div>
 
               <div
-                className="simplified-scatter-plot h-[390px] min-h-[320px] w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 xl:h-auto xl:min-h-0 xl:flex-1"
+                className="simplified-inset simplified-scatter-plot h-[390px] min-h-[320px] w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 xl:h-auto xl:min-h-0 xl:flex-1"
+                role="group"
+                aria-label={t.chartLabel}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={(event) => {
                   if (!event.target.closest?.('.recharts-scatter-symbol')) {
@@ -904,6 +969,7 @@ const SimplifiedApp = () => {
                   }
                 }}
               >
+                <span className="sr-only">{t.chartLabel}</span>
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 20, right: 24, bottom: 22, left: 4 }}>
                     <CartesianGrid stroke={isLight ? '#dbe3ee' : darkPalette.grid} strokeDasharray="3 5" vertical={false} />
@@ -994,7 +1060,7 @@ const SimplifiedApp = () => {
                         return (
                           <Cell
                             key={student.id}
-                            fill={student.admitted ? (isLight ? '#059669' : darkPalette.admitted) : (isLight ? '#e11d48' : darkPalette.rejected)}
+                            fill={student.admitted ? outcomeColors.admitted : outcomeColors.rejected}
                             fillOpacity={isMining ? (isEdgeCase || isSelected ? 1 : 0.18) : (selectedId && !isSelected ? 0.6 : 1)}
                             stroke={
                               isSelected
@@ -1039,7 +1105,7 @@ const SimplifiedApp = () => {
                 </ResponsiveContainer>
               </div>
 
-              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-950/50 px-3 py-2">
+              <div className="simplified-summary-strip mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-950/50 px-3 py-2">
                 <div>
                   <span className="text-xl font-bold text-white">{impact.admitted}</span>
                   <span className="ml-2 text-xs text-slate-400">/ {STUDENTS.length} {t.studentsAdmitted}</span>
@@ -1051,16 +1117,16 @@ const SimplifiedApp = () => {
           </section>
 
           <div className="grid grid-cols-1 gap-4 xl:min-h-0 xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-3">
-              <section className="rounded-2xl border border-slate-800 bg-slate-900/65 p-2.5 xl:min-h-0">
+              <section className="simplified-panel rounded-2xl border border-slate-800 bg-slate-900/65 p-2.5 xl:min-h-0">
                 <div className="mb-1.5 flex items-start gap-2.5">
-                  <div className="obs-step-iris flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-slate-950">3</div>
+                  <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">3</div>
                   <div>
-                    <h2 className="font-semibold text-white">{t.compareOutcomes}</h2>
+                    <h2 className="text-base font-bold leading-tight text-white">{t.compareOutcomes}</h2>
                     <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.gapCaution}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenStatus}
                     leftLabel={t.firstGenerationShort}
@@ -1089,51 +1155,38 @@ const SimplifiedApp = () => {
 
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[0.95fr_1.05fr]">
                   <div className="rounded-xl border border-violet-400/20 bg-violet-400/[0.07] p-1.5">
-                    <div className="flex items-start gap-2">
-                      <Scale className="mt-0.5 h-4 w-4 shrink-0 text-violet-300" />
-                      <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-violet-300">{t.discuss}</div>
-                        <p className="mt-0.5 text-[10px] leading-snug text-violet-100/80">{policyCopy.question}</p>
-                      </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                      <Scale className="h-3.5 w-3.5 shrink-0" />
+                      {t.discuss}
                     </div>
+                    <p className="mt-0.5 text-[11px] font-medium leading-snug text-violet-100/80">{policyCopy.question}</p>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-slate-400" htmlFor="reflection">{t.reflectionLabel}</label>
+                    <label className="block text-[11px] font-semibold text-slate-400" htmlFor="reflection">{t.reflectionLabel}</label>
                     <textarea
                       id="reflection"
                       value={reflection}
                       onChange={(event) => setReflection(event.target.value)}
                       placeholder={t.reflectionPlaceholder}
-                      className="mt-1 h-9 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/70 px-2.5 py-1.5 text-[10px] text-white outline-none transition placeholder:text-slate-600 focus:border-violet-400"
+                      className="mt-1 h-9 w-full resize-none rounded-xl border border-slate-700 bg-slate-950/70 px-2.5 py-1.5 text-[11px] text-white outline-none transition placeholder:text-slate-600 focus:border-violet-400"
                     />
                   </div>
                 </div>
               </section>
 
-              <section className="flex min-h-[390px] flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 p-3 xl:min-h-0 xl:p-2.5">
+              <section className="simplified-panel flex min-h-[390px] flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 p-3 xl:min-h-0 xl:p-2.5">
                 <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-1.5">
                   <div className="flex items-start gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
-                      <UserRoundSearch className="h-4 w-4 text-blue-300" />
-                    </div>
+                    <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">4</div>
                     <div>
-                      <h2 className="text-sm font-semibold leading-tight text-white">{t.whatIfTitle}</h2>
-                      <p className="mt-0.5 text-[10px] leading-snug text-slate-400">{t.whatIfDesc}</p>
+                      <h2 className="text-[15px] font-bold leading-tight text-white">{t.whatIfTitle}</h2>
+                      <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-400">{t.whatIfDesc}</p>
                     </div>
                   </div>
-                  {draftStudent && (
-                    <button
-                      type="button"
-                      onClick={() => setDraftStudent({ ...selectedStudent })}
-                      className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-600 hover:text-white"
-                    >
-                      <RotateCcw className="h-3 w-3" /> {t.reset}
-                    </button>
-                  )}
                 </div>
 
                 {!draftStudent ? (
-                  <div className="flex min-h-[300px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 p-5 text-center xl:min-h-0">
+                  <div className="simplified-inset flex min-h-[300px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 p-5 text-center xl:min-h-0">
                     <GraduationCap className="h-8 w-8 text-slate-700" />
                     <h3 className="mt-3 text-sm font-semibold text-slate-300">{t.selectStudent}</h3>
                     <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{t.selectStudentDesc}</p>
@@ -1142,10 +1195,8 @@ const SimplifiedApp = () => {
                   <div className="space-y-2 xl:space-y-1">
                     <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-950/55 px-3 py-2 xl:py-1.5">
                       <div className="min-w-0">
-                        <div className="truncate text-xs font-semibold text-white">
-                          <span className="font-normal text-slate-500">{t.student} {draftStudent.id}</span>
-                          <span className="mx-1.5 text-slate-700">·</span>
-                          GPA {draftStudent.gpa.toFixed(2)} · SAT {draftStudent.sat}
+                        <div className="text-xs font-semibold text-white">
+                          {t.student} {draftStudent.id}
                         </div>
                         {draftProfileChanged && (
                           <div className="mt-0.5 text-[10px] font-medium text-amber-300">
@@ -1155,8 +1206,17 @@ const SimplifiedApp = () => {
                           </div>
                         )}
                       </div>
-                      <div className={`rounded-full px-3 py-1 text-xs font-bold ${draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
-                        {draftDecision ? t.admitted : t.notAdmitted}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <div className={`rounded-full px-3 py-1 text-xs font-bold ${draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
+                          {draftDecision ? t.admitted : t.notAdmitted}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDraftStudent({ ...selectedStudent })}
+                          className="flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-400 hover:border-slate-600 hover:text-white"
+                        >
+                          <RotateCcw className="h-3 w-3" /> {t.reset}
+                        </button>
                       </div>
                     </div>
 
@@ -1204,8 +1264,9 @@ const SimplifiedApp = () => {
                         <button
                           key={field}
                           type="button"
+                          aria-pressed={draftStudent[field]}
                           onClick={() => updateDraft(field, !draftStudent[field])}
-                          className={`rounded-xl border px-2 py-1.5 text-[10px] font-medium transition xl:py-1 ${
+                          className={`min-h-8 rounded-xl border px-2 py-1.5 text-[11px] font-semibold transition ${
                             draftStudent[field]
                               ? 'border-blue-400/45 bg-blue-500/12 text-blue-200'
                               : 'border-slate-700 bg-slate-950/50 text-slate-500 hover:text-slate-300'
@@ -1219,9 +1280,9 @@ const SimplifiedApp = () => {
                     <div className={`rounded-xl border p-2.5 xl:p-2 ${decisionFlipped ? 'border-amber-400/35 bg-amber-400/[0.08]' : 'border-slate-800 bg-slate-950/45'}`}>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold text-slate-200">{t.decisionScore}</span>
-                        <span className="font-mono text-xs text-slate-300">{draftScore.toFixed(1)} / {policy.threshold}</span>
+                        <span className="font-mono text-xs text-slate-300">{draftScore.toFixed(1)} · {t.cutoff} {policy.threshold}</span>
                       </div>
-                      <p className={`mt-1 text-[10px] leading-snug ${decisionFlipped ? 'text-amber-200/80' : 'text-slate-500'}`}>
+                      <p className={`mt-1 text-[11px] font-medium leading-snug ${decisionFlipped ? 'text-amber-200/80' : 'text-slate-500'}`}>
                         {decisionFlipped ? t.flipQuestion : t.changeQuestion}
                       </p>
                     </div>
