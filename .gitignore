@@ -17,6 +17,7 @@ dist-ssr
 
 # Local backend state
 server/.data/
+demo-packages/
 
 # Editor directories and files
 .vscode/*

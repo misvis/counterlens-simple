@@ -1,8 +1,4 @@
-import {
-  CLASSROOM_SCHEMA_VERSION,
-  DEFAULT_DATASET_ID,
-  createSyntheticClassroomView,
-} from '../../shared/classroomDataset.js';
+import { CLASSROOM_SCHEMA_VERSION } from '../../shared/classroomDataset.js';
 
 const FEATURE_TYPES = new Set(['number', 'boolean', 'category', 'ordinal']);
 const FEATURE_ROLES = new Set(['input', 'group', 'outcome']);
@@ -145,14 +141,4 @@ export const summarizeDatasetQuality = (view) => {
     missingValues,
     outOfRangeValues,
   };
-};
-
-const classroomViews = new Map();
-const syntheticView = validateClassroomView(createSyntheticClassroomView());
-classroomViews.set(DEFAULT_DATASET_ID, syntheticView);
-
-export const getClassroomView = (datasetId) => classroomViews.get(datasetId) ?? null;
-export const getDatasetQuality = (datasetId) => {
-  const view = getClassroomView(datasetId);
-  return view ? summarizeDatasetQuality(view) : null;
 };

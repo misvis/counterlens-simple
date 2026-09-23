@@ -1,134 +1,320 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { randomUUID } from 'node:crypto';
+import { MongoClient } from 'mongodb';
 import { createSyntheticClassroomView } from '../shared/classroomDataset.js';
 import { buildApp } from './app.js';
+import { loadConfig } from './config.js';
 import { validateClassroomView } from './datasets/registry.js';
-import { createMonitoringStore } from './monitoring/store.js';
 
-const createTestApp = async () => buildApp({
-  logger: false,
-  config: {
-    host: '127.0.0.1',
-    port: 8787,
+test('MongoDB classroom lifecycle and collection boundaries', async (t) => {
+  // Always use a fresh, unmistakably test-only database. Never drop a configured demo DB.
+  const dbName = `counterlens_test_${randomUUID().replaceAll('-', '')}`;
+  const config = {
+    ...loadConfig({}),
     nodeEnv: 'test',
-    logLevel: 'silent',
-    allowedOrigins: ['http://localhost:5173'],
-    monitoringToken: 'test-monitor-token',
-    monitoringDbPath: ':memory:',
-    monitoringRetentionDays: 30,
-  },
-  monitoringStore: createMonitoringStore({ databasePath: ':memory:', retentionDays: 30 }),
-});
-
-test('serves a healthy, public-safe classroom view', async (t) => {
-  const app = await createTestApp();
-  t.after(() => app.close());
-
-  const health = await app.inject({ method: 'GET', url: '/healthz' });
-  assert.equal(health.statusCode, 200);
-  assert.equal(health.json().status, 'ok');
-
-  const response = await app.inject({
-    method: 'GET',
-    url: '/api/v1/classroom-view/admissions-demo',
-    headers: { origin: 'http://localhost:5173' },
+    mongoDbName: dbName,
+    monitoringToken: 'test-console-token',
+  };
+  const client = new MongoClient(config.mongoUri);
+  await client.connect();
+  let app;
+  t.after(async () => {
+    if (app) await app.close();
+    if (/^counterlens_test_[a-f0-9]{32}$/.test(dbName))
+      await client.db(dbName).dropDatabase();
+    await client.close();
   });
-  const body = response.json();
+  app = await buildApp({ config, logger: false });
+  const auth = { authorization: 'Bearer test-console-token' };
+  const event = {
+    classroomId: 'local-demo',
+    name: 'page_view',
+    datasetId: 'admissions-demo',
+    datasetVersion: 'synthetic-1973-v1',
+    policyId: 'academic',
+    locale: 'en',
+    theme: 'light',
+  };
+  const submission = {
+    classroomId: 'local-demo',
+    submissionId: randomUUID(),
+    questionnaireId: 'ethics-exit-ticket',
+    questionnaireVersion: 'demo-v1',
+    locale: 'en',
+    consent: true,
+    answers: { policy: 'holistic', confidence: 4, reflection: 'Test response' },
+  };
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.headers['access-control-allow-origin'], 'http://localhost:5173');
-  assert.equal(body.schemaVersion, 1);
-  assert.equal(body.records.length, 72);
-  assert.equal(body.dataset.recordCount, 72);
-  assert.equal(body.privacy.containsDirectIdentifiers, false);
-  assert.equal(body.privacy.approvedForPublicDisplay, true);
-  assert.equal('name' in body.records[0], false);
-  assert.equal('email' in body.records[0], false);
-});
-
-test('rejects unknown datasets and non-contract event fields', async (t) => {
-  const app = await createTestApp();
-  t.after(() => app.close());
-
-  const missing = await app.inject({
-    method: 'GET',
-    url: '/api/v1/classroom-view/not-a-dataset',
+  await t.test('serves persisted data and database readiness', async () => {
+    assert.equal((await app.inject('/readyz')).json().database.status, 'ok');
+    const res = await app.inject('/api/v1/classroom-view/admissions-demo');
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().records.length, 72);
+    assert.equal(
+      await client.db(dbName).collection('classroom_records').countDocuments(),
+      72,
+    );
+    assert.equal(
+      (await app.inject('/api/v1/classrooms/local-demo')).json().questionnaire
+        .version,
+      'demo-v1',
+    );
   });
-  assert.equal(missing.statusCode, 404);
-
-  const invalidEvent = await app.inject({
-    method: 'POST',
-    url: '/api/v1/events',
-    payload: {
-      name: 'student_selected',
-      datasetId: 'admissions-demo',
-      datasetVersion: 'synthetic-1973-v1',
-      policyId: 'academic',
-      locale: 'en',
-      theme: 'light',
-      studentRecordId: 'S01',
+  await t.test(
+    'protects console data and rejects private event fields',
+    async () => {
+      const wrongType = await app.inject({ method: 'POST', url: '/api/v1/events', headers: { 'content-type': 'application/xml' }, payload: '<event />' });
+      assert.equal(wrongType.statusCode, 415);
+      assert.equal(
+        (await app.inject('/api/v1/monitoring/summary')).statusCode,
+        401,
+      );
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/events',
+            payload: { ...event, studentRecordId: 'S01' },
+          })
+        ).statusCode,
+        400,
+      );
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/events',
+            payload: event,
+          })
+        ).statusCode,
+        202,
+      );
     },
-  });
-  assert.equal(invalidEvent.statusCode, 400);
-  assert.equal(invalidEvent.json().error, 'invalid_request');
-});
-
-test('stores only allow-listed events and protects monitoring summaries', async (t) => {
-  const app = await createTestApp();
-  t.after(() => app.close());
-
-  const accepted = await app.inject({
-    method: 'POST',
-    url: '/api/v1/events',
-    payload: {
-      name: 'page_view',
-      datasetId: 'admissions-demo',
-      datasetVersion: 'synthetic-1973-v1',
-      policyId: 'academic',
-      locale: 'en',
-      theme: 'light',
+  );
+  await t.test(
+    'validates question versions, choices, types, and explicit submission agreement',
+    async () => {
+      for (const payload of [
+        { ...submission, consent: false },
+        { ...submission, questionnaireVersion: 'old-v0' },
+        { ...submission, answers: { policy: 'unknown', confidence: 4 } },
+        { ...submission, answers: { policy: 'academic', confidence: '4' } },
+        {
+          ...submission,
+          answers: {
+            policy: 'academic',
+            confidence: 4,
+            email: 'not-allowed@example.com',
+          },
+        },
+      ])
+        assert.equal(
+          (
+            await app.inject({
+              method: 'POST',
+              url: '/api/v1/responses',
+              payload,
+            })
+          ).statusCode,
+          400,
+        );
     },
+  );
+  await t.test(
+    'saves answers exactly once on a retried submission',
+    async () => {
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/responses',
+            payload: submission,
+          })
+        ).statusCode,
+        201,
+      );
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/responses',
+            payload: submission,
+          })
+        ).json().duplicate,
+        true,
+      );
+      assert.equal(
+        await client.db(dbName).collection('responses').countDocuments(),
+        1,
+      );
+      const data = (
+        await app.inject({ url: '/api/v1/monitoring/summary', headers: auth })
+      ).json();
+      assert.equal(data.surveys.count, 1);
+      assert.equal(data.surveys.choices[0].name, 'holistic');
+      assert.equal(data.privacy.storesIpAddresses, false);
+    },
+  );
+  await t.test(
+    'isolates classroom sessions and honors collection closure',
+    async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/monitoring/classrooms',
+        headers: auth,
+        payload: { title: 'Test classroom' },
+      });
+      assert.equal(created.statusCode, 201);
+      const id = created.json().id;
+      assert.equal(
+        (
+          await app.inject({
+            url: `/api/v1/monitoring/summary?classroomId=${id}`,
+            headers: auth,
+          })
+        ).json().surveys.count,
+        0,
+      );
+      await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/monitoring/classrooms/${id}`,
+        headers: auth,
+        payload: { status: 'closed' },
+      });
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/responses',
+            payload: { ...submission, classroomId: id },
+          })
+        ).statusCode,
+        409,
+      );
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/events',
+            payload: { ...event, classroomId: id },
+          })
+        ).statusCode,
+        409,
+      );
+    },
+  );
+  await t.test(
+    'marks showcase data and prevents live answers from mixing with it',
+    async () => {
+      const room = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/v1/monitoring/showcase',
+          headers: auth,
+        })
+      ).json();
+      const data = (
+        await app.inject({
+          url: `/api/v1/monitoring/summary?classroomId=${room.id}`,
+          headers: auth,
+        })
+      ).json();
+      assert.equal(data.classroom.synthetic, true);
+      assert.equal(data.surveys.count, 24);
+      assert.equal(data.events.total, 186);
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/responses',
+            payload: { ...submission, classroomId: room.id },
+          })
+        ).statusCode,
+        409,
+      );
+    },
+  );
+  await t.test(
+    'filters expired answers even before asynchronous TTL deletion',
+    async () => {
+      await client
+        .db(dbName)
+        .collection('responses')
+        .insertOne({
+          ...submission,
+          submissionId: randomUUID(),
+          recordedAt: new Date(),
+          expiresAt: new Date(Date.now() - 1000),
+        });
+      assert.equal(
+        (
+          await app.inject({ url: '/api/v1/monitoring/summary', headers: auth })
+        ).json().surveys.count,
+        1,
+      );
+      const indexes = await client.db(dbName).collection('responses').indexes();
+      assert.ok(indexes.some((index) => index.expireAfterSeconds === 0));
+    },
+  );
+  await t.test(
+    'retains records and answers after closing and reopening the backend',
+    async () => {
+      await app.close();
+      app = await buildApp({ config, logger: false });
+      assert.equal(
+        await client
+          .db(dbName)
+          .collection('classroom_records')
+          .countDocuments(),
+        72,
+      );
+      assert.equal(
+        (
+          await app.inject({ url: '/api/v1/monitoring/summary', headers: auth })
+        ).json().surveys.count,
+        1,
+      );
+    },
+  );
+  await t.test('returns 429 when the event limit is exceeded', async () => {
+    let response;
+    for (let i = 0; i < 91; i++)
+      response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/events',
+        payload: event,
+      });
+    assert.equal(response.statusCode, 429);
   });
-  assert.equal(accepted.statusCode, 202);
-
-  const unauthorized = await app.inject({
-    method: 'GET',
-    url: '/api/v1/monitoring/summary',
-  });
-  assert.equal(unauthorized.statusCode, 401);
-
-  const authorized = await app.inject({
-    method: 'GET',
-    url: '/api/v1/monitoring/summary?windowHours=24',
-    headers: { authorization: 'Bearer test-monitor-token' },
-  });
-  const summary = authorized.json();
-
-  assert.equal(authorized.statusCode, 200);
-  assert.equal(summary.events.counts.find((row) => row.name === 'page_view').count, 1);
-  assert.equal(summary.dataset.recordCount, 72);
-  assert.equal(summary.privacy.storesIpAddresses, false);
-  assert.equal(summary.privacy.storesStudentRecordIds, false);
-  assert.equal(summary.privacy.storesReflectionText, false);
-  assert.equal(JSON.stringify(summary).includes('S01'), false);
-});
-
-test('refuses to publish a dataset that is not approved for public display', () => {
-  const unsafeView = createSyntheticClassroomView();
-  unsafeView.privacy.approvedForPublicDisplay = false;
-
-  assert.throws(
-    () => validateClassroomView(unsafeView),
-    /approved for public display/,
+  await t.test(
+    'reports unavailable storage without returning a healthy readiness response',
+    async () => {
+      await app.classroomStore.close();
+      assert.equal((await app.inject('/readyz')).statusCode, 503);
+    },
   );
 });
 
-test('refuses unpublished record fields even when the release flag is set', () => {
-  const unsafeView = createSyntheticClassroomView();
-  unsafeView.records[0].email = 'student@example.edu';
-
+test('refuses non-approved releases and undeclared fields', () => {
+  const unsafe = createSyntheticClassroomView();
+  unsafe.privacy.approvedForPublicDisplay = false;
   assert.throws(
-    () => validateClassroomView(unsafeView),
-    /contains unpublished field email/,
+    () => validateClassroomView(unsafe),
+    /approved for public display/,
+  );
+  unsafe.privacy.approvedForPublicDisplay = true;
+  unsafe.records[0].email = 'student@example.edu';
+  assert.throws(() => validateClassroomView(unsafe), /unpublished field/);
+});
+
+test('does not expose the development console token on a public listener', async () => {
+  await assert.rejects(
+    () =>
+      buildApp({
+        config: { ...loadConfig({}), host: '0.0.0.0' },
+        logger: false,
+      }),
+    /only allowed on a local/,
   );
 });

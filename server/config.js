@@ -1,8 +1,6 @@
-import path from 'node:path';
-
 const parsePositiveInteger = (value, fallback, name) => {
   if (value === undefined || value === '') return fallback;
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`${name} must be a positive integer`);
   }
@@ -24,10 +22,12 @@ export const loadConfig = (env = process.env) => ({
   nodeEnv: env.NODE_ENV || 'development',
   logLevel: env.LOG_LEVEL || 'info',
   allowedOrigins: parseOrigins(env.ALLOWED_ORIGINS),
-  monitoringToken: env.MONITORING_TOKEN || '',
-  monitoringDbPath: env.MONITORING_DB_PATH
-    ? path.resolve(env.MONITORING_DB_PATH)
-    : path.resolve('server/.data/monitoring.sqlite'),
+  monitoringToken:
+    env.MONITORING_TOKEN ||
+    (env.NODE_ENV === 'production' ? '' : 'counterlens-local-demo'),
+  mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017',
+  mongoDbName: env.MONGODB_DB || 'counterlens_demo',
+  consoleUrl: env.CONSOLE_URL || 'http://localhost:5173/?view=console',
   monitoringRetentionDays: parsePositiveInteger(
     env.MONITORING_RETENTION_DAYS,
     30,

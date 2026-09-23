@@ -1,5 +1,26 @@
 # CounterLens Release Log
 
+## [V2.8.0 - Interactive Classroom Workspace] - 2026-09-23
+### Changed
+- Reorganized the student view into a larger visualizer and a compact, aligned control panel.
+- Added an adjustable admission threshold, exact GPA/SAT boundary slices, and a background-dependent boundary band.
+- Clarified policy explanations and added outcome-flip and admission-rate change feedback.
+- Added gold edge-case highlights and refined contrast, spacing, and help popovers across three themes and languages.
+- Removed the standalone discussion/reflection panels; retained the optional Check-in questionnaire and local classroom console.
+- Included the MongoDB backend, console, tests, and laptop demo guide in the source release. GitHub Pages remains a static synthetic-data demo; no database contents or private configuration are published.
+
+## [V2.7.0 - Local Classroom Console] - 2026-09-18
+### Added
+- Added classroom sessions, a versioned demo questionnaire, and explicit answer submission with retry deduplication.
+- Added a unified console for activity, survey results, submitted reflections, API health, and dataset quality.
+- Added clearly labeled showcase data, collection controls, snapshot export, and MongoDB integration tests.
+
+### Changed
+- Made local console access automatic and clarified section navigation with distinct headings and reloadable links.
+- Moved classroom data and monitoring storage to local MongoDB; existing SQLite files are left untouched.
+- Added database readiness checks and retention indexes; excluded console polling from request metrics.
+- Kept the separate reflection draft unsaved. Only the new questionnaire submits answers.
+
 ## [V2.6.0 - Backend Foundation & Private Monitoring] - 2026-09-02
 ### Added
 - Added a versioned classroom-data API with public-release privacy checks and extensible feature metadata.

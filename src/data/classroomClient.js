@@ -3,7 +3,7 @@ import {
   createSyntheticClassroomView,
 } from '../../shared/classroomDataset.js';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+import { API_BASE_URL, CLASSROOM_ID } from './api.js';
 const DATASET_ID = import.meta.env.VITE_DATASET_ID || DEFAULT_DATASET_ID;
 
 export const isClassroomApiConfigured = Boolean(API_BASE_URL);
@@ -40,7 +40,7 @@ export const loadClassroomView = async () => {
   const timeout = window.setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/classroom-view/${encodeURIComponent(DATASET_ID)}`,
+      `${API_BASE_URL}/api/v1/classroom-view/${encodeURIComponent(DATASET_ID)}?classroomId=${encodeURIComponent(CLASSROOM_ID)}`,
       { signal: controller.signal, headers: { Accept: 'application/json' } },
     );
     if (!response.ok) {
