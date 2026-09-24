@@ -1,5 +1,10 @@
 # CounterLens Release Log
 
+## [V2.10.1 - Themes & Credits] - 2026-09-23
+### Changed
+- Hid Summer from the theme switch and renamed Graphite to Dark, with matching Chinese and Spanish labels. Colors and button size are unchanged.
+- Added Soham Khisa to Researcher & Developer and updated Eric Yang to Changjia (Eric) Yang, with localized Ph.D. Student titles.
+
 ## [V2.10.0 - Drag-to-Explore Controls] - 2026-09-23
 ### Changed
 - Drag the admission boundary or shaded band to adjust the threshold, with the slider and cohort statistics updating together.

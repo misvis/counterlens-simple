@@ -2,7 +2,7 @@
   "name": "counter-lens-simple",
   "homepage": "https://misvis.github.io/counterlens-simple/",
   "private": true,
-  "version": "2.10.0",
+  "version": "2.10.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names api,web \"npm:dev:server\" \"npm:dev:web:api\"",

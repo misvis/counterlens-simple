@@ -15,7 +15,7 @@ The public [GitHub Pages demo](https://misvis.github.io/counterlens-simple/) rem
 
 The `synthetic-1973-v2` release adds a boolean `referenceOutcome` with role `outcome`, separate from policy inputs. It preserves the previous 72 GPA/SAT/background profiles. Reference labels follow the original prototype's demonstration formula: `18 * GPA + 20 * SAT / 1600 + noise > 72`, with noise in `[0, 15)` from a separate seeded stream (2026). These are simulated labels, not observed performance or evidence of fairness. Future approved releases can provide a boolean outcome feature allowed for comparison; the matrix uses it only when there is exactly one such feature. Missing labels are excluded and coverage is shown. Without a reference field, the matrix shows an unavailable state rather than invented counts.
 
-Light, Graphite, and Summer themes and English, Chinese, and Spanish are available. The public build works without an API; collecting events or questionnaire answers requires a separately running backend.
+Light and Dark themes and English, Chinese, and Spanish are available. Dark uses the existing Graphite palette. The Summer palette is retained in the code but hidden from the theme switch. The public build works without an API; collecting events or questionnaire answers requires a separately running backend.
 
 ## Run locally
 

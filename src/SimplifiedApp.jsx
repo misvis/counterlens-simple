@@ -66,7 +66,8 @@ const POLICY_PRESENTATION = {
   },
 };
 
-const THEME_SEQUENCE = ['graphite', 'summer', 'light'];
+const THEME_SEQUENCE = ['light', 'graphite'];
+const RESEARCH_CONTRIBUTORS = ['Changjia (Eric) Yang', 'Soham Khisa'];
 
 const DARK_THEME_PALETTES = {
   graphite: {
@@ -121,7 +122,7 @@ const TRANSLATIONS = {
     matrixField: 'Benchmark field: {field}',
     matrixCells: { tp: 'True positive: admitted and meets the benchmark', fp: 'False positive: admitted and below the benchmark', fn: 'False negative: not admitted and meets the benchmark', tn: 'True negative: not admitted and below the benchmark' },
     credits: 'Credits',
-    themeGraphite: 'Graphite',
+    themeGraphite: 'Dark',
     themeSummer: 'Summer',
     themeLight: 'Light',
     switchTheme: 'Switch theme',
@@ -229,7 +230,7 @@ const TRANSLATIONS = {
     principalInvestigator: 'Principal Investigator',
     researcherDeveloper: 'Researcher & Developer',
     projectLead: 'Prof. Rebecca Williams',
-    contributor: 'Eric Yang, Ph.D. Student',
+    contributorRole: 'Ph.D. Student',
     department: 'Dept. of Computer Science and Electrical Engineering (CSEE)',
     college: 'College of Engineering and Information Technology',
     university: 'University of Maryland, Baltimore County (UMBC)',
@@ -283,7 +284,7 @@ const TRANSLATIONS = {
     matrixField: '基准字段：{field}',
     matrixCells: { tp: '真正类：已录取，达到基准', fp: '假正类：已录取，未达基准', fn: '假负类：未录取，达到基准', tn: '真负类：未录取，未达基准' },
     credits: '项目团队',
-    themeGraphite: '石墨',
+    themeGraphite: '深色',
     themeSummer: '夏日',
     themeLight: '亮色',
     switchTheme: '切换主题',
@@ -391,7 +392,7 @@ const TRANSLATIONS = {
     principalInvestigator: '首席研究员',
     researcherDeveloper: '研究与开发',
     projectLead: 'Prof. Rebecca Williams',
-    contributor: 'Eric Yang，博士生',
+    contributorRole: '博士生',
     department: '计算机科学与电气工程系（CSEE）',
     college: '工程与信息技术学院',
     university: '马里兰大学巴尔的摩县分校（UMBC）',
@@ -445,7 +446,7 @@ const TRANSLATIONS = {
     matrixField: 'Campo del criterio: {field}',
     matrixCells: { tp: 'Verdadero positivo: admitido y cumple el criterio', fp: 'Falso positivo: admitido y no cumple el criterio', fn: 'Falso negativo: no admitido y cumple el criterio', tn: 'Verdadero negativo: no admitido y no cumple el criterio' },
     credits: 'Créditos',
-    themeGraphite: 'Grafito',
+    themeGraphite: 'Oscuro',
     themeSummer: 'Verano',
     themeLight: 'Claro',
     switchTheme: 'Cambiar tema',
@@ -553,7 +554,7 @@ const TRANSLATIONS = {
     principalInvestigator: 'Investigadora principal',
     researcherDeveloper: 'Investigación y desarrollo',
     projectLead: 'Prof. Rebecca Williams',
-    contributor: 'Eric Yang, estudiante de doctorado',
+    contributorRole: 'Estudiante de doctorado',
     department: 'Departamento de Informática e Ingeniería Eléctrica (CSEE)',
     college: 'Facultad de Ingeniería y Tecnología de la Información',
     university: 'Universidad de Maryland, Condado de Baltimore (UMBC)',
@@ -1078,7 +1079,14 @@ const SimplifiedApp = () => {
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-300">
                   <Sparkles className="h-4 w-4" /> {t.researcherDeveloper}
                 </div>
-                <div className="font-semibold text-white">{t.contributor}</div>
+                <ul className="space-y-3">
+                  {RESEARCH_CONTRIBUTORS.map(name => (
+                    <li key={name}>
+                      <div className="font-semibold text-white">{name}</div>
+                      <div className="mt-0.5 text-xs font-medium text-slate-400">{t.contributorRole}</div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 
