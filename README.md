@@ -8,8 +8,10 @@ The public [GitHub Pages demo](https://misvis.github.io/counterlens-simple/) rem
 
 - **Policy Studio** selects the scoring rule; **Admission Threshold** changes its cutoff for all students.
 - **Counterfactual Visualizer** shows GPA/SAT outcomes and a live decision boundary. Context-sensitive policies use a band across background combinations; selecting a student shows the exact slice for that background. No PCA projection is used.
+- Drag the boundary line or shaded band to adjust the admission threshold directly. The slider, cohort outcomes, group rates, and confusion matrix stay in sync. Student dots remain selectable above the drag layer. Dragging keeps the policy weights and student profiles unchanged; press Esc during a drag to restore its starting cutoff. The slider remains available for keyboard input and off-chart boundaries.
 - **Counterfactual Editor** changes a hypothetical profile without changing the cohort. Gold highlights identify nearby edge cases; purple identifies counterfactual edits. **Group Outcomes** compares cohort admission rates.
-- **Confusion Matrix**, next to the threshold slider, compares cohort decisions with fixed reference outcomes. Rows are admitted/not admitted; columns are reference positive/negative. Each cell shows its count and a bar scaled by all labeled samples. The footer shows total samples and, when labels are missing, how many were included. Counts update with the policy and cutoff, while hypothetical profile edits leave cohort counts unchanged. Label provenance is explained in the help popup.
+- Click a student to select them, or drag their point to try different GPA/SAT values. The original point stays in place; a draggable purple marker shows the hypothetical profile and remains linked to the editor sliders. GPA moves in 0.01 steps and SAT in 10-point steps, within the plotted ranges. Press Esc during a drag to restore the previous selection/profile, or use Reset to return to the student's original values. Student dragging leaves the cutoff, other records, group rates, and confusion matrix unchanged.
+- **Confusion Matrix**, next to the threshold slider, compares cohort decisions with fixed reference outcomes. Rows are admitted/not admitted; columns read **Meets benchmark / Below benchmark** for the dataset's positive/negative labels. The benchmark is separate from the adjustable admission threshold. Each cell shows its count and a bar scaled by all labeled samples. The footer shows total samples and, when labels are missing, how many were included. Counts update with the policy and cutoff, while hypothetical profile edits leave cohort counts unchanged. Label provenance is explained in the help popup.
 
 The `synthetic-1973-v2` release adds a boolean `referenceOutcome` with role `outcome`, separate from policy inputs. It preserves the previous 72 GPA/SAT/background profiles. Reference labels follow the original prototype's demonstration formula: `18 * GPA + 20 * SAT / 1600 + noise > 72`, with noise in `[0, 15)` from a separate seeded stream (2026). These are simulated labels, not observed performance or evidence of fairness. Future approved releases can provide a boolean outcome feature allowed for comparison; the matrix uses it only when there is exactly one such feature. Missing labels are excluded and coverage is shown. Without a reference field, the matrix shows an unavailable state rather than invented counts.
 
@@ -41,8 +43,8 @@ For another laptop, see [the demo handoff guide](docs/LAPTOP_DEMO.md). Copying t
 1. Open the console and select **Generate showcase** to create a separate, labeled session with simulated events and 24 simulated answers. Service measurements are still real.
 2. Select **New classroom** and enter a title for a fresh session.
 3. Use **Open student view**. The link's `class` parameter assigns events and answers to that classroom.
-4. Compare policies and inspect a student. Open **Check-in**, answer the questions, agree to submission, and submit.
-5. Return to the console and refresh. Inspect activity, question distributions, and submitted text. Close collection when finished.
+4. Compare policies, move the threshold, and drag a student to explore a hypothetical profile.
+5. Return to the console and refresh to inspect activity. Select the generated showcase session to see demo question distributions and answers. Close collection when finished.
 6. Use **Export snapshot** for a JSON report of the displayed window (includes up to 12 recent answers, not a full research-data export).
 
 The console supports Overview, Classroom & surveys, System health, and Dataset release views; automatic refresh is optional. An unavailable API/database produces an error and marks previous values as unverified. Counts are event/submission counts, not unique-person counts, completion rates, or learning outcomes.
@@ -53,7 +55,7 @@ The console supports Overview, Classroom & surveys, System health, and Dataset r
 
 When changing questions, increment the questionnaire version and create a new classroom. Existing classrooms remain tied to their original version. The dashboard's policy and confidence charts currently illustrate the example questions; adding different research questions also requires adapting these charts. A form-builder UI, participant identities, longitudinal linking, and pre/post experiment design are intentionally deferred.
 
-Answers are saved only on explicit submission. A random submission ID prevents retries of the same request from adding another response. It is not a participant identifier and does not stop one person from submitting again after reloading. The standalone **Discuss / Your reflection** panels have been removed from the student workspace; the optional **Check-in** questionnaire remains available when an API is configured.
+Answers are saved only on explicit submission. A random submission ID prevents retries of the same request from adding another response. It is not a participant identifier and does not stop one person from submitting again after reloading. The standalone **Discuss / Your reflection** panels have been removed from the student workspace. The **Check-in** entry is currently hidden, including when an API is configured; the survey component, backend endpoints, and existing answers are retained for future use.
 
 ## MongoDB collections
 

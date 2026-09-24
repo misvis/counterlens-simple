@@ -1,10 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSyntheticClassroomView } from './classroomDataset.js';
-import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from './admissionModel.js';
+import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix, thresholdAfterDrag, studentAfterDrag } from './admissionModel.js';
 
 const { policies, records } = createSyntheticClassroomView();
 const backgrounds = Array.from({ length: 8 }, (_, i) => ({ firstGen: Boolean(i & 1), athlete: Boolean(i & 2), resident: Boolean(i & 4) }));
+
+test('Student dragging edits only hypothetical GPA/SAT, matches slider steps, and respects chart limits', () => {
+  const student = Object.freeze({ id: 'test', gpa: 3.2, sat: 1200, firstGen: true, athlete: false, resident: true, referenceOutcome: false });
+  assert.deepEqual(studentAfterDrag(student, 0, 0), student);
+  assert.deepEqual(studentAfterDrag(student, .1, .2), { ...student, gpa: 3.36, sat: 1330 });
+  assert.deepEqual(studentAfterDrag(student, -.1, -.2), { ...student, gpa: 3.04, sat: 1070 });
+  assert.deepEqual(studentAfterDrag(student, 10, -10), { ...student, gpa: 4, sat: 950 });
+  assert.deepEqual(studentAfterDrag(student, -10, 10), { ...student, gpa: 2.4, sat: 1600 });
+  assert.equal(studentAfterDrag(student, .01234, .02345).gpa, 3.22);
+  assert.equal(studentAfterDrag(student, .01234, .02345).sat, 1220);
+  assert.notEqual(studentAfterDrag(student, 0, 0), student);
+  const baseline = policies.map(policy => confusionMatrix(records, policy, 'referenceOutcome'));
+  records.forEach(record => studentAfterDrag(record, .25, .25));
+  assert.deepEqual(policies.map(policy => confusionMatrix(records, policy, 'referenceOutcome')), baseline);
+});
+
+test('Boundary dragging translates the weighted score, preserves grab offset, and clamps to the slider range', () => {
+  for (const policy of policies) {
+    const { gpa, sat } = policy.weights;
+    assert.equal(thresholdAfterDrag(policy, policy.threshold, 0, 0), policy.threshold);
+    assert.equal(thresholdAfterDrag(policy, 50, .1, .1), Math.round(50 + .1 * (gpa + sat)));
+    assert.equal(thresholdAfterDrag(policy, 50, -.1, -.1), Math.round(50 - .1 * (gpa + sat)));
+    assert.equal(thresholdAfterDrag(policy, 50, sat / 100, -gpa / 100), 50, 'Along-boundary motion keeps the threshold');
+    assert.equal(thresholdAfterDrag(policy, 50, 10, 10), 100);
+    assert.equal(thresholdAfterDrag(policy, 50, -10, -10), 0);
+    for (const profile of backgrounds) {
+      const start = { ...profile, gpa: 3.1, sat: 1200 };
+      const moved = { ...profile, gpa: 3.26, sat: 1265 };
+      assert.equal(thresholdAfterDrag(policy, scoreStudent(start, policy), .1, .1), Math.round(scoreStudent(moved, policy)));
+    }
+  }
+  assert.equal(thresholdAfterDrag({ weights: { gpa: 100 } }, 50, .1, 1), 60);
+  assert.equal(thresholdAfterDrag({ weights: { sat: 100 } }, 50, 1, .1), 60);
+  assert.equal(thresholdAfterDrag({ weights: {} }, 50, 1, 1), 50);
+  assert.equal(thresholdAfterDrag({ weights: { gpa: -100 } }, 50, .1, 0), 40);
+});
 
 test('Confusion matrix counts all four outcomes and excludes missing or non-boolean reference labels', () => {
   const policy = { weights: { gpa: 100 }, threshold: 50 };

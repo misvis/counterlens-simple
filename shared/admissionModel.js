@@ -20,6 +20,21 @@ export const scoreStudent = (student, policy) => {
 
 export const getDecision = (student, policy) => scoreStudent(student, policy) >= policy.threshold;
 
+// Translate a grabbed boundary without snapping it to the pointer. Deltas are
+// fractions of the GPA/SAT domains (positive SAT means upwards on screen).
+export const thresholdAfterDrag = (policy, initialThreshold, gpaDelta, satDelta) => (
+  Math.round(Math.min(100, Math.max(0,
+    initialThreshold + weight(policy, 'gpa') * gpaDelta + weight(policy, 'sat') * satDelta,
+  )))
+);
+
+// Keep the original record intact and match the editor's GPA/SAT step sizes.
+export const studentAfterDrag = (student, gpaDelta, satDelta) => ({
+  ...student,
+  gpa: Math.round(Math.min(GPA_MAX, Math.max(GPA_MIN, student.gpa + gpaDelta * (GPA_MAX - GPA_MIN))) * 100) / 100,
+  sat: Math.round(Math.min(SAT_MAX, Math.max(SAT_MIN, student.sat + satDelta * (SAT_MAX - SAT_MIN))) / 10) * 10,
+});
+
 // Compare cohort decisions with an independent, boolean reference outcome.
 // Missing labels are excluded rather than treated as negative outcomes.
 export const confusionMatrix = (records, policy, referenceKey) => {

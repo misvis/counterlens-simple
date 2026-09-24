@@ -253,6 +253,56 @@
   white-space: nowrap;
 }
 
+.workspace-boundary-drag-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--workspace-highlight);
+  white-space: nowrap;
+}
+
+.workspace-boundary-drag-target,
+.workspace-student-drag-target,
+.workspace-student-drag-target > circle,
+.workspace-student-drag-target > rect {
+  cursor: grab;
+  touch-action: none;
+}
+
+.workspace-boundary-drag-surface:hover .workspace-boundary-hit-line,
+.is-boundary-dragging .workspace-boundary-hit-line {
+  stroke: var(--workspace-highlight);
+  stroke-opacity: .12;
+}
+
+.workspace-boundary-drag-surface:hover .workspace-boundary-band,
+.is-boundary-dragging .workspace-boundary-band {
+  fill-opacity: .18;
+}
+
+.simplified-scatter-plot.is-boundary-dragging,
+.simplified-scatter-plot.is-boundary-dragging *,
+.simplified-scatter-plot.is-student-dragging,
+.simplified-scatter-plot.is-student-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.workspace-threshold.is-boundary-dragging {
+  box-shadow: 0 0 0 3px var(--workspace-highlight-ring);
+}
+
+.workspace-counterfactual.is-student-dragging {
+  box-shadow: 0 0 0 3px var(--workspace-edit-ring);
+}
+
+.counterfactual-position-marker:hover,
+.is-student-dragging .counterfactual-position-marker {
+  filter: drop-shadow(0 0 3px var(--workspace-edit));
+}
+
 .workspace-boundary-swatch {
   width: 24px;
   flex-shrink: 0;
@@ -773,6 +823,14 @@
   text-align: left;
   padding-right: 3px;
   white-space: nowrap;
+}
+
+.workspace-confusion-table thead th:not(:first-child) {
+  padding: 2px 3px;
+  color: var(--threshold-text);
+  font-weight: 700;
+  text-wrap: balance;
+  vertical-align: bottom;
 }
 
 .workspace-confusion-table td {

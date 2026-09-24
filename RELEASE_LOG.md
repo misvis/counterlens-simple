@@ -1,5 +1,12 @@
 # CounterLens Release Log
 
+## [V2.10.0 - Drag-to-Explore Controls] - 2026-09-23
+### Changed
+- Drag the admission boundary or shaded band to adjust the threshold, with the slider and cohort statistics updating together.
+- Drag a student or their hypothetical marker to edit GPA and SAT. Original records and cohort statistics stay unchanged; the editor and admission result update live.
+- Added mouse and touch handling, drag feedback, Esc undo, and regression tests for both interactions.
+- Hid Check-in and removed the prototype badge. Replaced matrix abbreviations with Meets benchmark / Below benchmark and updated help in all three languages.
+
 ## [V2.9.0 - Confusion Matrix & UI Cleanup] - 2026-09-23
 ### Changed
 - Added a compact confusion matrix beside the threshold, with larger counts, proportional bars, sample totals, and multilingual help.
