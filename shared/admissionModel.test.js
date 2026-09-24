@@ -1,10 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSyntheticClassroomView } from './classroomDataset.js';
-import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand } from './admissionModel.js';
+import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from './admissionModel.js';
 
 const { policies, records } = createSyntheticClassroomView();
 const backgrounds = Array.from({ length: 8 }, (_, i) => ({ firstGen: Boolean(i & 1), athlete: Boolean(i & 2), resident: Boolean(i & 4) }));
+
+test('Confusion matrix counts all four outcomes and excludes missing or non-boolean reference labels', () => {
+  const policy = { weights: { gpa: 100 }, threshold: 50 };
+  const samples = [
+    { gpa: 4, sat: 1200, reference: true },
+    { gpa: 4, sat: 1200, reference: false },
+    { gpa: 2.4, sat: 1200, reference: true },
+    { gpa: 2.4, sat: 1200, reference: false },
+    { gpa: 4, sat: 1200, reference: null },
+    { gpa: 4, sat: 1200 },
+    { gpa: 4, sat: 1200, reference: 'false' },
+  ];
+  const original = samples.map(sample => ({ ...sample }));
+  assert.deepEqual(confusionMatrix(samples, policy, 'reference'), { tp: 1, fp: 1, fn: 1, tn: 1, labeled: 4, missing: 3 });
+  assert.deepEqual(confusionMatrix(samples, { ...policy, threshold: 0 }, 'reference'), { tp: 2, fp: 2, fn: 0, tn: 0, labeled: 4, missing: 3 });
+  assert.deepEqual(confusionMatrix(samples, { ...policy, threshold: 101 }, 'reference'), { tp: 0, fp: 0, fn: 2, tn: 2, labeled: 4, missing: 3 });
+  assert.deepEqual(samples, original, 'Policy changes never rewrite reference outcomes');
+  assert.deepEqual(confusionMatrix(samples, policy, null), { tp: 0, fp: 0, fn: 0, tn: 0, labeled: 0, missing: 7 });
+  assert.deepEqual(confusionMatrix([], policy, 'reference'), { tp: 0, fp: 0, fn: 0, tn: 0, labeled: 0, missing: 0 });
+});
+
+test('Demo reference labels are reproducible and never change admission scores', () => {
+  const repeated = createSyntheticClassroomView();
+  assert.deepEqual(repeated.records, records);
+  assert.ok(records.every(record => typeof record.referenceOutcome === 'boolean'));
+  assert.deepEqual(policies.map(policy => records.filter(record => getDecision(record, policy)).length), [16, 27, 36]);
+  for (const policy of policies) for (const record of records) {
+    assert.equal(scoreStudent(record, policy), scoreStudent({ ...record, referenceOutcome: !record.referenceOutcome }, policy));
+  }
+  for (const preset of policies) for (let threshold = 0; threshold <= 100; threshold += 1) {
+    const policy = { ...preset, threshold };
+    const matrix = confusionMatrix(records, policy, 'referenceOutcome');
+    assert.equal(matrix.tp + matrix.fp + matrix.fn + matrix.tn, records.length);
+    assert.equal(matrix.tp + matrix.fp, records.filter(record => getDecision(record, policy)).length);
+    assert.equal(matrix.tp + matrix.fn, records.filter(record => record.referenceOutcome).length);
+  }
+});
 
 test('Every boundary point satisfies the same admission equation for every background and threshold', () => {
   for (const preset of policies) for (const profile of backgrounds) for (let threshold = 0; threshold <= 100; threshold += 1) {

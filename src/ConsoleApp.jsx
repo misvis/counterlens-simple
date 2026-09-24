@@ -1,4 +1,5 @@
 import { createElement, useCallback, useEffect, useRef, useState } from 'react';
+import { DEFAULT_CLASSROOM_ID } from '../shared/classroomDataset.js';
 import {
   Activity,
   ArrowUpRight,
@@ -100,7 +101,7 @@ export default function ConsoleApp() {
   const [draftToken, setDraftToken] = useState('');
   const [classrooms, setClassrooms] = useState([]);
   const [classroomId, setClassroomId] = useState(
-    () => new URLSearchParams(window.location.search).get('class') || 'local-demo',
+    () => new URLSearchParams(window.location.search).get('class') || DEFAULT_CLASSROOM_ID,
   );
   const [hours, setHours] = useState('24');
   const [summary, setSummary] = useState(null);

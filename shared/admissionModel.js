@@ -20,6 +20,24 @@ export const scoreStudent = (student, policy) => {
 
 export const getDecision = (student, policy) => scoreStudent(student, policy) >= policy.threshold;
 
+// Compare cohort decisions with an independent, boolean reference outcome.
+// Missing labels are excluded rather than treated as negative outcomes.
+export const confusionMatrix = (records, policy, referenceKey) => {
+  const result = { tp: 0, fp: 0, fn: 0, tn: 0, labeled: 0, missing: 0 };
+  for (const record of records) {
+    const reference = referenceKey ? record[referenceKey] : undefined;
+    if (typeof reference !== 'boolean') {
+      result.missing += 1;
+      continue;
+    }
+    const admitted = getDecision(record, policy);
+    const cell = admitted ? (reference ? 'tp' : 'fp') : (reference ? 'fn' : 'tn');
+    result[cell] += 1;
+    result.labeled += 1;
+  }
+  return result;
+};
+
 const toChartPoint = ({ x, y }) => ({ x: GPA_MIN + (GPA_MAX - GPA_MIN) * x, y: SAT_MIN + (SAT_MAX - SAT_MIN) * y });
 
 // Intersect a*x + b*y = threshold - contextScore with the normalized chart square.

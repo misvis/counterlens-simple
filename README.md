@@ -9,6 +9,9 @@ The public [GitHub Pages demo](https://misvis.github.io/counterlens-simple/) rem
 - **Policy Studio** selects the scoring rule; **Admission Threshold** changes its cutoff for all students.
 - **Counterfactual Visualizer** shows GPA/SAT outcomes and a live decision boundary. Context-sensitive policies use a band across background combinations; selecting a student shows the exact slice for that background. No PCA projection is used.
 - **Counterfactual Editor** changes a hypothetical profile without changing the cohort. Gold highlights identify nearby edge cases; purple identifies counterfactual edits. **Group Outcomes** compares cohort admission rates.
+- **Confusion Matrix**, next to the threshold slider, compares cohort decisions with fixed reference outcomes. Rows are admitted/not admitted; columns are reference positive/negative. Each cell shows its count and a bar scaled by all labeled samples. The footer shows total samples and, when labels are missing, how many were included. Counts update with the policy and cutoff, while hypothetical profile edits leave cohort counts unchanged. Label provenance is explained in the help popup.
+
+The `synthetic-1973-v2` release adds a boolean `referenceOutcome` with role `outcome`, separate from policy inputs. It preserves the previous 72 GPA/SAT/background profiles. Reference labels follow the original prototype's demonstration formula: `18 * GPA + 20 * SAT / 1600 + noise > 72`, with noise in `[0, 15)` from a separate seeded stream (2026). These are simulated labels, not observed performance or evidence of fairness. Future approved releases can provide a boolean outcome feature allowed for comparison; the matrix uses it only when there is exactly one such feature. Missing labels are excluded and coverage is shown. Without a reference field, the matrix shows an unavailable state rather than invented counts.
 
 Light, Graphite, and Summer themes and English, Chinese, and Spanish are available. The public build works without an API; collecting events or questionnaire answers requires a separately running backend.
 
@@ -21,7 +24,7 @@ npm install
 npm run dev
 ```
 
-No `.env` is needed with the local defaults. The API connects to the dedicated `counterlens_demo` database and seeds the 72-record synthetic release, example questionnaire, and `local-demo` classroom without replacing existing data.
+No `.env` is needed with the local defaults. The API connects to the dedicated `counterlens_demo` database and seeds the 72-record synthetic release, example questionnaire, and `local-demo-v2` classroom without replacing existing data. Existing classrooms (including `local-demo`) remain pinned to their original releases; their old links and answers are preserved. New classrooms and showcases use the reference-label release.
 
 - Student page: http://localhost:5173/
 - Classroom console: http://localhost:5173/?view=console

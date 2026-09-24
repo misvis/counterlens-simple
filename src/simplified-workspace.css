@@ -331,6 +331,27 @@
   overflow-wrap: anywhere;
 }
 
+.workspace-policy-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-policy-total {
+  padding-right: 28px;
+  font-size: 14px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.workspace-policy-count-label {
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
 .workspace-policy,
 .workspace-policy-option {
   position: relative;
@@ -338,7 +359,7 @@
 
 .workspace-policy-info {
   position: absolute;
-  bottom: 5px;
+  bottom: 18px;
   right: 5px;
   display: grid;
   place-items: center;
@@ -469,12 +490,6 @@
   color: var(--workspace-down);
 }
 
-.workspace-rate-note {
-  min-height: 1.2em;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
 .workspace-draft-controls {
   display: flex;
   flex: 1;
@@ -541,10 +556,21 @@
   color: var(--workspace-edit);
 }
 
-.workspace-threshold {
-  position: relative;
+.workspace-analysis-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(264px, 38%, 352px);
+  align-items: stretch;
+  gap: 12px;
   flex-shrink: 0;
   margin-top: 12px;
+}
+
+.workspace-threshold {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--threshold-border);
   border-top: 3px solid var(--workspace-highlight);
@@ -568,7 +594,9 @@
 
 .workspace-threshold-heading {
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+  row-gap: 4px;
 }
 
 .workspace-threshold-name {
@@ -584,6 +612,7 @@
 .workspace-threshold-setting {
   gap: 10px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .workspace-threshold-value {
@@ -605,6 +634,7 @@
   justify-content: center;
   gap: 4px;
   min-height: 28px;
+  min-width: 28px;
   padding: 4px 8px;
   border: 1px solid var(--threshold-border);
   border-radius: 7px;
@@ -682,7 +712,8 @@
   font-size: 20px;
 }
 
-.workspace-threshold-explanation {
+.workspace-threshold-explanation,
+.workspace-confusion-explanation {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
@@ -694,6 +725,137 @@
   padding: 16px;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.workspace-confusion {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--threshold-border);
+  border-top: 3px solid var(--workspace-highlight);
+  border-radius: 12px;
+  background: var(--threshold-surface);
+  color: var(--threshold-text);
+}
+
+.workspace-confusion-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.workspace-confusion-heading h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.workspace-confusion-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-confusion-table th {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  color: var(--threshold-muted);
+}
+
+.workspace-confusion-table tbody th {
+  text-align: left;
+  padding-right: 3px;
+  white-space: nowrap;
+}
+
+.workspace-confusion-table td {
+  width: 35%;
+  padding: 0;
+  border: 1px solid var(--threshold-border);
+  border-radius: 5px;
+}
+
+.workspace-confusion-table td.is-match {
+  background: var(--workspace-highlight-ring);
+}
+
+.workspace-confusion-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 6px;
+}
+
+.workspace-confusion-values {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.workspace-confusion-values > span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--threshold-muted);
+}
+
+.workspace-confusion-values > strong {
+  font-size: 22px;
+  line-height: 26px;
+}
+
+.workspace-confusion-meter {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--threshold-track);
+}
+
+.workspace-confusion-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--workspace-highlight);
+  transition: width 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-confusion-meter > span { transition: none; }
+}
+
+.workspace-confusion-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--threshold-muted);
+}
+
+.workspace-confusion-source > span {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-confusion-source strong {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--threshold-text);
+}
+
+.workspace-confusion-explanation {
+  right: 0;
+  left: auto;
+  width: min(400px, calc(100vw - 48px));
 }
 
 .workspace-decision {
@@ -789,7 +951,6 @@
   }
 
   .workspace-profile-status,
-  .workspace-rate-note,
   .workspace-rate-numbers span {
     font-size: 13px;
   }
@@ -822,11 +983,34 @@
 
   .workspace-controls {
     gap: 8px;
-    grid-template-rows: auto minmax(252px, 1.1fr) minmax(212px, 1fr);
+    grid-template-rows: auto minmax(252px, 1.1fr) minmax(204px, 1fr);
   }
 
   .workspace-controls > .simplified-panel {
     padding: 10px;
+  }
+
+  .workspace-controls .simplified-policy-card {
+    gap: 3px;
+    padding-block: 6px;
+  }
+
+  .workspace-policy-count {
+    gap: 0;
+  }
+
+  .workspace-policy-total {
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .workspace-policy-count-label {
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  .workspace-policy-info {
+    bottom: 12px;
   }
 
   .workspace-controls h2 {
@@ -867,18 +1051,16 @@
     font-size: 18px;
   }
 
-  .workspace-rate-note {
-    font-size: 10px;
-    line-height: 1.1;
-    min-height: 1.1em;
-  }
-
   .workspace-draft-controls {
     gap: 2px;
   }
 
-  .workspace-threshold {
+  .workspace-analysis-bar {
     margin-top: 8px;
+    gap: 8px;
+  }
+
+  .workspace-threshold {
     padding: 7px 12px;
   }
 
@@ -926,6 +1108,36 @@
     padding: 12px;
   }
 
+  .workspace-policy-options {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-controls .simplified-policy-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 40px 10px 12px;
+  }
+
+  .workspace-policy-name {
+    min-height: 0;
+  }
+
+  .workspace-policy-count {
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .workspace-policy-total {
+    padding-right: 0;
+  }
+
+  .workspace-policy-info {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+
   .workspace-profile-status {
     min-height: 2.8em;
   }
@@ -950,8 +1162,15 @@
   }
 
   .workspace-threshold-setting {
-    width: 100%;
-    justify-content: space-between;
+    margin-left: auto;
+  }
+
+  .workspace-analysis-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-confusion {
+    min-height: 138px;
   }
 
   .workspace-threshold-summary {

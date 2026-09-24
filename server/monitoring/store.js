@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { MongoClient } from 'mongodb';
-import { createSyntheticClassroomView } from '../../shared/classroomDataset.js';
+import { createSyntheticClassroomView, DEFAULT_CLASSROOM_ID, DEFAULT_DATASET_ID, DEFAULT_DATASET_VERSION } from '../../shared/classroomDataset.js';
 import { DEMO_QUESTIONNAIRE } from '../../shared/questionnaire.js';
 import {
   validateClassroomView,
@@ -68,10 +68,10 @@ export class ClassroomStore {
       { upsert: true },
     );
     await this.db.collection('classrooms').updateOne(
-      { _id: 'local-demo' },
+      { _id: DEFAULT_CLASSROOM_ID },
       {
         $setOnInsert: {
-          title: 'Local classroom demo',
+          title: 'Local classroom demo · reference labels',
           releaseId,
           status: 'open',
           synthetic: false,
@@ -154,7 +154,7 @@ export class ClassroomStore {
       status: 'open',
       synthetic,
       createdAt: new Date(),
-      releaseId: 'admissions-demo:synthetic-1973-v1',
+      releaseId: `${DEFAULT_DATASET_ID}:${DEFAULT_DATASET_VERSION}`,
       questionnaireId: `${DEMO_QUESTIONNAIRE.id}:${DEMO_QUESTIONNAIRE.version}`,
     });
     return this.getClassroom(id);
@@ -228,8 +228,8 @@ export class ClassroomStore {
       Array.from({ length: 186 }, (_, i) => ({
         classroomId: classroom.id,
         name: names[i % names.length],
-        datasetId: 'admissions-demo',
-        datasetVersion: 'synthetic-1973-v1',
+        datasetId: DEFAULT_DATASET_ID,
+        datasetVersion: DEFAULT_DATASET_VERSION,
         policyId: ['academic', 'holistic', 'opportunity'][i % 3],
         locale: 'en',
         theme: 'light',
@@ -264,7 +264,7 @@ export class ClassroomStore {
     return classroom;
   }
 
-  async getSummary({ windowHours = 24, classroomId = 'local-demo' }) {
+  async getSummary({ windowHours = 24, classroomId = DEFAULT_CLASSROOM_ID }) {
     const since = new Date(Date.now() - windowHours * HOUR);
     const metricMatch = {
       recordedAt: { $gte: since },

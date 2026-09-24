@@ -1,5 +1,13 @@
 # CounterLens Release Log
 
+## [V2.9.0 - Confusion Matrix & UI Cleanup] - 2026-09-23
+### Changed
+- Added a compact confusion matrix beside the threshold, with larger counts, proportional bars, sample totals, and multilingual help.
+- Simplified policy explanations, aligned admission counts, and removed extra group-gap text.
+- Renamed the edge-case control to Mine Edge Cases and reduced chart clutter with shorter, lighter sample guides and one active boundary line.
+- Added fixed demo reference labels in a new dataset release and default classroom; existing profiles, classrooms, and answers remain unchanged.
+- Included the related MongoDB/backend updates and tests. GitHub Pages remains a static demo; database contents and private configuration are not published.
+
 ## [V2.8.0 - Interactive Classroom Workspace] - 2026-09-23
 ### Changed
 - Reorganized the student view into a larger visualizer and a compact, aligned control panel.

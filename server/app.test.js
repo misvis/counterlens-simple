@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { MongoClient } from 'mongodb';
-import { createSyntheticClassroomView } from '../shared/classroomDataset.js';
+import { createSyntheticClassroomView, DEFAULT_CLASSROOM_ID, DEFAULT_DATASET_VERSION } from '../shared/classroomDataset.js';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { validateClassroomView } from './datasets/registry.js';
@@ -28,16 +28,16 @@ test('MongoDB classroom lifecycle and collection boundaries', async (t) => {
   app = await buildApp({ config, logger: false });
   const auth = { authorization: 'Bearer test-console-token' };
   const event = {
-    classroomId: 'local-demo',
+    classroomId: DEFAULT_CLASSROOM_ID,
     name: 'page_view',
     datasetId: 'admissions-demo',
-    datasetVersion: 'synthetic-1973-v1',
+    datasetVersion: DEFAULT_DATASET_VERSION,
     policyId: 'academic',
     locale: 'en',
     theme: 'light',
   };
   const submission = {
-    classroomId: 'local-demo',
+    classroomId: DEFAULT_CLASSROOM_ID,
     submissionId: randomUUID(),
     questionnaireId: 'ethics-exit-ticket',
     questionnaireVersion: 'demo-v1',
@@ -51,15 +51,42 @@ test('MongoDB classroom lifecycle and collection boundaries', async (t) => {
     const res = await app.inject('/api/v1/classroom-view/admissions-demo');
     assert.equal(res.statusCode, 200);
     assert.equal(res.json().records.length, 72);
+    assert.equal(res.json().dataset.version, DEFAULT_DATASET_VERSION);
+    assert.ok(res.json().records.every(record => typeof record.referenceOutcome === 'boolean'));
     assert.equal(
       await client.db(dbName).collection('classroom_records').countDocuments(),
       72,
     );
     assert.equal(
-      (await app.inject('/api/v1/classrooms/local-demo')).json().questionnaire
+      (await app.inject(`/api/v1/classrooms/${DEFAULT_CLASSROOM_ID}`)).json().questionnaire
         .version,
       'demo-v1',
     );
+  });
+  await t.test('new reference-label releases preserve existing classroom bindings', async () => {
+    const legacy = createSyntheticClassroomView();
+    legacy.dataset.version = 'synthetic-1973-v1';
+    legacy.features = legacy.features.filter(feature => feature.key !== 'referenceOutcome');
+    legacy.records = legacy.records.map(record => {
+      const copy = { ...record };
+      delete copy.referenceOutcome;
+      return copy;
+    });
+    const releaseId = `${legacy.dataset.id}:${legacy.dataset.version}`;
+    const metadata = { ...legacy };
+    delete metadata.records;
+    const db = client.db(dbName);
+    await db.collection('dataset_releases').insertOne({ _id: releaseId, ...metadata, published: true, createdAt: new Date(0) });
+    await db.collection('classroom_records').insertMany(legacy.records.map(record => ({ releaseId, ...record })));
+    await db.collection('classrooms').insertOne({ _id: 'local-demo', title: 'Previous demo', releaseId, status: 'open', questionnaireId: 'ethics-exit-ticket:demo-v1', createdAt: new Date(0) });
+    await app.classroomStore.initialize();
+    const oldView = (await app.inject('/api/v1/classroom-view/admissions-demo?classroomId=local-demo')).json();
+    assert.deepEqual(oldView.records, legacy.records);
+    assert.equal(oldView.dataset.version, 'synthetic-1973-v1');
+    const newView = (await app.inject(`/api/v1/classroom-view/admissions-demo?classroomId=${DEFAULT_CLASSROOM_ID}`)).json();
+    assert.equal(newView.dataset.version, DEFAULT_DATASET_VERSION);
+    assert.ok(newView.records.every(record => typeof record.referenceOutcome === 'boolean'));
+    assert.equal((await app.classroomStore.createClassroom('New release test')).releaseId, `${newView.dataset.id}:${DEFAULT_DATASET_VERSION}`);
   });
   await t.test(
     'protects console data and rejects private event fields',
@@ -266,9 +293,10 @@ test('MongoDB classroom lifecycle and collection boundaries', async (t) => {
         await client
           .db(dbName)
           .collection('classroom_records')
-          .countDocuments(),
+          .countDocuments({ releaseId: `admissions-demo:${DEFAULT_DATASET_VERSION}` }),
         72,
       );
+      assert.equal(await client.db(dbName).collection('classroom_records').countDocuments({ releaseId: 'admissions-demo:synthetic-1973-v1' }), 72);
       assert.equal(
         (
           await app.inject({ url: '/api/v1/monitoring/summary', headers: auth })
@@ -306,6 +334,15 @@ test('refuses non-approved releases and undeclared fields', () => {
   unsafe.privacy.approvedForPublicDisplay = true;
   unsafe.records[0].email = 'student@example.edu';
   assert.throws(() => validateClassroomView(unsafe), /unpublished field/);
+});
+
+test('reference outcomes cannot be used as policy inputs or counterfactual controls', () => {
+  const view = createSyntheticClassroomView();
+  view.policies[0].weights.referenceOutcome = 10;
+  assert.throws(() => validateClassroomView(view), /non-input feature/);
+  delete view.policies[0].weights.referenceOutcome;
+  view.features.find(feature => feature.key === 'referenceOutcome').allowedUses.push('counterfactual');
+  assert.throws(() => validateClassroomView(view), /cannot be counterfactual/);
 });
 
 test('does not expose the development console token on a public listener', async () => {

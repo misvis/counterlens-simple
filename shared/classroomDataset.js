@@ -1,5 +1,7 @@
 export const CLASSROOM_SCHEMA_VERSION = 1;
 export const DEFAULT_DATASET_ID = 'admissions-demo';
+export const DEFAULT_DATASET_VERSION = 'synthetic-1973-v2';
+export const DEFAULT_CLASSROOM_ID = 'local-demo-v2';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -13,6 +15,8 @@ const createSeededRandom = (seed) => {
 
 const createSyntheticRecords = () => {
   const random = createSeededRandom(1973);
+  // Separate random stream preserves all existing GPA/SAT/background values.
+  const referenceRandom = createSeededRandom(2026);
 
   return Array.from({ length: 72 }, (_, index) => {
     const firstGen = random() < 0.3;
@@ -30,6 +34,9 @@ const createSyntheticRecords = () => {
       firstGen,
       athlete,
       resident,
+      // Retain the original demo's reference formula, with reproducible noise.
+      // This is a teaching label, not an observed student outcome or an admission rule.
+      referenceOutcome: Number(gpa.toFixed(2)) * 18 + (sat / 1600) * 20 + referenceRandom() * 15 > 72,
     };
   });
 };
@@ -72,6 +79,13 @@ const FEATURE_DEFINITIONS = [
     role: 'input',
     allowedUses: ['compare', 'counterfactual'],
   },
+  {
+    key: 'referenceOutcome',
+    labelKey: 'referenceOutcome',
+    type: 'boolean',
+    role: 'outcome',
+    allowedUses: ['compare'],
+  },
 ];
 
 const POLICY_DEFINITIONS = [
@@ -99,7 +113,7 @@ export const createSyntheticClassroomView = () => ({
   schemaVersion: CLASSROOM_SCHEMA_VERSION,
   dataset: {
     id: DEFAULT_DATASET_ID,
-    version: 'synthetic-1973-v1',
+    version: DEFAULT_DATASET_VERSION,
     title: 'CounterLens synthetic admissions classroom dataset',
     sourceType: 'synthetic',
     releaseStatus: 'public-demo',

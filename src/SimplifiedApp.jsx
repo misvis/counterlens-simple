@@ -34,7 +34,7 @@ import {
 import { trackAnonymousEvent } from './data/analytics.js';
 import ClassroomSurvey from './ClassroomSurvey.jsx';
 import './simplified-workspace.css';
-import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand } from '../shared/admissionModel.js';
+import { ADMISSION_DOMAINS, scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from '../shared/admissionModel.js';
 import {
   createBundledClassroomView,
   isClassroomApiConfigured,
@@ -101,6 +101,23 @@ const DARK_THEME_PALETTES = {
 
 const TRANSLATIONS = {
   en: {
+    confusionTitle: 'Confusion Matrix',
+    matrixDecision: 'Policy decision',
+    confusionHelpTitle: 'How to read the confusion matrix',
+    referencePositive: 'Ref. +',
+    referenceNegative: 'Ref. −',
+    matrixSamples: 'Samples',
+    matrixIncluded: '{labeled} used',
+    matrixCellShare: '{count} of {total} labeled samples ({percent}%)',
+    matrixBarHelp: 'Each bar shows the cell’s share of all samples with a reference label.',
+    matrixCoverage: '{labeled}/{total} labeled',
+    matrixMissing: 'Reference labels needed',
+    matrixHelp: 'Rows show the policy decision. Columns show the reference label: positive (+) or negative (−).',
+    matrixDemoHelp: 'This demo generates fixed reference labels from GPA, SAT, and seeded noise.',
+    matrixFormula: 'Reference + when: 18 × GPA + 20 × SAT / 1600 + noise (0–15) > 72.',
+    matrixScope: 'The matrix counts the original student records. Missing labels are skipped. Editing one student leaves these counts unchanged.',
+    matrixField: 'Reference field: {field}',
+    matrixCells: { tp: 'True positive: admitted, reference +', fp: 'False positive: admitted, reference −', fn: 'False negative: not admitted, reference +', tn: 'True negative: not admitted, reference −' },
     prototype: 'SIMPLIFIED PROTOTYPE',
     credits: 'Credits',
     themeGraphite: 'Graphite',
@@ -108,7 +125,7 @@ const TRANSLATIONS = {
     themeLight: 'Light',
     switchTheme: 'Switch theme',
     languageLabel: 'Language',
-    mineEdgeCases: 'Find Each Cases',
+    mineEdgeCases: 'Mine Edge Cases',
     edgeCasesFound: 'closest to cutoff',
     fromCutoff: 'from cutoff',
     visualizer: 'Counterfactual Visualizer',
@@ -117,21 +134,20 @@ const TRANSLATIONS = {
     boundaryShared: 'Shared admission boundary',
     boundaryBand: 'Background-dependent band',
     boundarySelected: 'Cutoff for this student’s background',
-    boundaryEdited: 'Solid: edited background · dashed: original',
-    boundaryOriginalEdge: 'Edited background · original cutoff at/beyond chart edge',
+    boundaryEdited: 'Cutoff for the edited background',
     boundaryAll: 'All plotted scores qualify for this background',
     boundaryNone: 'No plotted scores qualify for this background',
     boundaryEdge: 'Cutoff at chart edge',
     boundaryAcademicHelp: 'The line marks score = threshold. Academic Focus uses only GPA and SAT, so the same line applies to everyone. Scores on the line are admitted.',
     boundaryContextHelp: 'These policies also use first-generation, athlete, and residency status. The shaded band spans the possible cutoffs across all eight background combinations. Inside it, the same GPA and SAT can lead to different decisions.',
-    boundarySelectedHelp: 'Select a student to see the exact cutoff for that background. If an edit changes the background points, the solid line follows the edited profile and the dashed line keeps the original. Other students retain their own backgrounds and decision colors.',
+    boundarySelectedHelp: 'Select a student to see the cutoff for their background. The line moves when you edit their background points. The band keeps showing the full range of possible cutoffs. Other students keep their own backgrounds and results.',
     boundaryFormula: 'GPA points + SAT points + background points = threshold',
     whatIfStudent: 'What-if student',
     originalProfile: 'Original profile · no changes yet',
     controlsLabel: 'Exploration controls',
     aboutPolicy: 'About this policy',
     choosePolicy: 'Policy Studio',
-    choosePolicyDesc: 'Choose a policy. What should admission value?',
+    choosePolicyDesc: 'Choose how GPA, SAT, and background count.',
     remember: 'Remember',
     simulationNote: 'This is a simplified simulation, not a real admission system. The policy reflects human choices about what counts.',
     seeAffected: 'See who is affected',
@@ -160,15 +176,11 @@ const TRANSLATIONS = {
     studentsAdmitted: 'students admitted',
     overallRate: 'Overall admission rate',
     compareOutcomes: 'Group Outcomes',
-    gapCaution: 'A rate gap is a clue to investigate—not proof of bias.',
+    groupOutcomesDesc: 'Percentage of students admitted in each group.',
     admittedFraction: '{admitted}/{total}',
     admittedCountLabel: '{admitted} of {total} students admitted',
-    lowerRateLabel: '{group}: {gap} points lower',
-    pointsLower: '{gap} pts lower',
     rateIncrease: 'Admission rate increased to {rate}% since its last change.',
     rateDecrease: 'Admission rate decreased to {rate}% since its last change.',
-    sameRateLabel: 'Both groups have the same admission rate.',
-    sameRateShort: 'Same rate',
     firstGenStatus: 'First-generation',
     athleticStatus: 'Athletics',
     residency: 'Residency',
@@ -180,7 +192,7 @@ const TRANSLATIONS = {
     thresholdTitle: 'Admission Threshold',
     thresholdRule: 'Score ≥ cutoff → admitted',
     thresholdHelpTitle: 'What does the threshold change?',
-    thresholdHelp: 'The threshold is the minimum decision score needed for admission. Raising it makes admission more selective; lowering it lets more students qualify. It changes the rule for everyone, not any student’s profile.',
+    thresholdHelp: 'The threshold is the minimum score needed for admission. Raise it to admit fewer students; lower it to admit more. The same cutoff applies to everyone. Student profiles stay unchanged.',
     thresholdPreset: 'Switching policies loads that policy’s suggested cutoff. Reset restores it; the policy weights stay the same while you move this slider.',
     thresholdDefault: 'Suggested: {value}',
     thresholdReset: 'Reset cutoff',
@@ -192,16 +204,16 @@ const TRANSLATIONS = {
     chartAxisNote: 'The chart maps GPA and SAT. A background change can alter the decision without moving the point.',
     reset: 'Reset',
     selectStudent: 'Select a student from the chart',
-    selectStudentDesc: 'Then test whether a small academic or background change alters the automated decision.',
+    selectStudentDesc: 'Change their GPA, SAT, or background to see how the result changes.',
     decisionScore: 'Decision score',
     scoreHelpTitle: 'How does the decision score work?',
     scoreHelpDescription: 'The selected policy combines GPA, SAT, and any background factors it uses into a score. Different policies give these factors different importance.',
     scoreHelpRule: 'The cutoff for this policy is {cutoff}. A score at or above {cutoff} means admitted in this simulation; a lower score means not admitted.',
-    scoreHelpCaution: 'This score is not an admission probability or a measure of a student\'s worth.',
+    scoreHelpCaution: 'The score is used only to apply the selected rule. A score of 70 does not mean a 70% chance of admission.',
     cutoff: 'Cutoff',
     flipQuestion: 'The result flipped. Which factor caused it, and should it matter?',
     changeQuestion: 'Change one factor until the result flips. Should that factor matter?',
-    auditNote: 'Background changes audit the policy; they are not advice for students.',
+    auditNote: 'Try changing one background factor to see how the policy uses it.',
     datasetSynthetic: 'Synthetic classroom dataset · {count} simulated applicants · No real student data',
     datasetApproved: 'Approved de-identified dataset · {count} records · Public classroom view',
     datasetLoading: 'Loading the classroom dataset…',
@@ -229,24 +241,41 @@ const TRANSLATIONS = {
       },
       holistic: {
         name: 'Whole-Person Review',
-        shortName: 'Context + balance',
-        description: 'Academic achievement and context, with a moderate cutoff.',
+        shortName: 'Academic scores + background points',
+        description: 'Uses GPA and SAT, with extra points for first-generation students, athletes, and in-state residents.',
         question: 'Which context should an admission system consider?',
       },
       opportunity: {
         name: 'Opportunity-Aware',
         shortName: 'More points for first-generation students',
-        description: 'GPA and SAT still matter, but count less than in Whole-Person Review. First-generation status counts more; athlete and in-state bonuses still apply.',
+        description: 'Gives more points for first-generation status and less weight to GPA and SAT than Whole-Person Review. Also adds points for athletes and in-state residents.',
         details: [
           'First-generation status adds {firstGen} score points here, compared with {comparisonFirstGen} in Whole-Person Review. With other factors equal, this can change who qualifies.',
           'The starting cutoff is {cutoff}, compared with {comparisonCutoff}. You can change it with the threshold slider.',
         ],
-        caution: 'First-generation status does not capture every student’s circumstances. This policy is not automatically fairer—it is a different rule to examine.',
+        caution: 'Family income and school resources are not included in this simulation.',
         question: 'Who benefits from this rule, and what might it overlook?',
       },
     },
   },
   zh: {
+    confusionTitle: '混淆矩阵',
+    matrixDecision: '政策决定',
+    confusionHelpTitle: '如何阅读混淆矩阵',
+    referencePositive: '参考 +',
+    referenceNegative: '参考 −',
+    matrixSamples: '样本总数',
+    matrixIncluded: '{labeled} 个参与统计',
+    matrixCellShare: '{total} 个有标签样本中的 {count} 个（{percent}%）',
+    matrixBarHelp: '每条色条表示这一格的人数占全部有参考标签样本的比例。',
+    matrixCoverage: '{labeled}/{total} 有标签',
+    matrixMissing: '需要参考结果标签',
+    matrixHelp: '行表示政策的录取决定，列表示参考标签：正类（+）或负类（−）。',
+    matrixDemoHelp: '演示数据的参考标签由 GPA、SAT 和固定随机扰动生成，生成后保持不变。',
+    matrixFormula: '参考 + 的条件：18 × GPA + 20 × SAT / 1600 + 扰动（0–15）> 72。',
+    matrixScope: '矩阵统计原始学生档案，跳过缺少参考标签的样本。编辑单个学生不会改变这些统计。',
+    matrixField: '参考字段：{field}',
+    matrixCells: { tp: '真正类：已录取，参考 +', fp: '假正类：已录取，参考 −', fn: '假负类：未录取，参考 +', tn: '真负类：未录取，参考 −' },
     prototype: '简化版原型',
     credits: '项目团队',
     themeGraphite: '石墨',
@@ -254,7 +283,7 @@ const TRANSLATIONS = {
     themeLight: '亮色',
     switchTheme: '切换主题',
     languageLabel: '语言',
-    mineEdgeCases: '查看临界案例',
+    mineEdgeCases: '挖掘临界案例',
     edgeCasesFound: '名最接近录取线',
     fromCutoff: '距录取线',
     visualizer: '反事实可视化',
@@ -263,21 +292,20 @@ const TRANSLATIONS = {
     boundaryShared: '所有学生共用的录取线',
     boundaryBand: '背景可能影响结果的区域',
     boundarySelected: '当前学生背景对应的录取线',
-    boundaryEdited: '实线：修改后背景 · 虚线：原始背景',
-    boundaryOriginalEdge: '修改后背景 · 原始录取线位于图表边缘或外侧',
+    boundaryEdited: '修改后背景对应的录取线',
     boundaryAll: '这一背景下，图内所有分数均符合条件',
     boundaryNone: '这一背景下，图内没有符合条件的分数',
     boundaryEdge: '录取线位于图表边缘',
     boundaryAcademicHelp: '线上各点的分数等于阈值。Academic Focus 只使用 GPA 和 SAT，因此所有学生共用一条线。恰好在线上的学生也会被录取。',
     boundaryContextHelp: '另外两项政策还考虑一代生、运动员和州内居民身份。阴影带覆盖全部八种背景组合对应的录取线范围。在这一区域内，同样的 GPA 和 SAT 可能产生不同结果。',
-    boundarySelectedHelp: '选中学生后，显示其背景对应的准确录取线。如果编辑改变了背景加分，实线对应修改后的背景，虚线保留原始背景。其他学生仍按各自背景评分和着色。',
+    boundarySelectedHelp: '选中学生后，实线显示其背景对应的录取线。修改背景加分时，这条线会随之移动。阴影带始终表示所有背景组合的录取线范围。其他学生仍按各自背景评分和着色。',
     boundaryFormula: 'GPA 得分 + SAT 得分 + 背景得分 = 阈值',
     whatIfStudent: '假设调整后的学生',
     originalProfile: '原始档案 · 尚未调整',
     controlsLabel: '探索与调整',
     aboutPolicy: '了解这项政策',
     choosePolicy: '政策工作台',
-    choosePolicyDesc: '选择一项政策：录取应该重视什么？',
+    choosePolicyDesc: '选择 GPA、SAT 和背景的计分方式。',
     remember: '请记住',
     simulationNote: '这是一个简化的模拟实验，并非真实录取系统。政策反映的是人类对于“什么重要”的选择。',
     seeAffected: '观察谁受到影响',
@@ -306,15 +334,11 @@ const TRANSLATIONS = {
     studentsAdmitted: '名学生被录取',
     overallRate: '总体录取率',
     compareOutcomes: '群体结果',
-    gapCaution: '录取率差距是调查线索，不能单独证明存在偏见。',
+    groupOutcomesDesc: '各组学生中被录取的人数占比。',
     admittedFraction: '{admitted}/{total}',
     admittedCountLabel: '{total} 名学生中有 {admitted} 名被录取',
-    lowerRateLabel: '{group}低 {gap} 个百分点',
-    pointsLower: '低 {gap} 个百分点',
     rateIncrease: '录取率比刚才上升，现为 {rate}%。',
     rateDecrease: '录取率比刚才下降，现为 {rate}%。',
-    sameRateLabel: '两个群体的录取率相同。',
-    sameRateShort: '录取率相同',
     firstGenStatus: '第一代身份',
     athleticStatus: '运动员',
     residency: '居住地',
@@ -326,7 +350,7 @@ const TRANSLATIONS = {
     thresholdTitle: '录取阈值',
     thresholdRule: '分数 ≥ 阈值 → 录取',
     thresholdHelpTitle: '阈值改变了什么？',
-    thresholdHelp: '阈值就是录取所需的最低决策分数。提高阈值会让录取更严格，降低阈值会让更多学生符合条件。它改变的是所有人的录取标准，而不是学生的特征。',
+    thresholdHelp: '阈值是录取所需的最低分数。提高阈值，录取人数减少；降低阈值，录取人数增加。所有学生使用同一个阈值，学生档案保持不变。',
     thresholdPreset: '切换政策会加载该政策的建议阈值；重置可以恢复建议值。拖动阈值不会改变政策的各项权重。',
     thresholdDefault: '建议值：{value}',
     thresholdReset: '重置阈值',
@@ -338,16 +362,16 @@ const TRANSLATIONS = {
     chartAxisNote: '图中只映射 GPA 和 SAT；背景变化可能在点不移动时仍改变决定。',
     reset: '重置',
     selectStudent: '请从图中选择一名学生',
-    selectStudentDesc: '然后测试较小的学业或背景变化是否会改变自动化决定。',
+    selectStudentDesc: '调整这名学生的 GPA、SAT 或背景，看看录取结果如何变化。',
     decisionScore: '决策分数',
     scoreHelpTitle: '决策分数是怎么算的？',
     scoreHelpDescription: '所选政策把 GPA、SAT 和它所考虑的背景因素合成为一个分数。不同政策对这些因素的重视程度不同。',
     scoreHelpRule: '这项政策的录取线是 {cutoff}。在这个模拟中，分数达到或超过 {cutoff} 就会被录取，低于录取线则不被录取。',
-    scoreHelpCaution: '这个分数不是录取概率，也不是对学生个人价值的评价。',
+    scoreHelpCaution: '这个分数仅用于执行所选录取规则。70 分并不表示有 70% 的录取概率。',
     cutoff: '录取线',
     flipQuestion: '结果翻转了。哪个因素造成了变化？它应该重要吗？',
     changeQuestion: '改变一个因素直到结果翻转。这个因素应该重要吗？',
-    auditNote: '改变背景是审查政策，并非给学生的建议。',
+    auditNote: '试着只改变一项背景，看看政策如何使用这个因素。',
     datasetSynthetic: '合成课堂数据 · {count} 名模拟申请者 · 不含真实学生数据',
     datasetApproved: '已授权的去标识化数据 · {count} 条记录 · 公开课堂视图',
     datasetLoading: '正在载入课堂数据…',
@@ -375,24 +399,41 @@ const TRANSLATIONS = {
       },
       holistic: {
         name: '综合评估',
-        shortName: '背景与平衡',
-        description: '同时考虑学业和背景，采用中等录取线。',
+        shortName: '学业成绩 + 背景加分',
+        description: '使用 GPA 和 SAT，并为第一代大学生、运动员和州内居民加分。',
         question: '录取系统应该考虑哪些背景？',
       },
       opportunity: {
         name: '机会补偿',
         shortName: '给第一代大学生更多加分',
-        description: 'GPA 和 SAT 仍然重要，但比“综合评估”占比更低；第一代大学生身份的加分更多。运动员和州内居民的加分仍然保留。',
+        description: '相比“综合评估”，这项政策给第一代大学生更多加分，GPA 和 SAT 的权重更低。运动员和州内居民也有加分。',
         details: [
           '第一代大学生身份在这里加 {firstGen} 分，而“综合评估”加 {comparisonFirstGen} 分。在其他条件相同时，这可能改变录取结果。',
           '默认录取线是 {cutoff}，而“综合评估”是 {comparisonCutoff}。你仍然可以用阈值滑块调整它。',
         ],
-        caution: '第一代大学生身份不能完整反映一个人的处境。这项政策不自动等于更公平，而是另一套值得检验的规则。',
+        caution: '这个模拟尚未纳入家庭收入和学校资源等因素。',
         question: '这套规则让谁受益，又可能忽略什么？',
       },
     },
   },
   es: {
+    confusionTitle: 'Matriz de confusión',
+    matrixDecision: 'Decisión de la política',
+    confusionHelpTitle: 'Cómo leer la matriz de confusión',
+    referencePositive: 'Ref. +',
+    referenceNegative: 'Ref. −',
+    matrixSamples: 'Muestras',
+    matrixIncluded: '{labeled} incluidas',
+    matrixCellShare: '{count} de {total} muestras etiquetadas ({percent}%)',
+    matrixBarHelp: 'Cada barra muestra la proporción de la celda entre todas las muestras con etiqueta de referencia.',
+    matrixCoverage: '{labeled}/{total} etiquetados',
+    matrixMissing: 'Faltan etiquetas de referencia',
+    matrixHelp: 'Las filas muestran la decisión de la política. Las columnas muestran la etiqueta de referencia: positiva (+) o negativa (−).',
+    matrixDemoHelp: 'Esta demostración genera etiquetas de referencia fijas a partir del GPA, el SAT y ruido aleatorio reproducible.',
+    matrixFormula: 'Referencia + si: 18 × GPA + 20 × SAT / 1600 + ruido (0–15) > 72.',
+    matrixScope: 'La matriz cuenta los perfiles originales. Se omiten los casos sin etiqueta. Editar un estudiante mantiene estos conteos iguales.',
+    matrixField: 'Campo de referencia: {field}',
+    matrixCells: { tp: 'Verdadero positivo: admitido, referencia +', fp: 'Falso positivo: admitido, referencia −', fn: 'Falso negativo: no admitido, referencia +', tn: 'Verdadero negativo: no admitido, referencia −' },
     prototype: 'PROTOTIPO SIMPLIFICADO',
     credits: 'Créditos',
     themeGraphite: 'Grafito',
@@ -409,21 +450,20 @@ const TRANSLATIONS = {
     boundaryShared: 'Límite de admisión común',
     boundaryBand: 'Zona dependiente del contexto',
     boundarySelected: 'Corte para el contexto de este estudiante',
-    boundaryEdited: 'Continua: contexto editado · discontinua: original',
-    boundaryOriginalEdge: 'Contexto editado · corte original en/fuera del borde',
+    boundaryEdited: 'Corte para el contexto editado',
     boundaryAll: 'Todos los puntajes del gráfico califican con este contexto',
     boundaryNone: 'Ningún puntaje del gráfico califica con este contexto',
     boundaryEdge: 'Corte en el borde del gráfico',
     boundaryAcademicHelp: 'La línea marca puntuación = umbral. Academic Focus solo usa GPA y SAT, por lo que la misma línea sirve para todos. Los puntos sobre la línea se admiten.',
     boundaryContextHelp: 'Las otras políticas también usan primera generación, deporte y residencia. La banda abarca los cortes de las ocho combinaciones de contexto. Dentro de ella, el mismo GPA y SAT pueden dar decisiones diferentes.',
-    boundarySelectedHelp: 'Selecciona un estudiante para ver su corte exacto. Si cambia la puntuación de contexto, la línea continua sigue al perfil editado y la discontinua mantiene el original. Los demás estudiantes conservan su propio contexto y color.',
+    boundarySelectedHelp: 'Selecciona un estudiante para ver el corte de su contexto. La línea se mueve al editar sus puntos de contexto. La banda mantiene el rango completo de cortes posibles. Los demás estudiantes conservan su contexto y sus resultados.',
     boundaryFormula: 'Puntos GPA + puntos SAT + puntos de contexto = umbral',
     whatIfStudent: 'Estudiante hipotético',
     originalProfile: 'Perfil original · sin cambios',
     controlsLabel: 'Controles de exploración',
     aboutPolicy: 'Acerca de esta política',
     choosePolicy: 'Estudio de políticas',
-    choosePolicyDesc: 'Elige una política. ¿Qué debería valorar la admisión?',
+    choosePolicyDesc: 'Elige cómo cuentan el GPA, el SAT y el contexto.',
     remember: 'Recuerda',
     simulationNote: 'Esta es una simulación simplificada, no un sistema real de admisión. La política refleja decisiones humanas sobre lo que importa.',
     seeAffected: 'Observa a quién afecta',
@@ -452,15 +492,11 @@ const TRANSLATIONS = {
     studentsAdmitted: 'estudiantes admitidos',
     overallRate: 'Tasa general de admisión',
     compareOutcomes: 'Resultados por grupo',
-    gapCaution: 'Una diferencia de tasas es una pista, no una prueba de sesgo.',
+    groupOutcomesDesc: 'Porcentaje de estudiantes admitidos en cada grupo.',
     admittedFraction: '{admitted}/{total}',
     admittedCountLabel: '{admitted} de {total} estudiantes admitidos',
-    lowerRateLabel: '{group}: {gap} puntos menos',
-    pointsLower: '{gap} pts menos',
     rateIncrease: 'La tasa de admisión subió al {rate}% desde el último cambio.',
     rateDecrease: 'La tasa de admisión bajó al {rate}% desde el último cambio.',
-    sameRateLabel: 'Ambos grupos tienen la misma tasa de admisión.',
-    sameRateShort: 'Misma tasa',
     firstGenStatus: 'Primera generación',
     athleticStatus: 'Deporte',
     residency: 'Residencia',
@@ -472,7 +508,7 @@ const TRANSLATIONS = {
     thresholdTitle: 'Umbral de admisión',
     thresholdRule: 'Puntuación ≥ umbral → admisión',
     thresholdHelpTitle: '¿Qué cambia el umbral?',
-    thresholdHelp: 'El umbral es la puntuación mínima para la admisión. Subirlo hace la admisión más selectiva; bajarlo permite que más estudiantes cumplan el requisito. Cambia la regla para todos, no el perfil de ningún estudiante.',
+    thresholdHelp: 'El umbral es la puntuación mínima para la admisión. Súbelo para admitir menos estudiantes; bájalo para admitir más. El mismo corte se aplica a todos. Los perfiles se mantienen iguales.',
     thresholdPreset: 'Al cambiar de política se carga su umbral sugerido. Restablecer recupera ese valor; mover el control no cambia los pesos de la política.',
     thresholdDefault: 'Sugerido: {value}',
     thresholdReset: 'Restablecer umbral',
@@ -484,16 +520,16 @@ const TRANSLATIONS = {
     chartAxisNote: 'El gráfico representa GPA y SAT. Un cambio de contexto puede alterar la decisión sin mover el punto.',
     reset: 'Restablecer',
     selectStudent: 'Selecciona un estudiante en el gráfico',
-    selectStudentDesc: 'Después prueba si un pequeño cambio académico o de contexto altera la decisión automatizada.',
+    selectStudentDesc: 'Cambia su GPA, SAT o contexto para ver cómo cambia el resultado.',
     decisionScore: 'Puntuación de decisión',
     scoreHelpTitle: '¿Cómo funciona la puntuación?',
     scoreHelpDescription: 'La política elegida combina GPA, SAT y los factores de contexto que utiliza en una puntuación. Cada política les da distinta importancia.',
     scoreHelpRule: 'El corte de esta política es {cutoff}. Una puntuación igual o superior a {cutoff} significa admisión en esta simulación; una inferior significa no admisión.',
-    scoreHelpCaution: 'No es una probabilidad de admisión ni una medida del valor de una persona.',
+    scoreHelpCaution: 'La puntuación se usa solo para aplicar la regla elegida. Una puntuación de 70 no significa un 70% de probabilidad de admisión.',
     cutoff: 'Corte',
     flipQuestion: 'El resultado cambió. ¿Qué factor lo causó y debería importar?',
     changeQuestion: 'Cambia un factor hasta invertir el resultado. ¿Debería importar?',
-    auditNote: 'Cambiar el contexto audita la política; no aconseja a estudiantes.',
+    auditNote: 'Prueba cambiar un factor de contexto para ver cómo lo usa la política.',
     datasetSynthetic: 'Datos sintéticos para clase · {count} solicitantes simulados · Sin datos reales',
     datasetApproved: 'Datos desidentificados autorizados · {count} registros · Vista pública',
     datasetLoading: 'Cargando los datos para clase…',
@@ -521,19 +557,19 @@ const TRANSLATIONS = {
       },
       holistic: {
         name: 'Evaluación integral',
-        shortName: 'Contexto + equilibrio',
-        description: 'Logro académico y contexto, con un corte moderado.',
+        shortName: 'Notas académicas + puntos de contexto',
+        description: 'Usa GPA y SAT, con puntos adicionales por primera generación, deporte y residencia en el estado.',
         question: '¿Qué contexto debería considerar el sistema?',
       },
       opportunity: {
         name: 'Atención a oportunidades',
         shortName: 'Más puntos para estudiantes de primera generación',
-        description: 'El GPA y el SAT siguen contando, pero menos que en Evaluación integral. Ser de primera generación suma más; se mantienen los puntos por deporte y residencia en el estado.',
+        description: 'Da más puntos por primera generación y menos peso al GPA y al SAT que Evaluación integral. También añade puntos por deporte y residencia en el estado.',
         details: [
           'Ser de primera generación añade {firstGen} puntos, frente a {comparisonFirstGen} en Evaluación integral. Con los demás factores iguales, esto puede cambiar la decisión.',
           'El corte inicial es {cutoff}, frente a {comparisonCutoff}. Puedes cambiarlo con el control del umbral.',
         ],
-        caution: 'Ser de primera generación no refleja todas las circunstancias de una persona. Esta política no es automáticamente más justa: es otra regla que examinar.',
+        caution: 'Los ingresos familiares y los recursos escolares no se incluyen en esta simulación.',
         question: '¿A quién beneficia esta regla y qué podría pasar por alto?',
       },
     },
@@ -575,7 +611,7 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
   );
 };
 
-const RateValue = ({ groupLabel, stats, lowerNote, isLower, t }) => {
+const RateValue = ({ groupLabel, stats, t }) => {
   const [change, setChange] = useState({ rate: stats.rate, direction: null, revision: 0 });
   // Track changes to the displayed percentage, not unrelated renders (theme, language, editor).
   if (change.rate !== stats.rate) {
@@ -601,24 +637,16 @@ const RateValue = ({ groupLabel, stats, lowerNote, isLower, t }) => {
         </strong>
         <span className="text-slate-500" title={countLabel} aria-label={countLabel}>{formatCopy(t.admittedFraction, stats)}</span>
       </div>
-      <div className="workspace-rate-note font-semibold text-slate-400" style={{ visibility: isLower ? 'visible' : 'hidden' }} aria-hidden={!isLower}>{lowerNote}</div>
     </div>
   );
 };
 
 const RateComparison = ({ label, leftLabel, leftStats, rightLabel, rightStats, t }) => {
-  const gap = Math.abs(leftStats.rate - rightStats.rate);
-  const lowerRateGroup = leftStats.rate <= rightStats.rate ? leftLabel : rightLabel;
-  const comparisonText = gap === 0
-    ? t.sameRateLabel
-    : formatCopy(t.lowerRateLabel, { group: lowerRateGroup, gap });
-  const lowerNote = formatCopy(t.pointsLower, { gap });
-
   return (
-    <div className="workspace-rate-row border-b border-slate-800 last:border-b-0" role="group" aria-label={`${label}. ${comparisonText}`}>
+    <div className="workspace-rate-row border-b border-slate-800 last:border-b-0" role="group" aria-label={label}>
       <div className="workspace-rate-category font-bold text-slate-200">{label}</div>
-      {[[leftLabel, leftStats, rightStats], [rightLabel, rightStats, leftStats]].map(([groupLabel, stats, other], index) => (
-        <RateValue key={index} groupLabel={groupLabel} stats={stats} isLower={stats.rate < other.rate} lowerNote={lowerNote} t={t} />
+      {[[leftLabel, leftStats], [rightLabel, rightStats]].map(([groupLabel, stats], index) => (
+        <RateValue key={index} groupLabel={groupLabel} stats={stats} t={t} />
       ))}
     </div>
   );
@@ -684,13 +712,38 @@ const AdjustedPositionMarker = ({ cx, cy, draftDecision, isLight, samePosition, 
   );
 };
 
-const BoundaryLine = ({ boundary, color, kind, dashed = false, width = 2.5 }) => {
+const BoundaryLine = ({ boundary, color, kind, width = 2.5 }) => {
   if (!boundary?.points.length) return null;
   if (boundary.points.length === 1) return <ReferenceDot className={`workspace-boundary-${kind}`} x={boundary.points[0].x} y={boundary.points[0].y} r={4} fill={color} stroke={color} style={{ pointerEvents: 'none' }} />;
   // Geometry is already clipped to the data domain; clip pixels rather than discard
   // the whole segment when the chart scale rounds an edge a fraction out of range.
-  return <ReferenceLine className={`workspace-boundary-${kind}`} segment={boundary.points} ifOverflow="hidden" stroke={color} strokeWidth={width} strokeDasharray={dashed ? '6 5' : undefined} strokeLinecap="round" style={{ pointerEvents: 'none' }} />;
+  return <ReferenceLine className={`workspace-boundary-${kind}`} segment={boundary.points} ifOverflow="hidden" stroke={color} strokeWidth={width} strokeLinecap="round" style={{ pointerEvents: 'none' }} />;
 };
+
+const StudentGuides = ({ student, color, kind }) => (
+  <>
+    <ReferenceLine
+      className={`workspace-guide-${kind}-sat`}
+      segment={[{ x: ADMISSION_DOMAINS.gpa[0], y: student.sat }, { x: student.gpa, y: student.sat }]}
+      ifOverflow="hidden"
+      stroke={color}
+      strokeDasharray="3 4"
+      strokeWidth={1}
+      strokeOpacity={0.5}
+      style={{ pointerEvents: 'none' }}
+    />
+    <ReferenceLine
+      className={`workspace-guide-${kind}-gpa`}
+      segment={[{ x: student.gpa, y: ADMISSION_DOMAINS.sat[0] }, { x: student.gpa, y: student.sat }]}
+      ifOverflow="hidden"
+      stroke={color}
+      strokeDasharray="3 4"
+      strokeWidth={1}
+      strokeOpacity={0.5}
+      style={{ pointerEvents: 'none' }}
+    />
+  </>
+);
 
 const SimplifiedApp = () => {
   const [lang, setLang] = useState('en');
@@ -733,6 +786,10 @@ const SimplifiedApp = () => {
     };
   }, [explainedPolicyId]);
   const students = classroomView.records;
+  const referenceFeatures = classroomView.features.filter(feature => feature.role === 'outcome' && feature.type === 'boolean' && feature.allowedUses.includes('compare'));
+  // Avoid guessing a target when a release contains multiple outcomes.
+  const referenceFeature = referenceFeatures.length === 1 ? referenceFeatures[0] : null;
+  const hasSyntheticReference = classroomView.dataset.sourceType === 'synthetic';
   const policies = useMemo(
     () => classroomView.policies.map((item) => ({
       ...item,
@@ -776,21 +833,21 @@ const SimplifiedApp = () => {
     () => !boundaryBand.hasContext || draftStudent ? admissionBoundary(policy, editedBackground) : null,
     [boundaryBand.hasContext, draftStudent, editedBackground, policy],
   );
-  const originalBoundary = useMemo(
-    () => backgroundBoundaryChanged ? admissionBoundary(policy, originalBackground) : null,
-    [backgroundBoundaryChanged, originalBackground, policy],
-  );
   const boundaryCaption = currentBoundary?.points.length === 0
     ? (currentBoundary.relation === 'all-admitted' ? t.boundaryAll : t.boundaryNone)
     : currentBoundary?.points.length === 1
       ? t.boundaryEdge
       : !boundaryBand.hasContext ? t.boundaryShared
         : !draftStudent ? (boundaryBand.polygon.length ? t.boundaryBand : t.boundaryEdge)
-          : backgroundBoundaryChanged ? (originalBoundary.points.length < 2 ? t.boundaryOriginalEdge : t.boundaryEdited) : t.boundarySelected;
+          : backgroundBoundaryChanged ? t.boundaryEdited : t.boundarySelected;
 
   const outcomes = useMemo(
     () => students.map((student) => ({ ...student, admitted: getDecision(student, policy) })),
     [policy, students],
+  );
+  const matrix = useMemo(
+    () => confusionMatrix(students, policy, referenceFeature?.key),
+    [students, policy, referenceFeature?.key],
   );
 
   const policyAdmissionCounts = useMemo(
@@ -1219,48 +1276,16 @@ const SimplifiedApp = () => {
                           : <g />
                       )} />
                     )}
-                    {boundaryBand.hasContext && !draftStudent && boundaryBand.edges.map((boundary, index) => (
-                      <BoundaryLine key={index} boundary={boundary} color="var(--workspace-edit)" kind="envelope" dashed width={1.5} />
-                    ))}
-                    <BoundaryLine boundary={originalBoundary} color="var(--workspace-highlight)" kind="original" dashed width={1.75} />
+                    {/* The band shows the range; one solid line shows the active background. */}
                     <BoundaryLine boundary={currentBoundary} color={backgroundBoundaryChanged ? 'var(--workspace-edit)' : 'var(--workspace-highlight)'} kind="current" />
                     {selectedStudent && (
-                      <>
-                        <ReferenceLine
-                          x={selectedStudent.gpa}
-                          stroke={isLight ? '#2563eb' : darkPalette.primary}
-                          strokeDasharray="4 4"
-                          strokeWidth={1.5}
-                          strokeOpacity={0.9}
-                        />
-                        <ReferenceLine
-                          y={selectedStudent.sat}
-                          stroke={isLight ? '#2563eb' : darkPalette.primary}
-                          strokeDasharray="4 4"
-                          strokeWidth={1.5}
-                          strokeOpacity={0.9}
-                        />
-                      </>
+                      <StudentGuides student={selectedStudent} color={isLight ? '#2563eb' : darkPalette.primary} kind="selected" />
                     )}
                     {draftProfileChanged && plotPositionChanged && (
                       <>
+                        <StudentGuides student={draftStudent} color={isLight ? '#7c3aed' : darkPalette.accent} kind="draft" />
                         <ReferenceLine
-                          x={draftStudent.gpa}
-                          stroke={isLight ? '#7c3aed' : darkPalette.accent}
-                          strokeDasharray="2 5"
-                          strokeWidth={1.25}
-                          strokeOpacity={0.68}
-                          style={{ pointerEvents: 'none' }}
-                        />
-                        <ReferenceLine
-                          y={draftStudent.sat}
-                          stroke={isLight ? '#7c3aed' : darkPalette.accent}
-                          strokeDasharray="2 5"
-                          strokeWidth={1.25}
-                          strokeOpacity={0.68}
-                          style={{ pointerEvents: 'none' }}
-                        />
-                        <ReferenceLine
+                          className="workspace-profile-connector"
                           segment={[
                             { x: selectedStudent.gpa, y: selectedStudent.sat },
                             { x: draftStudent.gpa, y: draftStudent.sat },
@@ -1274,7 +1299,7 @@ const SimplifiedApp = () => {
                       </>
                     )}
                     <Tooltip
-                      cursor={{ stroke: isLight ? '#94a3b8' : darkPalette.axis, strokeDasharray: '3 3' }}
+                      cursor={false}
                       content={<StudentTooltip policy={policy} t={t} />}
                       isAnimationActive={false}
                       animationDuration={0}
@@ -1339,6 +1364,7 @@ const SimplifiedApp = () => {
                 </ResponsiveContainer>
               </div>
 
+              <div className="workspace-analysis-bar">
               <section className="workspace-threshold" aria-labelledby="threshold-title" style={{ '--threshold-position': `${policy.threshold}%` }}>
                 <div className="workspace-threshold-heading">
                   <div className="workspace-threshold-name">
@@ -1351,8 +1377,8 @@ const SimplifiedApp = () => {
                   </div>
                   <div className="workspace-threshold-setting">
                     <output htmlFor="admission-threshold" className="workspace-threshold-value">{policy.threshold}<span> / 100</span></output>
-                    <button type="button" className="workspace-threshold-reset" title={formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })} disabled={policy.threshold === presetPolicy.threshold} onClick={() => setThresholdOverride(null)}>
-                      <RotateCcw className="h-3 w-3" aria-hidden="true" /> {t.thresholdReset}
+                    <button type="button" className="workspace-threshold-reset" aria-label={t.thresholdReset} title={`${t.thresholdReset} · ${formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })}`} disabled={policy.threshold === presetPolicy.threshold} onClick={() => setThresholdOverride(null)}>
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -1360,7 +1386,7 @@ const SimplifiedApp = () => {
                 <input id="admission-threshold" type="range" min="0" max="100" step="1" value={policy.threshold} aria-describedby="threshold-rule" onInput={(event) => setThresholdOverride(Number(event.currentTarget.value))} />
                 <div className="workspace-threshold-summary">
                   <div><strong>{impact.admitted}</strong><span> / {students.length} {t.studentsAdmitted}</span></div>
-                  <div>{t.overallRate}: <strong>{impact.overallRate}%</strong></div>
+                  <div className="workspace-overall-rate" aria-label={`${t.overallRate}: ${impact.overallRate}%`} title={t.overallRate}><strong>{impact.overallRate}%</strong></div>
                 </div>
                 {explainedPolicyId === 'threshold' && (
                   <div id="threshold-help" data-policy-help role="region" aria-labelledby="threshold-help-title" className="workspace-threshold-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
@@ -1373,6 +1399,59 @@ const SimplifiedApp = () => {
                   </div>
                 )}
               </section>
+
+              <section className="workspace-confusion" aria-labelledby="confusion-title">
+                <div className="workspace-confusion-heading">
+                  <h3 id="confusion-title">{t.confusionTitle}</h3>
+                  <button type="button" className="workspace-inline-help rounded-md" aria-label={t.confusionHelpTitle} aria-expanded={explainedPolicyId === 'confusion'} aria-controls="confusion-help" onClick={(event) => {
+                    policyHelpTrigger.current = event.currentTarget;
+                    setExplainedPolicyId(explainedPolicyId === 'confusion' ? null : 'confusion');
+                  }}><Info className="h-4 w-4" /></button>
+                </div>
+                <table className="workspace-confusion-table">
+                  <caption className="sr-only">{t.matrixHelp}</caption>
+                  <thead><tr><th scope="col"><span className="sr-only">{t.matrixDecision}</span></th><th scope="col">{t.referencePositive}</th><th scope="col">{t.referenceNegative}</th></tr></thead>
+                  <tbody>
+                    {[[t.admitted, ['tp', 'fp']], [t.notAdmitted, ['fn', 'tn']]].map(([label, cells]) => (
+                      <tr key={label}>
+                        <th scope="row">{label}</th>
+                        {cells.map(cell => {
+                          const share = matrix.labeled ? matrix[cell] / matrix.labeled * 100 : 0;
+                          const description = `${t.matrixCells[cell]}: ${matrix.labeled ? formatCopy(t.matrixCellShare, { count: matrix[cell], total: matrix.labeled, percent: Math.round(share) }) : t.matrixMissing}`;
+                          return (
+                            <td key={cell} data-cell={cell} className={cell === 'tp' || cell === 'tn' ? 'is-match' : ''} title={description}>
+                              <span className="workspace-confusion-cell" aria-label={description}>
+                                <span className="workspace-confusion-values"><span>{cell.toUpperCase()}</span><strong>{matrix.labeled ? matrix[cell] : '—'}</strong></span>
+                                <span className="workspace-confusion-meter" aria-hidden="true" style={{ visibility: matrix.labeled ? 'visible' : 'hidden' }}><span style={{ width: `${share}%` }} /></span>
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="workspace-confusion-source" title={formatCopy(t.matrixCoverage, { labeled: matrix.labeled, total: students.length })}>
+                  <span>{t.matrixSamples} <strong>{students.length}</strong></span>
+                  {matrix.missing > 0 && <span>{matrix.labeled ? formatCopy(t.matrixIncluded, { labeled: matrix.labeled }) : t.matrixMissing}</span>}
+                </div>
+                {explainedPolicyId === 'confusion' && (
+                  <div id="confusion-help" data-policy-help role="region" aria-labelledby="confusion-help-title" className="workspace-confusion-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 id="confusion-help-title" className="text-sm font-bold text-white">{t.confusionHelpTitle}</h3>
+                      <button type="button" aria-label={t.close} className="rounded-md p-1" onClick={() => { setExplainedPolicyId(null); policyHelpTrigger.current?.focus(); }}><X className="h-4 w-4" /></button>
+                    </div>
+                    <p className="mt-2">{t.matrixHelp}</p>
+                    <p className="mt-2">{t.matrixBarHelp}</p>
+                    <ul className="my-2 space-y-1">{Object.entries(t.matrixCells).map(([key, label]) => <li key={key}><strong>{key.toUpperCase()}</strong> · {label}</li>)}</ul>
+                    {hasSyntheticReference && referenceFeature?.key === 'referenceOutcome' && <><p className="mt-2">{t.matrixDemoHelp}</p><p className="mt-2 font-mono text-[11px]">{t.matrixFormula}</p></>}
+                    <p className="mt-2">{t.matrixScope}</p>
+                    <p className="mt-2">{formatCopy(t.matrixCoverage, { labeled: matrix.labeled, total: students.length })}</p>
+                    {referenceFeature && <p className="mt-2 text-[11px]">{formatCopy(t.matrixField, { field: referenceFeature.key })}</p>}
+                  </div>
+                )}
+              </section>
+              </div>
 
           </section>
 
@@ -1422,14 +1501,12 @@ const SimplifiedApp = () => {
                       }`}
                     >
                       <span className={`workspace-policy-name ${active ? 'font-semibold text-white' : 'font-semibold text-slate-300'}`}>{itemCopy.name}</span>
-                      <span className="flex items-center justify-between gap-1.5 pr-7">
-                          <span
-                            className="rounded-full bg-slate-800/70 px-2 py-0.5 text-[10px] font-bold text-slate-400"
-                            aria-label={`${admittedCount} / ${students.length} ${t.studentsAdmitted}`}
-                          >
-                            {admittedCount}/{students.length}
-                          </span>
-                          {active ? <CheckCircle2 className="h-4 w-4 text-blue-400" /> : <ArrowRight className="h-4 w-4 text-slate-600" />}
+                      <span
+                        className="workspace-policy-count text-slate-400"
+                        aria-label={formatCopy(t.admittedCountLabel, { admitted: admittedCount, total: students.length })}
+                      >
+                        <strong className="workspace-policy-total font-bold">{admittedCount} / {students.length}</strong>
+                        <span className="workspace-policy-count-label">{t.studentsAdmitted}</span>
                       </span>
                       <span className="sr-only">{itemCopy.shortName}. {itemCopy.description}</span>
                     </button>
@@ -1639,7 +1716,7 @@ const SimplifiedApp = () => {
                   <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">3</div>
                   <div>
                     <h2 className="text-base font-bold leading-tight text-white">{t.compareOutcomes}</h2>
-                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.gapCaution}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.groupOutcomesDesc}</p>
                   </div>
                 </div>
 

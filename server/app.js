@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import { loadConfig } from './config.js';
 import { createClassroomStore } from './monitoring/store.js';
 import { validateAnswers } from '../shared/questionnaire.js';
+import { DEFAULT_CLASSROOM_ID } from '../shared/classroomDataset.js';
 
 export const ALLOWED_EVENT_NAMES = [
   'page_view',
@@ -355,7 +356,7 @@ export const buildApp = async (options = {}) => {
       },
     },
     async (request, reply) => {
-      const classroomId = request.query.classroomId || 'local-demo';
+      const classroomId = request.query.classroomId || DEFAULT_CLASSROOM_ID;
       if (!(await store.getClassroom(classroomId)))
         return reply.code(404).send({ message: 'Classroom not found.' });
       return store.getSummary({
