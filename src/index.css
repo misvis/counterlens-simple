@@ -828,43 +828,45 @@ input[type=range]::-moz-range-track {
    Simplified classroom prototype — Observatory dark theme
    ========================================================= */
 .simplified-observatory {
-    --obs-canvas: #0f1117;
-    --obs-surface: #191c24;
-    --obs-elevated: #252a35;
-    --obs-border: #444b5b;
-    --obs-border-active: #6c758b;
-    --obs-text: #fcfcff;
-    --obs-text-soft: #e7e9f2;
-    --obs-muted: #b9bfce;
-    --obs-muted-dim: #969eb1;
-    --obs-brass: #f2c75c;
-    --obs-verdigris: #78b7ff;
-    --obs-iris: #b8a3f2;
-    --obs-admitted: #5fd19c;
-    --obs-rejected: #ff7b72;
-    --obs-panel-bg: rgba(25, 28, 36, 0.98);
-    --obs-inset-bg: rgba(11, 13, 18, 0.95);
-    --obs-raised-bg: rgba(37, 42, 53, 0.96);
-    --obs-hover-bg: #303746;
-    --obs-low-text: #9099ad;
-    --obs-primary-border: rgba(120, 183, 255, 0.5);
-    --obs-primary-bg: rgba(120, 183, 255, 0.15);
-    --obs-primary-hover: #9acbff;
-    --obs-primary-ring: rgba(120, 183, 255, 0.24);
-    --obs-violet-text: #cbbdff;
-    --obs-violet-border: rgba(184, 163, 242, 0.46);
-    --obs-violet-bg: rgba(184, 163, 242, 0.13);
-    --obs-amber-soft: #ffe6a0;
-    --obs-amber-border: rgba(242, 199, 92, 0.46);
-    --obs-amber-bg: rgba(242, 199, 92, 0.13);
-    --obs-amber-ring: rgba(242, 199, 92, 0.4);
-    --obs-emerald-border: rgba(95, 209, 156, 0.46);
-    --obs-emerald-bg: rgba(95, 209, 156, 0.15);
-    --obs-rose-border: rgba(255, 123, 114, 0.5);
-    --obs-rose-bg: rgba(255, 123, 114, 0.15);
-    --obs-placeholder: #747e94;
-    --obs-selection: rgba(120, 183, 255, 0.34);
-    background: linear-gradient(180deg, #151722 0%, var(--obs-canvas) 46%, #0b0d12 100%) !important;
+    /* Neutral surfaces keep semantic colors focused on the teaching controls. */
+    --obs-canvas: #090b10;
+    --obs-surface: #1b1f27;
+    --obs-elevated: #292f3b;
+    --obs-border: #525e71;
+    --obs-border-active: #a3acc0;
+    --obs-control-border: #748197;
+    --obs-text: #ffffff;
+    --obs-text-soft: #f1f4fa;
+    --obs-muted: #d5dce8;
+    --obs-muted-dim: #c2ccdc;
+    --obs-brass: #ffd05a;
+    --obs-verdigris: #8ea7ff;
+    --obs-iris: #d2a5ff;
+    --obs-admitted: #60d8a4;
+    --obs-rejected: #ff8690;
+    --obs-panel-bg: var(--obs-surface);
+    --obs-inset-bg: #0e1117;
+    --obs-raised-bg: var(--obs-elevated);
+    --obs-hover-bg: #343c4a;
+    --obs-low-text: #c2ccdc;
+    --obs-primary-border: rgba(142, 167, 255, 0.65);
+    --obs-primary-bg: rgba(142, 167, 255, 0.17);
+    --obs-primary-hover: #b3c3ff;
+    --obs-primary-ring: rgba(142, 167, 255, 0.28);
+    --obs-violet-text: var(--obs-iris);
+    --obs-violet-border: rgba(210, 165, 255, 0.55);
+    --obs-violet-bg: rgba(210, 165, 255, 0.15);
+    --obs-amber-soft: #fff0bd;
+    --obs-amber-border: rgba(255, 208, 90, 0.55);
+    --obs-amber-bg: rgba(255, 208, 90, 0.14);
+    --obs-amber-ring: rgba(255, 208, 90, 0.4);
+    --obs-emerald-border: rgba(96, 216, 164, 0.55);
+    --obs-emerald-bg: rgba(96, 216, 164, 0.14);
+    --obs-rose-border: rgba(255, 134, 144, 0.55);
+    --obs-rose-bg: rgba(255, 134, 144, 0.14);
+    --obs-placeholder: #c2ccdc;
+    --obs-selection: rgba(142, 167, 255, 0.34);
+    background: linear-gradient(180deg, #11141b 0%, var(--obs-canvas) 100%) !important;
     color: var(--obs-text-soft) !important;
     color-scheme: dark;
 }
@@ -963,8 +965,22 @@ input[type=range]::-moz-range-track {
 
 .simplified-observatory section {
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.025),
-        0 10px 28px rgba(0, 0, 0, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.065),
+        0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.simplified-observatory .simplified-policy-card:not(.simplified-selected),
+.simplified-observatory header button {
+    border-color: var(--obs-control-border) !important;
+}
+
+.simplified-observatory .simplified-policy-card:not(.simplified-selected):hover {
+    border-color: var(--obs-border-active) !important;
+}
+
+.simplified-app.simplified-observatory .simplified-selected {
+    border-color: var(--obs-verdigris) !important;
+    box-shadow: inset 3px 0 0 var(--obs-verdigris), 0 0 0 1px var(--obs-primary-ring);
 }
 
 .simplified-observatory [class*="text-blue-"] {

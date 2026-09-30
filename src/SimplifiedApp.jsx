@@ -51,17 +51,17 @@ const LIGHT_OUTCOME_COLORS = {
 const POLICY_PRESENTATION = {
   academic: {
     accent: '#1d4ed8',
-    graphiteAccent: '#f2c75c',
+    graphiteAccent: '#ffd05a',
     summerAccent: '#f4c95d',
   },
   holistic: {
     accent: '#6d28d9',
-    graphiteAccent: '#b8a3f2',
+    graphiteAccent: '#d2a5ff',
     summerAccent: '#afa6f5',
   },
   opportunity: {
     accent: '#047857',
-    graphiteAccent: '#78b7ff',
+    graphiteAccent: '#8ea7ff',
     summerAccent: '#43d3c1',
   },
 };
@@ -71,19 +71,19 @@ const RESEARCH_CONTRIBUTORS = ['Changjia (Eric) Yang', 'Soham Khisa'];
 
 const DARK_THEME_PALETTES = {
   graphite: {
-    surface: '#191c24',
-    markerFill: 'rgba(25, 28, 36, 0.88)',
-    grid: '#444b5b',
-    axis: '#6c758b',
-    muted: '#b9bfce',
-    primary: '#78b7ff',
-    accent: '#c4a2ff',
-    connector: '#a78bfa',
-    admitted: '#5fd19c',
-    rejected: '#ff7b88',
-    admittedStroke: '#9be5cf',
-    rejectedStroke: '#ffaaa3',
-    selectedGlow: 'rgba(120, 183, 255, 0.85)',
+    surface: '#1b1f27',
+    markerFill: 'rgba(27, 31, 39, 0.92)',
+    grid: '#3d485b',
+    axis: '#96a4bc',
+    muted: '#d5dce8',
+    primary: '#8ea7ff',
+    accent: '#d2a5ff',
+    connector: '#d2a5ff',
+    admitted: '#60d8a4',
+    rejected: '#ff8690',
+    admittedStroke: '#a4eccd',
+    rejectedStroke: '#ffb9be',
+    selectedGlow: 'rgba(142, 167, 255, 0.85)',
   },
   summer: {
     surface: '#102527',
@@ -816,7 +816,7 @@ const SimplifiedApp = () => {
       ...item,
       ...(POLICY_PRESENTATION[item.id] ?? {
         accent: '#2563eb',
-        graphiteAccent: '#78b7ff',
+        graphiteAccent: '#8ea7ff',
         summerAccent: '#43d3c1',
       }),
     })),
@@ -1371,7 +1371,7 @@ const SimplifiedApp = () => {
                               cursor: 'grab',
                               filter: isMining && isEdgeCase
                                 ? 'drop-shadow(0 0 4px var(--workspace-edge-glow))'
-                                : (isSelected ? `drop-shadow(0 0 4px ${darkPalette.selectedGlow})` : 'none'),
+                                : (isSelected ? `drop-shadow(0 0 4px ${isLight ? 'rgba(120, 183, 255, 0.85)' : darkPalette.selectedGlow})` : 'none'),
                               transition: 'all 0.25s ease',
                             }}
                           />

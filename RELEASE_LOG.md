@@ -1,5 +1,10 @@
 # CounterLens Release Log
 
+## [V2.10.2 - Dark Theme Contrast] - 2026-09-29
+### Changed
+- Deepened Dark backgrounds, brightened text and chart labels, and clarified control borders and selected policies.
+- Aligned Dark chart and legend colors. Light remains the default, with its colors and layout unchanged.
+
 ## [V2.10.1 - Themes & Credits] - 2026-09-23
 ### Changed
 - Hid Summer from the theme switch and renamed Graphite to Dark, with matching Chinese and Spanish labels. Colors and button size are unchanged.
