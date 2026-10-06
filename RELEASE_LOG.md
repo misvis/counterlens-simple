@@ -1,5 +1,13 @@
 # CounterLens Release Log
 
+## [V2.11.0 - Classroom Controls & Clearer Labels] - 2026-10-06
+### Changed
+- Replaced background toggles with field and value dropdowns, original-value hints, and an edited-field count.
+- Clarified the confusion matrix with AI prediction / Simulated label headings, admission labels, a concrete example, and amber proportion bars.
+- Shortened explanations and removed built-in discussion questions in English, Chinese, and Spanish.
+- Mine Edge Cases now clears temporary student edits and selection while preserving the policy and threshold.
+- Adjusted control-panel spacing for the new dropdowns. GitHub Pages remains a static demo; no database contents or private configuration are published.
+
 ## [V2.10.2 - Dark Theme Contrast] - 2026-09-29
 ### Changed
 - Deepened Dark backgrounds, brightened text and chart labels, and clarified control borders and selected policies.
