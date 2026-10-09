@@ -1,10 +1,123 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSyntheticClassroomView } from './classroomDataset.js';
-import { scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix, thresholdAfterDrag, studentAfterDrag } from './admissionModel.js';
+import { scoreStudent, scoreContributions, scoreCoordinates, getDecision, backgroundScore, admissionBoundary, scoreSpaceBoundary, backgroundBoundaryBand, confusionMatrix, thresholdAfterDrag, studentAfterDrag } from './admissionModel.js';
 
 const { policies, records } = createSyntheticClassroomView();
 const backgrounds = Array.from({ length: 8 }, (_, i) => ({ firstGen: Boolean(i & 1), athlete: Boolean(i & 2), resident: Boolean(i & 4) }));
+
+test('Score coordinates preserve every admission score and decision at every slider threshold', () => {
+  for (const preset of policies) for (const record of records) {
+    const coordinates = scoreCoordinates(record, preset);
+    assert.equal(coordinates.background, backgroundScore(record, preset));
+    assert.equal(coordinates.academic, scoreStudent({ ...record, firstGen: false, athlete: false, resident: false }, preset));
+    assert.equal(coordinates.academic + coordinates.background, coordinates.total);
+    assert.equal(coordinates.total, scoreStudent(record, preset));
+    for (let threshold = 0; threshold <= 100; threshold += 1) {
+      assert.equal(coordinates.total >= threshold, getDecision(record, { ...preset, threshold }));
+    }
+  }
+  assert.deepEqual(scoreCoordinates(null, policies[0]), { academic: 0, background: 0, total: 0 });
+  assert.deepEqual(scoreCoordinates({ gpa: 8, sat: 300, firstGen: true }, policies[1]), { academic: 45, background: 8, total: 53 });
+});
+
+test('Five score contributions match the scoring rules across all demo records and do not depend on the threshold', () => {
+  for (const policy of policies) for (const student of records) {
+    const contributions = scoreContributions(student, policy);
+    assert.deepEqual(contributions.map(item => item.key), ['gpa', 'sat', 'firstGen', 'athlete', 'resident']);
+    assert.equal(contributions[0].points, Math.min(1, Math.max(0, (student.gpa - 2.4) / 1.6)) * policy.weights.gpa);
+    assert.equal(contributions[1].points, Math.min(1, Math.max(0, (student.sat - 950) / 650)) * policy.weights.sat);
+    for (const { key, points } of contributions.slice(2)) assert.equal(points, student[key] ? policy.weights[key] : 0);
+    assert.ok(Math.abs(contributions.reduce((sum, item) => sum + item.points, 0) - scoreStudent(student, policy)) < 1e-10);
+    assert.equal(contributions[0].points + contributions[1].points, scoreCoordinates(student, policy).academic);
+    for (const threshold of [0, 30, 50, 75, 100]) {
+      assert.deepEqual(scoreContributions(student, { ...policy, threshold }), contributions);
+    }
+  }
+});
+
+test('Score contributions handle null students, clamping, and zero or negative weights', () => {
+  const keys = ['gpa', 'sat', 'firstGen', 'athlete', 'resident'];
+  const zeros = keys.map(key => ({ key, points: 0 }));
+  const negative = { weights: { gpa: -60, sat: 40, firstGen: -8, athlete: 5, resident: -7 }, threshold: -10 };
+  assert.deepEqual(scoreContributions(null, negative), zeros);
+  assert.deepEqual(scoreContributions(undefined, negative), zeros);
+  assert.deepEqual(scoreContributions(records[0], { weights: {}, threshold: 20 }), zeros);
+  assert.deepEqual(scoreContributions({ gpa: 5, sat: 700, firstGen: true, athlete: true, resident: false }, negative), [
+    { key: 'gpa', points: -60 }, { key: 'sat', points: 0 },
+    { key: 'firstGen', points: -8 }, { key: 'athlete', points: 5 }, { key: 'resident', points: 0 },
+  ]);
+  for (const profile of backgrounds) for (const gpa of [1, 2.4, 3.2, 4, 5]) for (const sat of [500, 950, 1200, 1600, 1800]) {
+    const student = { ...profile, gpa, sat };
+    const contributions = scoreContributions(student, negative);
+    assert.ok(Math.abs(contributions.reduce((sum, item) => sum + item.points, 0) - scoreStudent(student, negative)) < 1e-10);
+  }
+});
+
+test('Score-space boundaries stay on the exact cutoff within real score extents', () => {
+  for (const preset of policies) for (let threshold = 0; threshold <= 100; threshold += 1) {
+    const policy = { ...preset, threshold };
+    const boundary = scoreSpaceBoundary(policy);
+    const maxAcademic = policy.weights.gpa + policy.weights.sat;
+    const maxBackground = backgroundScore(backgrounds[7], policy);
+    assert.deepEqual(boundary.xDomain, [0, maxAcademic]);
+    assert.deepEqual(boundary.yDomain, [0, maxBackground || 1]);
+    assert.equal(boundary.relation, threshold === 0 ? 'all-admitted' : 'mixed');
+    assert.ok(boundary.points.length >= 1 && boundary.points.length <= 2);
+    for (const point of boundary.points) {
+      assert.ok(point.x >= 0 && point.x <= maxAcademic);
+      assert.ok(point.y >= 0 && point.y <= maxBackground);
+      assert.equal(point.x + point.y, threshold);
+    }
+    if (maxBackground === 0) assert.deepEqual(boundary.points, [{ x: threshold, y: 0 }]);
+  }
+  assert.deepEqual(scoreSpaceBoundary(policies[1]).points, [{ x: 32, y: 20 }, { x: 52, y: 0 }]);
+  assert.deepEqual(scoreSpaceBoundary({ ...policies[1], threshold: -1 }).points, []);
+  assert.equal(scoreSpaceBoundary({ ...policies[1], threshold: -1 }).relation, 'all-admitted');
+  assert.deepEqual(scoreSpaceBoundary({ ...policies[1], threshold: 101 }).points, []);
+  assert.equal(scoreSpaceBoundary({ ...policies[1], threshold: 101 }).relation, 'none-admitted');
+  assert.deepEqual(scoreSpaceBoundary({ ...policies[1], threshold: 100 }).points, [{ x: 80, y: 20 }]);
+});
+
+test('Score-space helpers handle zero and negative weights without inventing feasible axes', () => {
+  const zero = { weights: {}, threshold: 0 };
+  assert.deepEqual(scoreSpaceBoundary(zero), { xDomain: [0, 1], yDomain: [0, 1], points: [{ x: 0, y: 0 }], relation: 'all-admitted' });
+  assert.deepEqual(scoreSpaceBoundary({ ...zero, threshold: 1 }).points, []);
+  assert.equal(scoreSpaceBoundary({ ...zero, threshold: 1 }).relation, 'none-admitted');
+  assert.deepEqual(scoreSpaceBoundary({ weights: { firstGen: 20 }, threshold: 10 }), {
+    xDomain: [0, 1], yDomain: [0, 20], points: [{ x: 0, y: 10 }], relation: 'mixed',
+  });
+  const negative = { weights: { gpa: -60, sat: 40, firstGen: -8, athlete: 5, resident: -7 }, threshold: -10 };
+  assert.deepEqual(scoreSpaceBoundary(negative), {
+    xDomain: [-60, 40], yDomain: [-15, 5], points: [{ x: -15, y: 5 }, { x: 5, y: -15 }], relation: 'mixed',
+  });
+  for (const threshold of [-76, -75, -30, 0, 44, 45, 46]) {
+    const boundary = scoreSpaceBoundary({ ...negative, threshold });
+    assert.equal(boundary.relation, threshold <= -75 ? 'all-admitted' : threshold > 45 ? 'none-admitted' : 'mixed');
+    for (const { x, y } of boundary.points) {
+      assert.ok(x >= -60 && x <= 40 && y >= -15 && y <= 5);
+      assert.equal(x + y, threshold);
+    }
+  }
+  for (const profile of backgrounds) for (const gpa of [1, 2.4, 3.2, 4, 5]) for (const sat of [500, 950, 1200, 1600, 1800]) {
+    const student = { ...profile, gpa, sat };
+    assert.equal(scoreCoordinates(student, negative).total, scoreStudent(student, negative));
+  }
+  assert.deepEqual(scoreSpaceBoundary({ weights: { gpa: -20, firstGen: -10 }, threshold: -15 }), {
+    xDomain: [-20, 0], yDomain: [-10, 0], points: [{ x: -15, y: 0 }, { x: -5, y: -10 }], relation: 'mixed',
+  });
+});
+
+test('Boundary view helpers leave records and policies unchanged', () => {
+  const policy = Object.freeze({ ...policies[1], weights: Object.freeze({ ...policies[1].weights }) });
+  const student = Object.freeze({ ...records[0] });
+  const before = JSON.stringify({ policy, student });
+  scoreCoordinates(student, policy);
+  scoreContributions(student, policy);
+  scoreSpaceBoundary(policy);
+  assert.equal(JSON.stringify({ policy, student }), before);
+  assert.notEqual(scoreContributions(student, policy), scoreContributions(student, policy));
+});
 
 test('Student dragging edits only hypothetical GPA/SAT, matches slider steps, and respects chart limits', () => {
   const student = Object.freeze({ id: 'test', gpa: 3.2, sat: 1200, firstGen: true, athlete: false, resident: true, referenceOutcome: false });

@@ -1,5 +1,12 @@
 # CounterLens Release Log
 
+## [V2.12.0 - Decision Views] - 2026-10-09
+### Changed
+- Added a view selector with Background band (default), Score map, and Score breakdown.
+- Score map compares academic and background points with the exact admission cutoff. Score breakdown shows five contributions for the original and edited student.
+- Switching views preserves the policy, threshold, and student edits. Added English, Chinese, and Spanish descriptions and Light/Dark styling.
+- Aligned the confusion matrix AI prediction heading with its admission row labels.
+
 ## [V2.11.0 - Classroom Controls & Clearer Labels] - 2026-10-06
 ### Changed
 - Replaced background toggles with field and value dropdowns, original-value hints, and an edited-field count.

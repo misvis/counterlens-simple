@@ -11,11 +11,29 @@ export const backgroundScore = (student, policy) => CONTEXT_FIELDS.reduce(
   (sum, field) => sum + (student?.[field] ? weight(policy, field) : 0), 0,
 );
 
-export const scoreStudent = (student, policy) => {
+const academicPoints = (student, policy, field) => {
   if (!student) return 0;
-  return unit((student.gpa - GPA_MIN) / (GPA_MAX - GPA_MIN)) * weight(policy, 'gpa')
-    + unit((student.sat - SAT_MIN) / (SAT_MAX - SAT_MIN)) * weight(policy, 'sat')
-    + backgroundScore(student, policy);
+  const [minimum, maximum] = ADMISSION_DOMAINS[field];
+  return unit((student[field] - minimum) / (maximum - minimum)) * weight(policy, field);
+};
+
+const academicScore = (student, policy) => academicPoints(student, policy, 'gpa') + academicPoints(student, policy, 'sat');
+
+export const scoreStudent = (student, policy) => academicScore(student, policy) + backgroundScore(student, policy);
+
+// Each bar uses the same normalization and background rules as the decision.
+// The cutoff does not change these contributions; it only changes admission.
+export const scoreContributions = (student, policy) => [
+  { key: 'gpa', points: academicPoints(student, policy, 'gpa') },
+  { key: 'sat', points: academicPoints(student, policy, 'sat') },
+  ...CONTEXT_FIELDS.map(key => ({ key, points: student?.[key] ? weight(policy, key) : 0 })),
+];
+
+// This two-axis aggregation preserves the model's total score exactly.
+export const scoreCoordinates = (student, policy) => {
+  const academic = academicScore(student, policy);
+  const background = backgroundScore(student, policy);
+  return { academic, background, total: academic + background };
 };
 
 export const getDecision = (student, policy) => scoreStudent(student, policy) >= policy.threshold;
@@ -79,6 +97,35 @@ export const admissionBoundary = (policy, contextScore = 0) => {
     add((cutoff - b) / a, 1);
   }
   return { points: points.map(toChartPoint), relation };
+};
+
+const scoreExtents = (policy, fields) => fields.reduce(
+  ([minimum, maximum], field) => [minimum + Math.min(0, weight(policy, field)), maximum + Math.max(0, weight(policy, field))],
+  [0, 0],
+);
+
+// The score-space separator is x + y = threshold. Clip it to actual score
+// extents, not to padded display axes. Background scores occupy discrete rows;
+// the separator between them does not imply that intermediate profiles exist.
+export const scoreSpaceBoundary = policy => {
+  const [xMin, xMax] = scoreExtents(policy, ['gpa', 'sat']);
+  const [yMin, yMax] = scoreExtents(policy, CONTEXT_FIELDS);
+  const minimum = xMin + yMin;
+  const maximum = xMax + yMax;
+  const threshold = policy.threshold;
+  const relation = threshold <= minimum ? 'all-admitted' : threshold > maximum ? 'none-admitted' : 'mixed';
+  const result = {
+    xDomain: xMin === xMax ? [0, 1] : [xMin, xMax],
+    yDomain: yMin === yMax ? [0, 1] : [yMin, yMax],
+    points: [],
+    relation,
+  };
+  if (threshold < minimum || threshold > maximum) return result;
+  const start = Math.max(xMin, threshold - yMax);
+  const end = Math.min(xMax, threshold - yMin);
+  result.points.push({ x: start, y: threshold - start });
+  if (end - start > EPSILON) result.points.push({ x: end, y: threshold - end });
+  return result;
 };
 
 const clip = (polygon, signedDistance) => {

@@ -35,6 +35,9 @@ import {
 } from 'lucide-react';
 import { trackAnonymousEvent } from './data/analytics.js';
 import ThresholdDragSurface from './ThresholdDragSurface.jsx';
+import ScoreBoundaryView from './ScoreBoundaryView.jsx';
+import ScoreBreakdownView from './ScoreBreakdownView.jsx';
+import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
 import { ADMISSION_DOMAINS, scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from '../shared/admissionModel.js';
@@ -822,6 +825,7 @@ const SimplifiedApp = () => {
   const [theme, setTheme] = useState('light');
   const [showCredits, setShowCredits] = useState(false);
   const [isMining, setIsMining] = useState(false);
+  const [boundaryView, setBoundaryView] = useState('band');
   const [policyId, setPolicyId] = useState('academic');
   const [thresholdOverride, setThresholdOverride] = useState(null);
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
@@ -837,6 +841,8 @@ const SimplifiedApp = () => {
   const previousDecision = useRef(null);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  const viewCopy = BOUNDARY_VIEWS[lang] || BOUNDARY_VIEWS.en;
+  const boundaryHelpTitle = boundaryView === 'breakdown' ? t.scoreHelpTitle : t.boundaryHelpTitle;
   const explainedPolicy = explainedPolicyId ? t.policies[explainedPolicyId] : null;
   useEffect(() => {
     if (!explainedPolicyId) return;
@@ -921,6 +927,9 @@ const SimplifiedApp = () => {
       : !boundaryBand.hasContext ? t.boundaryShared
         : !draftStudent ? (boundaryBand.polygon.length ? t.boundaryBand : t.boundaryEdge)
           : backgroundBoundaryChanged ? t.boundaryEdited : t.boundarySelected;
+  const displayedBoundaryCaption = boundaryView === 'score' ? viewCopy.scoreCaption
+    : boundaryView === 'breakdown' ? viewCopy.breakdownCaption : boundaryCaption;
+  const hasDraggableBoundary = Boolean(currentBoundary?.points.length || boundaryBand.polygon.length);
 
   const outcomes = useMemo(
     () => students.map((student) => ({ ...student, admitted: getDecision(student, policy) })),
@@ -1091,7 +1100,7 @@ const SimplifiedApp = () => {
 
   const { isStudentDragging, studentDragHandlers } = useStudentDrag({
     students, selectedStudent, draftStudent, onSelect: selectStudent, onEdit: applyDraft,
-    setSelectedId, setDraftStudent, contextKey: `${datasetId}:${datasetVersion}:${policy.id}:${dataState}`, disabled: isBoundaryDragging,
+    setSelectedId, setDraftStudent, contextKey: `${datasetId}:${datasetVersion}:${policy.id}:${dataState}:${boundaryView}`, disabled: isBoundaryDragging || boundaryView !== 'band',
   });
 
   return (
@@ -1262,7 +1271,7 @@ const SimplifiedApp = () => {
               <div className="workspace-visualizer-heading">
                 <div className="workspace-visualizer-intro">
                   <h2 className="workspace-visualizer-title font-bold text-white">{t.visualizer}</h2>
-                  <p className="workspace-visualizer-subtitle text-slate-400">{t.visualizerSubtitle}</p>
+                  <p className="workspace-visualizer-subtitle text-slate-400">{boundaryView === 'score' ? viewCopy.scoreSubtitle : boundaryView === 'breakdown' ? viewCopy.breakdownSubtitle : t.visualizerSubtitle}</p>
                 </div>
                 <div className="workspace-visualizer-actions">
                 <button
@@ -1313,7 +1322,7 @@ const SimplifiedApp = () => {
               <div
                 className={`simplified-inset simplified-scatter-plot w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 ${isBoundaryDragging ? 'is-boundary-dragging' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}
                 role="group"
-                aria-label={t.chartLabel}
+                aria-label={boundaryView === 'band' ? t.chartLabel : viewCopy[boundaryView]}
                 {...studentDragHandlers}
                 onMouseDown={(event) => { if (!event.target.closest?.('[data-boundary-ui]')) event.preventDefault(); }}
                 onClick={(event) => {
@@ -1323,32 +1332,49 @@ const SimplifiedApp = () => {
                   }
                 }}
               >
-                <span className="sr-only">{t.chartLabel}</span>
+                <span className="sr-only">{boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : t.chartLabel}</span>
                 <div data-boundary-ui className="workspace-boundary-key">
-                  <span className={`workspace-boundary-swatch ${boundaryBand.hasContext && !draftStudent ? 'is-band' : ''} ${backgroundBoundaryChanged ? 'is-edited' : ''}`} aria-hidden="true" />
-                  <span className="workspace-boundary-caption" title={boundaryCaption}>{boundaryCaption}</span>
-                  <button type="button" className="workspace-inline-help rounded-md" aria-label={t.boundaryHelpTitle} aria-expanded={explainedPolicyId === 'boundary'} aria-controls="boundary-help" onClick={(event) => {
+                  <div className="workspace-select-wrap workspace-boundary-picker">
+                    <select aria-label={viewCopy.label} value={boundaryView} onChange={event => {
+                      setBoundaryView(event.target.value);
+                      setExplainedPolicyId(null);
+                    }}>
+                      {['band', 'score', 'breakdown'].map(view => <option key={view} value={view}>{viewCopy[view]}</option>)}
+                    </select>
+                    <ChevronDown aria-hidden="true" />
+                  </div>
+                  <span className="workspace-boundary-caption" title={displayedBoundaryCaption}>
+                    {displayedBoundaryCaption}
+                  </span>
+                  <button type="button" className="workspace-inline-help rounded-md" aria-label={boundaryHelpTitle} aria-expanded={explainedPolicyId === 'boundary'} aria-controls="boundary-help" onClick={(event) => {
                     policyHelpTrigger.current = event.currentTarget;
                     setExplainedPolicyId(explainedPolicyId === 'boundary' ? null : 'boundary');
                   }}><Info className="h-3.5 w-3.5" /></button>
-                  <span className="workspace-boundary-drag-hint" title={t.boundaryDragHelp}>
+                  {boundaryView === 'band' && <span className="workspace-boundary-drag-hint" title={t.boundaryDragHelp}>
                     <MoveUpRight className="h-3 w-3" aria-hidden="true" />
-                    {isBoundaryDragging ? t.boundaryDragging : (currentBoundary?.points.length || boundaryBand.polygon.length) ? t.boundaryDragHint : t.boundaryUseSlider}
-                  </span>
+                    {isBoundaryDragging ? t.boundaryDragging : hasDraggableBoundary ? t.boundaryDragHint : t.boundaryUseSlider}
+                  </span>}
                 </div>
                 {explainedPolicyId === 'boundary' && (
                   <div id="boundary-help" data-boundary-ui data-policy-help role="region" aria-labelledby="boundary-help-title" className="workspace-boundary-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
                     <div className="flex items-start justify-between gap-3">
-                      <h3 id="boundary-help-title" className="text-sm font-bold text-white">{t.boundaryHelpTitle}</h3>
+                      <h3 id="boundary-help-title" className="text-sm font-bold text-white">{boundaryHelpTitle}</h3>
                       <button type="button" className="rounded-md p-1" aria-label={t.close} onClick={() => { setExplainedPolicyId(null); policyHelpTrigger.current?.focus(); }}><X className="h-4 w-4" /></button>
                     </div>
-                    <p className="mt-2">{boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
-                    {boundaryBand.hasContext && <p className="mt-2">{t.boundarySelectedHelp}</p>}
-                    <p className="mt-2 font-semibold text-blue-300">{t.boundaryFormula}</p>
-                    <p className="mt-2">{t.boundaryDragHelp}</p>
+                    <p className="mt-2">{boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
+                    {boundaryView === 'band' && <p className="mt-2">{viewCopy.bandDetail}</p>}
+                    {boundaryView === 'band' && boundaryBand.hasContext && <p className="mt-2">{t.boundarySelectedHelp}</p>}
+                    {boundaryView === 'score' && <p className="mt-2">{boundaryBand.hasContext ? viewCopy.scoreDetail : viewCopy.scoreNoBackground}</p>}
+                    <p className="mt-2 font-semibold text-blue-300">{boundaryView === 'breakdown' ? viewCopy.breakdownFormula : t.boundaryFormula}</p>
+                    <p className="mt-2">{boundaryView === 'score' ? viewCopy.scoreEditing : boundaryView === 'breakdown' ? viewCopy.breakdownEditing : t.boundaryDragHelp}</p>
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                {boundaryView === 'score' ? <ScoreBoundaryView students={students} policy={policy}
+                  selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
+                  onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
+                  : boundaryView === 'breakdown' ? <ScoreBreakdownView students={students} policy={policy}
+                    selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
+                    isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds} /> : <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 32, right: 24, bottom: 22, left: 4 }}>
                     <CartesianGrid stroke={isLight ? '#dbe3ee' : darkPalette.grid} strokeDasharray="3 5" vertical={false} />
                     <XAxis
@@ -1461,7 +1487,7 @@ const SimplifiedApp = () => {
                       />
                     )}
                   </ScatterChart>
-                </ResponsiveContainer>
+                </ResponsiveContainer>}
               </div>
 
               <div className="workspace-analysis-bar">
@@ -1682,7 +1708,7 @@ const SimplifiedApp = () => {
                   <div className="workspace-empty simplified-inset flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 text-center">
                     <GraduationCap className="h-8 w-8 text-slate-700" />
                     <h3 className="mt-3 text-sm font-semibold text-slate-300">{t.selectStudent}</h3>
-                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{t.selectStudentDesc}</p>
+                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{boundaryView === 'score' ? viewCopy.scoreSelectHint : boundaryView === 'breakdown' ? viewCopy.breakdownSelectHint : t.selectStudentDesc}</p>
                   </div>
                 ) : (
                   <div className="workspace-draft-controls">
