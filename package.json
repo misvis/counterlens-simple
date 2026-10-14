@@ -12,7 +12,7 @@
     "start:server": "node server/index.js",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test server/app.test.js shared/admissionModel.test.js",
+    "test": "node --test server/app.test.js shared/admissionModel.test.js shared/backgroundScenarios.test.js",
     "check": "npm run lint && npm test && npm run build",
     "preview": "vite preview",
     "predeploy": "npm run build",

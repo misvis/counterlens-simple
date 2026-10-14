@@ -24,7 +24,6 @@ import {
   MoveUpRight,
   RotateCcw,
   School,
-  SlidersHorizontal,
   Sparkles,
   Sun,
   Sunset,
@@ -37,6 +36,7 @@ import { trackAnonymousEvent } from './data/analytics.js';
 import ThresholdDragSurface from './ThresholdDragSurface.jsx';
 import ScoreBoundaryView from './ScoreBoundaryView.jsx';
 import ScoreBreakdownView from './ScoreBreakdownView.jsx';
+import BackgroundScenariosView from './BackgroundScenariosView.jsx';
 import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
@@ -115,13 +115,13 @@ const TRANSLATIONS = {
     matrixDemoIntro: 'Each simulated student has a preset label: “admitted” or “not admitted.” This table compares the AI’s decision with that label.',
     matrixDemoExample: 'For example, FP counts students the AI admits whose preset label says “not admitted.”',
     matrixDemoAxes: 'Rows show the AI prediction. Columns show the simulated label.',
-    matrixDemoCell: 'AI: {prediction}; label: {label}',
+    matrixDemoCell: 'AI prediction: {prediction}; simulated label: {label}',
     confusionHelpTitle: 'How to read the confusion matrix',
     groundTruthPositive: 'Label: positive',
     groundTruthNegative: 'Label: negative',
-    matrixSamples: 'Samples',
+    matrixSamples: 'Labeled students',
     matrixPartial: 'Samples without a label are left out.',
-    matrixCellShare: '{count} students ({percent}% of the matrix)',
+    matrixCellShare: '{count} students ({percent}% of all labeled students)',
     matrixBarHelp: 'Longer bars mean more students in that cell.',
     matrixMissing: 'No ground truth labels',
     matrixHelp: 'Rows show the AI-predicted result using the selected policy. Columns show the ground truth label saved in the data: positive or negative.',
@@ -139,7 +139,7 @@ const TRANSLATIONS = {
     fromCutoff: 'from cutoff',
     visualizer: 'Counterfactual Visualizer',
     visualizerSubtitle: 'Drag a student or the cutoff to explore outcomes.',
-    studentDragHelp: 'Drag to change GPA and SAT. Press Esc to undo this drag.',
+    studentDragHelp: 'Drag to change GPA and SAT Percentile. Press Esc to undo this drag.',
     boundaryHelpTitle: 'How to read the admission boundary',
     boundaryShared: 'Shared admission boundary',
     boundaryBand: 'Background-dependent band',
@@ -148,10 +148,10 @@ const TRANSLATIONS = {
     boundaryAll: 'All plotted scores qualify for this background',
     boundaryNone: 'No plotted scores qualify for this background',
     boundaryEdge: 'Cutoff at chart edge',
-    boundaryAcademicHelp: 'The line marks the admission cutoff for GPA and SAT. Students on the line qualify. Academic Focus uses the same line for everyone.',
-    boundaryContextHelp: 'These policies also award points for first-generation, athlete, and in-state status. The shaded band shows where background points can change a decision for the same GPA and SAT.',
+    boundaryAcademicHelp: 'The line marks the admission cutoff for GPA and SAT Percentile. Students on the line qualify. Academic Focus uses the same line for everyone.',
+    boundaryContextHelp: 'These policies also award points for first-generation, athlete, and in-state status. The shaded band shows where background points can change a decision for the same GPA and SAT Percentile.',
     boundarySelectedHelp: 'Select a student to see their admission line. Changing their background can move the line. The band shows the range for all backgrounds. Other students keep their own results.',
-    boundaryFormula: 'GPA points + SAT points + background points = threshold',
+    boundaryFormula: 'GPA points + SAT Percentile points + background points = threshold',
     boundaryDragHint: 'Drag to adjust',
     boundaryDragging: 'Adjusting cutoff',
     boundaryUseSlider: 'Use slider below',
@@ -161,13 +161,13 @@ const TRANSLATIONS = {
     controlsLabel: 'Exploration controls',
     aboutPolicy: 'About this policy',
     choosePolicy: 'Policy Studio',
-    choosePolicyDesc: 'Choose how GPA, SAT, and background count.',
+    choosePolicyDesc: 'Choose how GPA, SAT Percentile, and background count.',
     remember: 'Remember',
     simulationNote: 'This is a simplified simulation, not a real admission system. The policy reflects human choices about what counts.',
     seeAffected: 'See who is affected',
     seeAffectedDesc: 'Each dot is one simulated student. Click a dot to investigate a decision.',
     seeAffectedDescApproved: 'Each dot is one record from the approved classroom release. Click a dot to investigate a decision.',
-    chartLabel: 'Admission outcomes chart. GPA is on the horizontal axis and SAT is on the vertical axis. Select a student point to investigate the decision.',
+    chartLabel: 'Admission outcomes chart. GPA is on the horizontal axis and SAT Percentile is on the vertical axis. Select a student point to investigate the decision.',
     admitted: 'Admitted',
     notAdmitted: 'Not admitted',
     student: 'Student',
@@ -217,14 +217,14 @@ const TRANSLATIONS = {
     outcomeUnchanged: 'Same outcome',
     outcomeComparison: 'Original: {original} → Edited: {edited}. Compared at the same policy and threshold.',
     adjustedPosition: 'Adjusted position',
-    adjustedSamePosition: 'Adjusted profile · same GPA/SAT position',
-    chartAxisNote: 'Only GPA and SAT set a dot’s position. Background points can change its result at the same position.',
+    adjustedSamePosition: 'Adjusted profile · same GPA/SAT Percentile position',
+    chartAxisNote: 'Only GPA and SAT Percentile set a dot’s position. Background points can change its result at the same position.',
     reset: 'Reset',
     selectStudent: 'Select a student from the chart',
     selectStudentDesc: 'Drag a dot to try different scores, or use the controls here. The original profile stays unchanged.',
     decisionScore: 'Decision score',
     scoreHelpTitle: 'How the decision score is calculated',
-    scoreHelpDescription: 'The policy adds up points for GPA, SAT, and the background factors it includes.',
+    scoreHelpDescription: 'The policy adds up points for GPA, SAT Percentile, and the background factors it includes.',
     scoreHelpRule: 'A score of {cutoff} or more means admitted. Below {cutoff} means not admitted.',
     scoreHelpCaution: 'A score of 70 does not mean a 70% chance of admission.',
     cutoff: 'Cutoff',
@@ -250,17 +250,17 @@ const TRANSLATIONS = {
       academic: {
         name: 'Academic Focus',
         shortName: 'Strict academic cutoff',
-        description: 'GPA and SAT only, with a strict admission cutoff.',
+        description: 'GPA and SAT Percentile only, with a strict admission cutoff.',
       },
       holistic: {
         name: 'Whole-Person Review',
         shortName: 'Academic scores + background points',
-        description: 'Uses GPA and SAT, with extra points for first-generation students, athletes, and in-state residents.',
+        description: 'Uses GPA and SAT Percentile, with extra points for first-generation students, athletes, and in-state residents.',
       },
       opportunity: {
         name: 'Opportunity-Aware',
         shortName: 'More points for first-generation students',
-        description: 'Gives more points for first-generation status and less weight to GPA and SAT than Whole-Person Review. Also adds points for athletes and in-state residents.',
+        description: 'Gives more points for first-generation status and less weight to GPA and SAT Percentile than Whole-Person Review. Also adds points for athletes and in-state residents.',
         details: [
           'First-generation students receive {firstGen} extra points here and {comparisonFirstGen} under Whole-Person Review.',
           'The default cutoff is {cutoff}; Whole-Person Review starts at {comparisonCutoff}. Use the slider to try another cutoff.',
@@ -277,13 +277,13 @@ const TRANSLATIONS = {
     matrixDemoIntro: '每名模拟学生都有一个预设标签：“录取”或“不录取”。这张表把 AI 的决定和这个标签放在一起比较。',
     matrixDemoExample: '例如，FP 统计的是 AI 决定录取、但预设标签为“不录取”的学生人数。',
     matrixDemoAxes: '行表示 AI 预测结果，列表示模拟标签。',
-    matrixDemoCell: 'AI：{prediction}；标签：{label}',
+    matrixDemoCell: 'AI 预测结果：{prediction}；模拟标签：{label}',
     confusionHelpTitle: '如何阅读混淆矩阵',
     groundTruthPositive: '标签：正类',
     groundTruthNegative: '标签：负类',
-    matrixSamples: '样本总数',
+    matrixSamples: '有标签的学生',
     matrixPartial: '缺少标签的样本不计入矩阵。',
-    matrixCellShare: '{count} 名学生（占矩阵的 {percent}%）',
+    matrixCellShare: '{count} 名学生（占全部有标签学生的 {percent}%）',
     matrixBarHelp: '色条越长，这一格的学生越多。',
     matrixMissing: '暂无真实标签',
     matrixHelp: '行表示 AI 按所选政策给出的预测结果，列表示数据中保存的真实标签（Ground truth label）：正类或负类。',
@@ -301,7 +301,7 @@ const TRANSLATIONS = {
     fromCutoff: '距录取线',
     visualizer: '反事实可视化',
     visualizerSubtitle: '拖动学生点或录取线，观察结果如何变化。',
-    studentDragHelp: '拖动调整 GPA 和 SAT；按 Esc 撤销本次拖动。',
+    studentDragHelp: '拖动调整 GPA 和 SAT Percentile；按 Esc 撤销本次拖动。',
     boundaryHelpTitle: '如何理解录取边界',
     boundaryShared: '所有学生共用的录取线',
     boundaryBand: '背景可能影响结果的区域',
@@ -310,10 +310,10 @@ const TRANSLATIONS = {
     boundaryAll: '这一背景下，图内所有分数均符合条件',
     boundaryNone: '这一背景下，图内没有符合条件的分数',
     boundaryEdge: '录取线位于图表边缘',
-    boundaryAcademicHelp: '这条线是 GPA 和 SAT 对应的录取线，恰好在线上的学生也会被录取。“学业优先”政策对所有学生使用同一条线。',
-    boundaryContextHelp: '这两项政策还为第一代大学生、运动员和州内居民加分。阴影带表示：在 GPA 和 SAT 相同的情况下，背景加分可能改变录取结果的区域。',
+    boundaryAcademicHelp: '这条线是 GPA 和 SAT Percentile 对应的录取线，恰好在线上的学生也会被录取。“学业优先”政策对所有学生使用同一条线。',
+    boundaryContextHelp: '这两项政策还为第一代大学生、运动员和州内居民加分。阴影带表示：在 GPA 和 SAT Percentile 相同的情况下，背景加分可能改变录取结果的区域。',
     boundarySelectedHelp: '选中学生可查看其录取线。修改背景可能移动这条线，阴影带则显示所有背景对应的范围。其他学生的结果保持不变。',
-    boundaryFormula: 'GPA 得分 + SAT 得分 + 背景得分 = 阈值',
+    boundaryFormula: 'GPA 得分 + SAT Percentile 得分 + 背景得分 = 阈值',
     boundaryDragHint: '拖动调整阈值',
     boundaryDragging: '正在调整阈值',
     boundaryUseSlider: '使用下方滑块',
@@ -323,13 +323,13 @@ const TRANSLATIONS = {
     controlsLabel: '探索与调整',
     aboutPolicy: '了解这项政策',
     choosePolicy: '政策工作台',
-    choosePolicyDesc: '选择 GPA、SAT 和背景的计分方式。',
+    choosePolicyDesc: '选择 GPA、SAT Percentile 和背景的计分方式。',
     remember: '请记住',
     simulationNote: '这是一个简化的模拟实验，并非真实录取系统。政策反映的是人类对于“什么重要”的选择。',
     seeAffected: '观察谁受到影响',
     seeAffectedDesc: '每个点代表一名模拟学生。点击任意点，进一步审查这项决定。',
     seeAffectedDescApproved: '每个点代表获准公开的课堂数据中的一条记录。点击任意点，进一步审查这项决定。',
-    chartLabel: '录取结果图。横轴为 GPA，纵轴为 SAT。请选择一个学生样本点来审查这项决定。',
+    chartLabel: '录取结果图。横轴为 GPA，纵轴为 SAT Percentile。请选择一个学生样本点来审查这项决定。',
     admitted: '已录取',
     notAdmitted: '未录取',
     student: '学生',
@@ -379,14 +379,14 @@ const TRANSLATIONS = {
     outcomeUnchanged: '结果未改变',
     outcomeComparison: '原始：{original} → 修改后：{edited}。两者使用相同的政策与阈值。',
     adjustedPosition: '调整后位置',
-    adjustedSamePosition: '背景已调整 · GPA/SAT 坐标不变',
-    chartAxisNote: '点的位置只由 GPA 和 SAT 决定。背景加分可以让点留在原处，但录取结果发生变化。',
+    adjustedSamePosition: '背景已调整 · GPA/SAT Percentile 坐标不变',
+    chartAxisNote: '点的位置只由 GPA 和 SAT Percentile 决定。背景加分可以让点留在原处，但录取结果发生变化。',
     reset: '重置',
     selectStudent: '请从图中选择一名学生',
     selectStudentDesc: '拖动学生点尝试不同分数，也可以使用这里的控件。原始档案保持不变。',
     decisionScore: '决策分数',
     scoreHelpTitle: '决策分数的计算方式',
-    scoreHelpDescription: '将政策中的 GPA 得分、SAT 得分和背景加分相加，就是决策分数。',
+    scoreHelpDescription: '将政策中的 GPA 得分、SAT Percentile 得分和背景加分相加，就是决策分数。',
     scoreHelpRule: '分数达到 {cutoff} 就会被录取，低于 {cutoff} 则不被录取。',
     scoreHelpCaution: '70 分不表示有 70% 的录取概率。',
     cutoff: '录取线',
@@ -412,17 +412,17 @@ const TRANSLATIONS = {
       academic: {
         name: '学业优先',
         shortName: '严格学业录取线',
-        description: '只看 GPA 与 SAT，并采用严格录取线。',
+        description: '只看 GPA 与 SAT Percentile，并采用严格录取线。',
       },
       holistic: {
         name: '综合评估',
         shortName: '学业成绩 + 背景加分',
-        description: '使用 GPA 和 SAT，并为第一代大学生、运动员和州内居民加分。',
+        description: '使用 GPA 和 SAT Percentile，并为第一代大学生、运动员和州内居民加分。',
       },
       opportunity: {
         name: '机会补偿',
         shortName: '给第一代大学生更多加分',
-        description: '相比“综合评估”，这项政策给第一代大学生更多加分，GPA 和 SAT 的权重更低。运动员和州内居民也有加分。',
+        description: '相比“综合评估”，这项政策给第一代大学生更多加分，GPA 和 SAT Percentile 的权重更低。运动员和州内居民也有加分。',
         details: [
           '第一代大学生在这里加 {firstGen} 分，在“综合评估”中加 {comparisonFirstGen} 分。',
           '默认录取线是 {cutoff}，“综合评估”是 {comparisonCutoff}。可以用滑块尝试其他录取线。',
@@ -439,13 +439,13 @@ const TRANSLATIONS = {
     matrixDemoIntro: 'Cada estudiante simulado tiene una etiqueta fija: “admitido” o “no admitido”. La tabla compara la decisión de la IA con esa etiqueta.',
     matrixDemoExample: 'Por ejemplo, FP cuenta a los estudiantes que la IA admite cuya etiqueta indica “no admitido”.',
     matrixDemoAxes: 'Las filas muestran la predicción de IA. Las columnas muestran la etiqueta simulada.',
-    matrixDemoCell: 'IA: {prediction}; etiqueta: {label}',
+    matrixDemoCell: 'Predicción de IA: {prediction}; etiqueta simulada: {label}',
     confusionHelpTitle: 'Cómo leer la matriz de confusión',
     groundTruthPositive: 'Etiqueta positiva',
     groundTruthNegative: 'Etiqueta negativa',
-    matrixSamples: 'Muestras',
+    matrixSamples: 'Estudiantes con etiqueta',
     matrixPartial: 'Las muestras sin etiqueta quedan fuera de la matriz.',
-    matrixCellShare: '{count} estudiantes ({percent}% de la matriz)',
+    matrixCellShare: '{count} estudiantes ({percent}% de todos los estudiantes con etiqueta)',
     matrixBarHelp: 'Una barra más larga significa más estudiantes en esa celda.',
     matrixMissing: 'Sin etiquetas reales',
     matrixHelp: 'Las filas muestran el resultado predicho por la IA según la política elegida. Las columnas muestran la etiqueta real guardada en los datos: positiva o negativa.',
@@ -463,7 +463,7 @@ const TRANSLATIONS = {
     fromCutoff: 'del corte',
     visualizer: 'Visualizador contrafactual',
     visualizerSubtitle: 'Arrastra un estudiante o el umbral para explorar los resultados.',
-    studentDragHelp: 'Arrastra para cambiar GPA y SAT. Pulsa Esc para deshacer este movimiento.',
+    studentDragHelp: 'Arrastra para cambiar GPA y SAT Percentile. Pulsa Esc para deshacer este movimiento.',
     boundaryHelpTitle: 'Cómo leer el límite de admisión',
     boundaryShared: 'Límite de admisión común',
     boundaryBand: 'Zona dependiente del contexto',
@@ -472,10 +472,10 @@ const TRANSLATIONS = {
     boundaryAll: 'Todos los puntajes del gráfico califican con este contexto',
     boundaryNone: 'Ningún puntaje del gráfico califica con este contexto',
     boundaryEdge: 'Corte en el borde del gráfico',
-    boundaryAcademicHelp: 'La línea marca el corte de admisión para GPA y SAT. Los estudiantes sobre la línea se admiten. Enfoque académico usa la misma línea para todos.',
-    boundaryContextHelp: 'Estas políticas también dan puntos por primera generación, deporte y residencia en el estado. La banda muestra dónde esos puntos pueden cambiar la decisión con el mismo GPA y SAT.',
+    boundaryAcademicHelp: 'La línea marca el corte de admisión para GPA y SAT Percentile. Los estudiantes sobre la línea se admiten. Enfoque académico usa la misma línea para todos.',
+    boundaryContextHelp: 'Estas políticas también dan puntos por primera generación, deporte y residencia en el estado. La banda muestra dónde esos puntos pueden cambiar la decisión con el mismo GPA y SAT Percentile.',
     boundarySelectedHelp: 'Selecciona un estudiante para ver su línea de admisión. Cambiar su contexto puede moverla. La banda muestra el rango para todos los contextos. Los demás estudiantes conservan sus resultados.',
-    boundaryFormula: 'Puntos GPA + puntos SAT + puntos de contexto = umbral',
+    boundaryFormula: 'Puntos GPA + puntos SAT Percentile + puntos de contexto = umbral',
     boundaryDragHint: 'Arrastra para ajustar',
     boundaryDragging: 'Ajustando el umbral',
     boundaryUseSlider: 'Usa el control inferior',
@@ -485,13 +485,13 @@ const TRANSLATIONS = {
     controlsLabel: 'Controles de exploración',
     aboutPolicy: 'Acerca de esta política',
     choosePolicy: 'Estudio de políticas',
-    choosePolicyDesc: 'Elige cómo cuentan el GPA, el SAT y el contexto.',
+    choosePolicyDesc: 'Elige cómo cuentan el GPA, el SAT Percentile y el contexto.',
     remember: 'Recuerda',
     simulationNote: 'Esta es una simulación simplificada, no un sistema real de admisión. La política refleja decisiones humanas sobre lo que importa.',
     seeAffected: 'Observa a quién afecta',
     seeAffectedDesc: 'Cada punto representa a un estudiante simulado. Haz clic para investigar una decisión.',
     seeAffectedDescApproved: 'Cada punto es un registro de la versión autorizada para clase. Haz clic para investigar una decisión.',
-    chartLabel: 'Gráfico de resultados de admisión. GPA está en el eje horizontal y SAT en el vertical. Selecciona un punto para investigar la decisión.',
+    chartLabel: 'Gráfico de resultados de admisión. GPA está en el eje horizontal y SAT Percentile en el vertical. Selecciona un punto para investigar la decisión.',
     admitted: 'Admitido',
     notAdmitted: 'No admitido',
     student: 'Estudiante',
@@ -541,14 +541,14 @@ const TRANSLATIONS = {
     outcomeUnchanged: 'Mismo resultado',
     outcomeComparison: 'Original: {original} → Editado: {edited}. Comparados con la misma política y el mismo umbral.',
     adjustedPosition: 'Posición ajustada',
-    adjustedSamePosition: 'Perfil ajustado · misma posición GPA/SAT',
-    chartAxisNote: 'Solo GPA y SAT determinan la posición del punto. Los puntos de contexto pueden cambiar el resultado sin moverlo.',
+    adjustedSamePosition: 'Perfil ajustado · misma posición GPA/SAT Percentile',
+    chartAxisNote: 'Solo GPA y SAT Percentile determinan la posición del punto. Los puntos de contexto pueden cambiar el resultado sin moverlo.',
     reset: 'Restablecer',
     selectStudent: 'Selecciona un estudiante en el gráfico',
     selectStudentDesc: 'Arrastra un punto para probar otras notas o usa estos controles. El perfil original se conserva.',
     decisionScore: 'Puntuación de decisión',
     scoreHelpTitle: 'Cómo se calcula la puntuación',
-    scoreHelpDescription: 'La política suma los puntos de GPA, SAT y los factores de contexto que incluye.',
+    scoreHelpDescription: 'La política suma los puntos de GPA, SAT Percentile y los factores de contexto que incluye.',
     scoreHelpRule: 'Una puntuación de {cutoff} o más significa admisión. Por debajo de {cutoff} significa no admisión.',
     scoreHelpCaution: 'Una puntuación de 70 no significa un 70% de probabilidad de admisión.',
     cutoff: 'Corte',
@@ -574,17 +574,17 @@ const TRANSLATIONS = {
       academic: {
         name: 'Enfoque académico',
         shortName: 'Corte académico estricto',
-        description: 'Solo GPA y SAT, con un corte de admisión estricto.',
+        description: 'Solo GPA y SAT Percentile, con un corte de admisión estricto.',
       },
       holistic: {
         name: 'Evaluación integral',
         shortName: 'Notas académicas + puntos de contexto',
-        description: 'Usa GPA y SAT, con puntos adicionales por primera generación, deporte y residencia en el estado.',
+        description: 'Usa GPA y SAT Percentile, con puntos adicionales por primera generación, deporte y residencia en el estado.',
       },
       opportunity: {
         name: 'Atención a oportunidades',
         shortName: 'Más puntos para estudiantes de primera generación',
-        description: 'Da más puntos por primera generación y menos peso al GPA y al SAT que Evaluación integral. También añade puntos por deporte y residencia en el estado.',
+        description: 'Da más puntos por primera generación y menos peso al GPA y al SAT Percentile que Evaluación integral. También añade puntos por deporte y residencia en el estado.',
         details: [
           'Los estudiantes de primera generación reciben {firstGen} puntos extra aquí y {comparisonFirstGen} en Evaluación integral.',
           'El corte inicial es {cutoff}; Evaluación integral empieza en {comparisonCutoff}. Usa el control para probar otro corte.',
@@ -611,44 +611,35 @@ const BACKGROUND_FIELDS = [
 ];
 
 const BackgroundEditor = ({ features, student, original, onChange, t }) => {
-  const [fieldKey, setFieldKey] = useState('firstGen');
   const fields = BACKGROUND_FIELDS.filter(field => features.some(feature =>
     feature.key === field.key && feature.role === 'input' && feature.type === 'boolean'
       && feature.allowedUses.includes('counterfactual')));
-  const field = fields.find(item => item.key === fieldKey) || fields[0];
-  if (!field) return null;
-  const changedCount = fields.filter(item => student[item.key] !== original[item.key]).length;
-  const valueLabel = value => t[value ? field.positive : field.negative];
+  if (!fields.length) return null;
 
   return (
-    <div className="workspace-background-editor">
-      <div className="workspace-background-selects">
-        <div>
-          <label htmlFor="background-field">{t.backgroundField}</label>
-          <div className="workspace-select-wrap">
-            <select id="background-field" value={field.key} onChange={event => setFieldKey(event.target.value)}>
-              {fields.map(item => <option key={item.key} value={item.key}>{t[item.label]}</option>)}
-            </select>
-            <ChevronDown aria-hidden="true" />
+    <div className="workspace-background-selects">
+      {fields.map(field => {
+        const changed = student[field.key] !== original[field.key];
+        const originalLabel = formatCopy(t.backgroundOriginal, {
+          value: t[original[field.key] ? field.positive : field.negative],
+        });
+        return (
+          <div key={field.key} className="workspace-background-field">
+            <label htmlFor={`background-${field.key}`}>{field.key === 'firstGen' ? t.firstGenerationShort : t[field.label]}</label>
+            <div className="workspace-select-wrap" data-edited={changed}>
+              <select id={`background-${field.key}`} value={String(student[field.key])}
+                aria-describedby={`background-original-${field.key}`}
+                onChange={event => onChange(field.key, event.target.value === 'true')}>
+                <option value="true">{t[field.positive]}</option>
+                <option value="false">{t[field.negative]}</option>
+              </select>
+              <ChevronDown aria-hidden="true" />
+            </div>
+            <div id={`background-original-${field.key}`} className="workspace-background-original"
+              data-edited={changed} aria-live="polite">{originalLabel}</div>
           </div>
-        </div>
-        <div>
-          <label htmlFor="background-value">{t.backgroundValue}</label>
-          <div className="workspace-select-wrap" data-edited={student[field.key] !== original[field.key]}>
-            <select id="background-value" value={String(student[field.key])}
-              aria-describedby="background-original"
-              onChange={event => onChange(field.key, event.target.value === 'true')}>
-              <option value="true">{t[field.positive]}</option>
-              <option value="false">{t[field.negative]}</option>
-            </select>
-            <ChevronDown aria-hidden="true" />
-          </div>
-        </div>
-      </div>
-      <div className="workspace-background-summary" aria-live="polite">
-        <span id="background-original">{formatCopy(t.backgroundOriginal, { value: valueLabel(original[field.key]) })}</span>
-        <span data-edited={changedCount > 0}>{changedCount ? formatCopy(t.backgroundChanges, { count: changedCount }) : t.backgroundUnchanged}</span>
-      </div>
+        );
+      })}
     </div>
   );
 };
@@ -668,7 +659,7 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
           {admitted ? t.admitted : t.notAdmitted}
         </span>
       </div>
-      <div className="text-slate-300">GPA {student.gpa.toFixed(2)} · SAT {student.sat}</div>
+      <div className="text-slate-300">GPA {student.gpa.toFixed(2)} · SAT Percentile {student.sat}</div>
       <div className="mt-1 font-mono text-[10px] text-slate-400">
         {t.decisionScore}: {score.toFixed(1)} · {t.cutoff} {policy.threshold} · {distance.toFixed(1)} {t.fromCutoff}
       </div>
@@ -825,7 +816,7 @@ const SimplifiedApp = () => {
   const [theme, setTheme] = useState('light');
   const [showCredits, setShowCredits] = useState(false);
   const [isMining, setIsMining] = useState(false);
-  const [boundaryView, setBoundaryView] = useState('band');
+  const [boundaryView, setBoundaryView] = useState('scenarios');
   const [policyId, setPolicyId] = useState('academic');
   const [thresholdOverride, setThresholdOverride] = useState(null);
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
@@ -835,14 +826,14 @@ const SimplifiedApp = () => {
   const policyHelpTrigger = useRef(null);
   const [classroomView, setClassroomView] = useState(createBundledClassroomView);
   const [dataState, setDataState] = useState(isClassroomApiConfigured ? 'loading' : 'bundled');
-  const [dataError, setDataError] = useState('');
+  const [, setDataError] = useState('');
   const trackedPageView = useRef('');
   const decisionBadgeRef = useRef(null);
   const previousDecision = useRef(null);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const viewCopy = BOUNDARY_VIEWS[lang] || BOUNDARY_VIEWS.en;
-  const boundaryHelpTitle = boundaryView === 'breakdown' ? t.scoreHelpTitle : t.boundaryHelpTitle;
+  const boundaryHelpTitle = boundaryView === 'scenarios' ? viewCopy.scenarios : boundaryView === 'breakdown' ? t.scoreHelpTitle : t.boundaryHelpTitle;
   const explainedPolicy = explainedPolicyId ? t.policies[explainedPolicyId] : null;
   useEffect(() => {
     if (!explainedPolicyId) return;
@@ -920,15 +911,6 @@ const SimplifiedApp = () => {
     () => !boundaryBand.hasContext || draftStudent ? admissionBoundary(policy, editedBackground) : null,
     [boundaryBand.hasContext, draftStudent, editedBackground, policy],
   );
-  const boundaryCaption = currentBoundary?.points.length === 0
-    ? (currentBoundary.relation === 'all-admitted' ? t.boundaryAll : t.boundaryNone)
-    : currentBoundary?.points.length === 1
-      ? t.boundaryEdge
-      : !boundaryBand.hasContext ? t.boundaryShared
-        : !draftStudent ? (boundaryBand.polygon.length ? t.boundaryBand : t.boundaryEdge)
-          : backgroundBoundaryChanged ? t.boundaryEdited : t.boundarySelected;
-  const displayedBoundaryCaption = boundaryView === 'score' ? viewCopy.scoreCaption
-    : boundaryView === 'breakdown' ? viewCopy.breakdownCaption : boundaryCaption;
   const hasDraggableBoundary = Boolean(currentBoundary?.points.length || boundaryBand.polygon.length);
 
   const outcomes = useMemo(
@@ -988,7 +970,6 @@ const SimplifiedApp = () => {
 
   const originalDecision = selectedStudent ? getDecision(selectedStudent, policy) : false;
   const draftDecision = draftStudent ? getDecision(draftStudent, policy) : false;
-  const draftScore = draftStudent ? scoreStudent(draftStudent, policy) : 0;
   const decisionFlipped = selectedStudent && draftStudent && originalDecision !== draftDecision;
   const draftProfileChanged = Boolean(selectedStudent && draftStudent && (
     selectedStudent.gpa !== draftStudent.gpa ||
@@ -1088,15 +1069,6 @@ const SimplifiedApp = () => {
       });
     }
   };
-
-  const datasetStatus = dataState === 'loading'
-    ? t.datasetLoading
-    : dataState === 'error'
-      ? t.datasetFallback
-      : formatCopy(
-        classroomView.dataset.sourceType === 'synthetic' ? t.datasetSynthetic : t.datasetApproved,
-        { count: students.length },
-      );
 
   const { isStudentDragging, studentDragHandlers } = useStudentDrag({
     students, selectedStudent, draftStudent, onSelect: selectStudent, onEdit: applyDraft,
@@ -1267,11 +1239,30 @@ const SimplifiedApp = () => {
 
         <main className="simplified-workspace">
 
-          <section className="workspace-visualizer simplified-panel flex flex-col rounded-2xl border border-slate-800 bg-slate-900/65 shadow-xl shadow-black/10">
+          <section className={`workspace-visualizer simplified-panel flex flex-col rounded-2xl border border-slate-800 bg-slate-900/65 shadow-xl shadow-black/10 ${boundaryView === 'scenarios' ? 'has-background-scenarios' : ''}`}
+            onClick={event => {
+              if (boundaryView === 'scenarios' && !event.target.closest?.('.background-scenario-panel, .workspace-analysis-bar, button, select, input, label, a, [data-policy-help]')) {
+                selectStudent(null);
+              }
+            }}>
               <div className="workspace-visualizer-heading">
                 <div className="workspace-visualizer-intro">
                   <h2 className="workspace-visualizer-title font-bold text-white">{t.visualizer}</h2>
-                  <p className="workspace-visualizer-subtitle text-slate-400">{boundaryView === 'score' ? viewCopy.scoreSubtitle : boundaryView === 'breakdown' ? viewCopy.breakdownSubtitle : t.visualizerSubtitle}</p>
+                  <div className="workspace-view-switcher" data-boundary-ui>
+                  <div className="workspace-select-wrap workspace-boundary-picker">
+                    <select aria-label={viewCopy.label} value={boundaryView} onChange={event => {
+                      setBoundaryView(event.target.value);
+                      setExplainedPolicyId(null);
+                    }}>
+                      {['scenarios', 'band'].map(view => <option key={view} value={view}>{viewCopy[view]}</option>)}
+                    </select>
+                    <ChevronDown aria-hidden="true" />
+                  </div>
+                  <button type="button" className="workspace-inline-help rounded-md" aria-label={boundaryHelpTitle} aria-expanded={explainedPolicyId === 'boundary'} aria-controls="boundary-help" onClick={(event) => {
+                    policyHelpTrigger.current = event.currentTarget;
+                    setExplainedPolicyId(explainedPolicyId === 'boundary' ? null : 'boundary');
+                  }}><Info className="h-3.5 w-3.5" /></button>
+                  </div>
                 </div>
                 <div className="workspace-visualizer-actions">
                 <button
@@ -1310,7 +1301,7 @@ const SimplifiedApp = () => {
                     <span className="h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ backgroundColor: outcomeColors.rejected }} />
                     {t.notAdmitted}
                   </span>
-                  <span className="workspace-adjusted-legend flex items-center gap-1.5 font-medium" style={{ visibility: draftProfileChanged ? 'visible' : 'hidden' }} aria-hidden={!draftProfileChanged}>
+                  <span className="workspace-adjusted-legend flex items-center gap-1.5 font-medium" style={{ visibility: draftProfileChanged && boundaryView !== 'scenarios' ? 'visible' : 'hidden' }} aria-hidden={!draftProfileChanged || boundaryView === 'scenarios'}>
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed" />
                     {t.whatIfStudent}
                   </span>
@@ -1320,7 +1311,7 @@ const SimplifiedApp = () => {
 
 
               <div
-                className={`simplified-inset simplified-scatter-plot w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 ${isBoundaryDragging ? 'is-boundary-dragging' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}
+                className={`simplified-inset simplified-scatter-plot w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 ${boundaryView === 'scenarios' ? 'is-background-scenarios' : ''} ${isBoundaryDragging ? 'is-boundary-dragging' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}
                 role="group"
                 aria-label={boundaryView === 'band' ? t.chartLabel : viewCopy[boundaryView]}
                 {...studentDragHandlers}
@@ -1332,46 +1323,34 @@ const SimplifiedApp = () => {
                   }
                 }}
               >
-                <span className="sr-only">{boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : t.chartLabel}</span>
-                <div data-boundary-ui className="workspace-boundary-key">
-                  <div className="workspace-select-wrap workspace-boundary-picker">
-                    <select aria-label={viewCopy.label} value={boundaryView} onChange={event => {
-                      setBoundaryView(event.target.value);
-                      setExplainedPolicyId(null);
-                    }}>
-                      {['band', 'score', 'breakdown'].map(view => <option key={view} value={view}>{viewCopy[view]}</option>)}
-                    </select>
-                    <ChevronDown aria-hidden="true" />
-                  </div>
-                  <span className="workspace-boundary-caption" title={displayedBoundaryCaption}>
-                    {displayedBoundaryCaption}
-                  </span>
-                  <button type="button" className="workspace-inline-help rounded-md" aria-label={boundaryHelpTitle} aria-expanded={explainedPolicyId === 'boundary'} aria-controls="boundary-help" onClick={(event) => {
-                    policyHelpTrigger.current = event.currentTarget;
-                    setExplainedPolicyId(explainedPolicyId === 'boundary' ? null : 'boundary');
-                  }}><Info className="h-3.5 w-3.5" /></button>
+                <span className="sr-only">{boundaryView === 'scenarios' ? viewCopy.scenariosHelp : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : t.chartLabel}</span>
+                {boundaryView === 'band' && <div data-boundary-ui className="workspace-boundary-key">
                   {boundaryView === 'band' && <span className="workspace-boundary-drag-hint" title={t.boundaryDragHelp}>
                     <MoveUpRight className="h-3 w-3" aria-hidden="true" />
                     {isBoundaryDragging ? t.boundaryDragging : hasDraggableBoundary ? t.boundaryDragHint : t.boundaryUseSlider}
                   </span>}
-                </div>
+                </div>}
                 {explainedPolicyId === 'boundary' && (
                   <div id="boundary-help" data-boundary-ui data-policy-help role="region" aria-labelledby="boundary-help-title" className="workspace-boundary-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
                     <div className="flex items-start justify-between gap-3">
                       <h3 id="boundary-help-title" className="text-sm font-bold text-white">{boundaryHelpTitle}</h3>
                       <button type="button" className="rounded-md p-1" aria-label={t.close} onClick={() => { setExplainedPolicyId(null); policyHelpTrigger.current?.focus(); }}><X className="h-4 w-4" /></button>
                     </div>
-                    <p className="mt-2">{boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
+                    <p className="mt-2">{boundaryView === 'scenarios' ? viewCopy.scenariosHelp : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
                     {boundaryView === 'band' && <p className="mt-2">{viewCopy.bandDetail}</p>}
                     {boundaryView === 'band' && boundaryBand.hasContext && <p className="mt-2">{t.boundarySelectedHelp}</p>}
                     {boundaryView === 'score' && <p className="mt-2">{boundaryBand.hasContext ? viewCopy.scoreDetail : viewCopy.scoreNoBackground}</p>}
-                    <p className="mt-2 font-semibold text-blue-300">{boundaryView === 'breakdown' ? viewCopy.breakdownFormula : t.boundaryFormula}</p>
-                    <p className="mt-2">{boundaryView === 'score' ? viewCopy.scoreEditing : boundaryView === 'breakdown' ? viewCopy.breakdownEditing : t.boundaryDragHelp}</p>
+                    <p className="mt-2 font-semibold text-blue-300">{boundaryView === 'scenarios' ? viewCopy.scenariosFormula : boundaryView === 'breakdown' ? viewCopy.breakdownFormula : t.boundaryFormula}</p>
+                    <p className="mt-2">{boundaryView === 'scenarios' ? viewCopy.scenariosEditing : boundaryView === 'score' ? viewCopy.scoreEditing : boundaryView === 'breakdown' ? viewCopy.breakdownEditing : t.boundaryDragHelp}</p>
                   </div>
                 )}
                 {boundaryView === 'score' ? <ScoreBoundaryView students={students} policy={policy}
                   selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
+                  : boundaryView === 'scenarios' ? <BackgroundScenariosView students={students} policy={policy}
+                    selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
+                    isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds}
+                    />
                   : boundaryView === 'breakdown' ? <ScoreBreakdownView students={students} policy={policy}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds} /> : <ResponsiveContainer width="100%" height="100%">
@@ -1380,8 +1359,8 @@ const SimplifiedApp = () => {
                     <XAxis
                       type="number"
                       dataKey="gpa"
-                      domain={[2.4, 4]}
-                      ticks={[2.4, 2.8, 3.2, 3.6, 4]}
+                      domain={ADMISSION_DOMAINS.gpa}
+                      ticks={[2.6, 3, 3.4, 3.8, 4]}
                       stroke={isLight ? '#94a3b8' : darkPalette.axis}
                       tick={{ fill: isLight ? '#475569' : darkPalette.muted, fontSize: 11 }}
                       label={{ value: 'GPA', position: 'insideBottomRight', offset: -12, fill: isLight ? '#475569' : darkPalette.muted, fontSize: 12 }}
@@ -1389,13 +1368,13 @@ const SimplifiedApp = () => {
                     <YAxis
                       type="number"
                       dataKey="sat"
-                      domain={[950, 1600]}
-                      ticks={[1000, 1200, 1400, 1600]}
+                      domain={ADMISSION_DOMAINS.sat}
+                      ticks={[60, 70, 80, 90, 100]}
                       stroke={isLight ? '#94a3b8' : darkPalette.axis}
                       tick={{ fill: isLight ? '#475569' : darkPalette.muted, fontSize: 11 }}
-                      label={{ value: 'SAT', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : darkPalette.muted, fontSize: 12 }}
+                      label={{ value: 'SAT Percentile', angle: -90, position: 'insideLeft', offset: 12, fill: isLight ? '#475569' : darkPalette.muted, fontSize: 12 }}
                     />
-                    <ReferenceArea x1={2.4} x2={4} y1={950} y2={1600} zIndex={-50} shape={
+                    <ReferenceArea x1={ADMISSION_DOMAINS.gpa[0]} x2={4} y1={ADMISSION_DOMAINS.sat[0]} y2={ADMISSION_DOMAINS.sat[1]} zIndex={-50} shape={
                       <ThresholdDragSurface band={boundaryBand} boundary={currentBoundary} policy={policy}
                         isLight={isLight} help={t.boundaryDragHelp}
                         onChange={setThresholdOverride} onDraggingChange={setIsBoundaryDragging} />
@@ -1494,7 +1473,6 @@ const SimplifiedApp = () => {
               <section className={`workspace-threshold ${isBoundaryDragging ? 'is-boundary-dragging' : ''}`} aria-labelledby="threshold-title" style={{ '--threshold-position': `${policy.threshold}%` }}>
                 <div className="workspace-threshold-heading">
                   <div className="workspace-threshold-name">
-                    <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                     <label id="threshold-title" htmlFor="admission-threshold">{t.thresholdTitle}</label>
                     <button type="button" className="workspace-inline-help rounded-md" aria-label={t.thresholdHelpTitle} aria-expanded={explainedPolicyId === 'threshold'} aria-controls="threshold-help" onClick={(event) => {
                       policyHelpTrigger.current = event.currentTarget;
@@ -1508,7 +1486,7 @@ const SimplifiedApp = () => {
                     </button>
                   </div>
                 </div>
-                <div id="threshold-rule" className="workspace-threshold-rule">{t.thresholdRule}</div>
+                <span id="threshold-rule" className="sr-only">{t.thresholdRule}</span>
                 <input id="admission-threshold" type="range" min="0" max="100" step="1" value={policy.threshold} aria-describedby="threshold-rule" onInput={(event) => setThresholdOverride(Number(event.currentTarget.value))} />
                 <div className="workspace-threshold-summary">
                   <div><strong>{impact.admitted}</strong><span> / {students.length} {t.studentsAdmitted}</span></div>
@@ -1520,6 +1498,7 @@ const SimplifiedApp = () => {
                       <h3 id="threshold-help-title" className="text-sm font-bold text-white">{t.thresholdHelpTitle}</h3>
                       <button type="button" aria-label={t.close} className="rounded-md p-1" onClick={() => { setExplainedPolicyId(null); policyHelpTrigger.current?.focus(); }}><X className="h-4 w-4" /></button>
                     </div>
+                    <p className="mt-2 font-semibold">{t.thresholdRule}</p>
                     <p className="mt-2">{t.thresholdHelp}</p>
                     <p className="mt-2">{t.thresholdPreset}</p>
                     <p className="mt-2">{t.boundaryDragHelp}</p>
@@ -1530,6 +1509,9 @@ const SimplifiedApp = () => {
               <section className="workspace-confusion" aria-labelledby="confusion-title">
                 <div className="workspace-confusion-heading">
                   <h3 id="confusion-title">{t.confusionTitle}</h3>
+                  <span className="workspace-confusion-source" title={!matrix.labeled ? t.matrixMissing : undefined}>
+                    <span>{t.matrixSamples} <strong>{matrix.labeled}</strong></span>
+                  </span>
                   <button type="button" className="workspace-inline-help rounded-md" aria-label={t.confusionHelpTitle} aria-expanded={explainedPolicyId === 'confusion'} aria-controls="confusion-help" onClick={(event) => {
                     policyHelpTrigger.current = event.currentTarget;
                     setExplainedPolicyId(explainedPolicyId === 'confusion' ? null : 'confusion');
@@ -1561,10 +1543,6 @@ const SimplifiedApp = () => {
                     ))}
                   </tbody>
                 </table>
-                <div className="workspace-confusion-source">
-                  <span>{t.matrixSamples} <strong>{students.length}</strong></span>
-                  {!matrix.labeled && <span>{t.matrixMissing}</span>}
-                </div>
                 {explainedPolicyId === 'confusion' && (
                   <div id="confusion-help" data-policy-help role="region" aria-labelledby="confusion-help-title" className="workspace-confusion-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
                     <div className="flex items-start justify-between gap-3">
@@ -1592,7 +1570,6 @@ const SimplifiedApp = () => {
                 <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
                 <div>
                   <h2 className="text-base font-bold leading-tight text-white">{t.choosePolicy}</h2>
-                  <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.choosePolicyDesc}</p>
                 </div>
               </div>
 
@@ -1637,7 +1614,7 @@ const SimplifiedApp = () => {
                         aria-label={formatCopy(t.admittedCountLabel, { admitted: admittedCount, total: students.length })}
                       >
                         <strong className="workspace-policy-total font-bold">{admittedCount} / {students.length}</strong>
-                        <span className="workspace-policy-count-label">{t.studentsAdmitted}</span>
+                        <span className="workspace-policy-count-label">{lang === 'en' ? 'admitted' : t.admitted}</span>
                       </span>
                       <span className="sr-only">{itemCopy.shortName}. {itemCopy.description}</span>
                     </button>
@@ -1699,7 +1676,6 @@ const SimplifiedApp = () => {
                     <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">2</div>
                     <div>
                       <h2 className="text-[15px] font-bold leading-tight text-white">{t.whatIfTitle}</h2>
-                      <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-400">{t.whatIfDesc}</p>
                     </div>
                   </div>
                 </div>
@@ -1708,7 +1684,7 @@ const SimplifiedApp = () => {
                   <div className="workspace-empty simplified-inset flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 text-center">
                     <GraduationCap className="h-8 w-8 text-slate-700" />
                     <h3 className="mt-3 text-sm font-semibold text-slate-300">{t.selectStudent}</h3>
-                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{boundaryView === 'score' ? viewCopy.scoreSelectHint : boundaryView === 'breakdown' ? viewCopy.breakdownSelectHint : t.selectStudentDesc}</p>
+                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{boundaryView === 'scenarios' ? viewCopy.scenariosSelectHint : boundaryView === 'score' ? viewCopy.scoreSelectHint : boundaryView === 'breakdown' ? viewCopy.breakdownSelectHint : t.selectStudentDesc}</p>
                   </div>
                 ) : (
                   <div className="workspace-draft-controls">
@@ -1737,25 +1713,21 @@ const SimplifiedApp = () => {
                         </button>
                       </div>
                     </div>
-                    <div className={`workspace-profile-status ${draftProfileChanged ? 'workspace-profile-changed' : 'text-slate-400'}`} aria-live="polite">
-                      {draftProfileChanged
-                        ? (plotPositionChanged
-                          ? `${t.adjustedPosition} · ΔGPA ${(draftStudent.gpa - selectedStudent.gpa).toFixed(2)} · ΔSAT ${draftStudent.sat - selectedStudent.sat}`
-                          : t.adjustedSamePosition)
-                        : t.originalProfile}
-                    </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div>
                         <div className="mb-1 flex justify-between text-xs">
                           <label htmlFor="gpa-slider" className="font-medium text-slate-300">GPA</label>
-                          <span className="font-mono text-blue-300">{draftStudent.gpa.toFixed(2)}</span>
+                          <span className="workspace-academic-value font-mono text-blue-300">
+                            {draftStudent.gpa !== selectedStudent.gpa && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) })}>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</span>}
+                            {draftStudent.gpa.toFixed(2)}
+                          </span>
                         </div>
                         <input
                           id="gpa-slider"
                           type="range"
-                          min="2.4"
+                          min={ADMISSION_DOMAINS.gpa[0]}
                           max="4"
                           step="0.01"
                           value={draftStudent.gpa}
@@ -1765,15 +1737,18 @@ const SimplifiedApp = () => {
                       </div>
                       <div>
                         <div className="mb-1 flex justify-between text-xs">
-                          <label htmlFor="sat-slider" className="font-medium text-slate-300">SAT</label>
-                          <span className="font-mono text-blue-300">{draftStudent.sat}</span>
+                          <label htmlFor="sat-slider" className="font-medium text-slate-300" title="SAT User Group percentile · College Board table, accessed 2026-10-14. Each step is one percentile point.">SAT Percentile</label>
+                          <span className="workspace-academic-value font-mono text-blue-300">
+                            {draftStudent.sat !== selectedStudent.sat && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.sat })}>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</span>}
+                            {draftStudent.sat}
+                          </span>
                         </div>
                         <input
                           id="sat-slider"
                           type="range"
-                          min="950"
-                          max="1600"
-                          step="10"
+                          min={ADMISSION_DOMAINS.sat[0]}
+                          max="100"
+                          step="1"
                           value={draftStudent.sat}
                           onInput={(event) => updateDraft('sat', Number(event.currentTarget.value))}
                           className="w-full accent-blue-500"
@@ -1784,40 +1759,6 @@ const SimplifiedApp = () => {
                     <BackgroundEditor features={classroomView.features} student={draftStudent}
                       original={selectedStudent} onChange={updateDraft} t={t} />
 
-                    <div className={`workspace-decision rounded-xl border p-2.5 xl:p-2 ${decisionFlipped ? 'workspace-decision-flipped' : 'border-slate-800 bg-slate-950/45'}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="flex items-center gap-1 text-xs font-semibold text-slate-200">
-                          {t.decisionScore}
-                          <button
-                            type="button"
-                            className="workspace-inline-help rounded-md text-slate-400 hover:text-white"
-                            aria-label={t.scoreHelpTitle}
-                            aria-expanded={explainedPolicyId === 'decision-score'}
-                            aria-controls="score-help"
-                            onClick={(event) => {
-                              policyHelpTrigger.current = event.currentTarget;
-                              setExplainedPolicyId(explainedPolicyId === 'decision-score' ? null : 'decision-score');
-                            }}
-                          ><Info className="h-4 w-4" /></button>
-                        </span>
-                        <span className="font-mono text-xs text-slate-300">{draftScore.toFixed(1)} · {t.cutoff} {policy.threshold}</span>
-                      </div>
-                      {explainedPolicyId === 'decision-score' && (
-                        <div id="score-help" data-policy-help role="region" aria-labelledby="score-help-title" className="workspace-score-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 id="score-help-title" className="text-sm font-bold text-white">{t.scoreHelpTitle}</h3>
-                            <button type="button" aria-label={t.close} className="rounded-md p-1 text-slate-400 hover:text-white" onClick={() => {
-                              setExplainedPolicyId(null);
-                              policyHelpTrigger.current?.focus();
-                            }}><X className="h-4 w-4" /></button>
-                          </div>
-                          <p className="mt-2">{t.scoreHelpDescription}</p>
-                          <p className="mt-2 font-semibold text-blue-300">{formatCopy(t.scoreHelpRule, { cutoff: policy.threshold })}</p>
-                          <p className="mt-2">{t.scoreHelpCaution}</p>
-                          <p className="mt-2">{t.chartAxisNote}</p>
-                        </div>
-                      )}
-                    </div>
 
                   </div>
                 )}
@@ -1827,13 +1768,12 @@ const SimplifiedApp = () => {
                   <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">3</div>
                   <div>
                     <h2 className="text-base font-bold leading-tight text-white">{t.compareOutcomes}</h2>
-                    <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t.groupOutcomesDesc}</p>
                   </div>
                 </div>
 
                 <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
-                    label={t.firstGenStatus}
+                    label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}
                     leftStats={impact.firstGen}
                     rightLabel={t.continuingGenerationShort}
@@ -1862,16 +1802,7 @@ const SimplifiedApp = () => {
           </aside>
         </main>
 
-        <footer className="mt-3 flex shrink-0 flex-col justify-between gap-1 border-t border-slate-800 pt-3 text-[10px] text-slate-600 sm:flex-row xl:mt-2 xl:pt-2">
-          <span
-            className={dataState === 'error' ? 'font-semibold text-amber-600' : undefined}
-            role={dataState === 'error' ? 'alert' : undefined}
-            title={dataError || undefined}
-          >
-            {datasetStatus}
-          </span>
-          <span>{t.footerTitle}</span>
-        </footer>
+
       </div>
     </div>
   );

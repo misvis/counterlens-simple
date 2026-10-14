@@ -17,8 +17,8 @@ const COPY = {
     help: 'The five parts add up to the decision score. Reaching the cutoff means admitted.',
     signedHelp: 'Bars show added and subtracted points. The dot marks the total used for admission.',
     chart: 'Original and edited decision scores compared with the admission cutoff',
-    fields: { gpa: 'GPA', sat: 'SAT', firstGen: 'First-generation', athlete: 'Athletics', resident: 'Residency' },
-    compactFields: { gpa: 'GPA', sat: 'SAT', firstGen: 'First-gen', athlete: 'Athlete', resident: 'Resident' },
+    fields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: 'First-generation', athlete: 'Athletics', resident: 'Residency' },
+    compactFields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: 'First-gen', athlete: 'Athlete', resident: 'Resident' },
   },
   zh: {
     student: '学生', choose: '选择学生', points: '分', closest: '最接近录取线', others: '其他学生',
@@ -28,8 +28,8 @@ const COPY = {
     help: '五项得分相加就是决策分数，达到录取线即被录取。',
     signedHelp: '色条分别表示加分和减分，圆点表示用于录取判断的总分。',
     chart: '原始和调整后决策分数与录取线的对比',
-    fields: { gpa: 'GPA', sat: 'SAT', firstGen: '第一代大学生', athlete: '运动员', resident: '居民身份' },
-    compactFields: { gpa: 'GPA', sat: 'SAT', firstGen: '第一代', athlete: '运动员', resident: '居民身份' },
+    fields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: '第一代大学生', athlete: '运动员', resident: '居民身份' },
+    compactFields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: '第一代', athlete: '运动员', resident: '居民身份' },
   },
   es: {
     student: 'Estudiante', choose: 'Elige un estudiante', points: 'puntos', closest: 'Más cerca del corte', others: 'Otros estudiantes',
@@ -39,8 +39,8 @@ const COPY = {
     help: 'Las cinco partes suman la puntuación. Alcanzar el corte significa admisión.',
     signedHelp: 'Las barras muestran puntos sumados y restados. El punto marca el total usado para la admisión.',
     chart: 'Puntuaciones original y editada comparadas con el corte de admisión',
-    fields: { gpa: 'GPA', sat: 'SAT', firstGen: 'Primera generación', athlete: 'Deporte', resident: 'Residencia' },
-    compactFields: { gpa: 'GPA', sat: 'SAT', firstGen: '1.ª gen.', athlete: 'Deporte', resident: 'Residencia' },
+    fields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: 'Primera generación', athlete: 'Deporte', resident: 'Residencia' },
+    compactFields: { gpa: 'GPA', sat: 'SAT Percentile', firstGen: '1.ª gen.', athlete: 'Deporte', resident: 'Residencia' },
   },
 };
 

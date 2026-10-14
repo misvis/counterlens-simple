@@ -1,0 +1,161 @@
+.background-scenarios-view {
+  padding: 4px 8px 6px;
+  color: var(--threshold-text);
+  --scenario-grid: #3d485b;
+  --scenario-surface: #1b1f27;
+  --scenario-divider: #3d485b;
+  container-type: inline-size;
+}
+.background-scenarios-light {
+  --scenario-grid: #dbe3ee;
+  --scenario-surface: #fff;
+  --scenario-divider: #dbe3ee;
+}
+.background-scenarios-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .48fr); gap: 10px; margin-bottom: 6px; }
+.background-scenarios-toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 650; min-width: 0; }
+.background-scenarios-toolbar select { width: 100%; min-width: 0; min-height: 30px; padding: 4px 7px; border: 1px solid var(--scenario-grid); border-radius: 6px; background: var(--scenario-surface); color: var(--threshold-text); font-size: 11px; }
+.background-scenarios-toolbar select:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
+.background-scenarios-profile { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; font-size: 11px; line-height: 1.45; }
+.background-scenarios-profile > div { display: flex; align-items: center; flex-wrap: wrap; column-gap: 7px; row-gap: 2px; }
+.background-scenarios-profile p { color: var(--workspace-edit); margin: 2px 0 0; }
+.background-scenarios-hint { color: var(--threshold-muted); font-size: 11px; line-height: 1.5; margin: 0 0 10px; }
+.background-scenarios-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; }
+.background-scenario-panel { min-width: 0; border-top: 1px solid var(--scenario-divider); padding-top: 7px; }
+.background-scenario-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 5px; }
+.background-scenario-heading h3 { display: flex; flex-wrap: wrap; column-gap: 8px; margin: 0; font-size: 11px; font-weight: 700; line-height: 1.5; }
+.background-scenario-heading h3 > span + span { color: var(--threshold-muted); font-weight: 700; }
+.background-scenario-count { flex-shrink: 0; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--threshold-muted); }
+.background-scenario-plot { width: 100%; height: 164px; }
+.background-scenario-plot svg { display: block; overflow: visible; }
+.background-scenario-plot text { fill: var(--threshold-muted); font-size: 10px; }
+.background-scenario-plot .background-scenario-axis { fill: var(--threshold-text); font-weight: 600; }
+.background-scenario-frame { fill: transparent; stroke: var(--scenario-grid); stroke-width: 1; }
+.background-scenario-region { fill: var(--workspace-highlight); opacity: .065; pointer-events: none; }
+.background-scenario-gridline { stroke: var(--scenario-grid); stroke-width: 1; opacity: .65; }
+.background-scenario-boundary { stroke: var(--workspace-highlight); stroke-width: 1.6; pointer-events: none; }
+.background-scenario-tangent { fill: var(--workspace-highlight); }
+.background-scenario-student { cursor: pointer; outline: none; }
+.background-scenario-focus { stroke: transparent; pointer-events: all; }
+.background-scenario-student:focus-visible .background-scenario-focus { stroke: var(--workspace-highlight); stroke-width: 2; }
+.background-scenario-original { fill: var(--scenario-surface); stroke: var(--workspace-highlight); stroke-width: 2; pointer-events: none; }
+.background-scenario-hypothetical-ring { fill: var(--scenario-surface); fill-opacity: .65; stroke: var(--workspace-edit); stroke-width: 2; stroke-dasharray: 3 2; }
+.background-scenario-hypothetical { pointer-events: auto; }
+.background-scenario-comparing-halo { fill: var(--workspace-edit); fill-opacity: .16; pointer-events: none; }
+.background-scenario-hypothetical.is-comparing .background-scenario-hypothetical-ring { stroke-width: 3; stroke-dasharray: none; fill-opacity: 1; }
+.background-scenario-connector { stroke: var(--workspace-edit); stroke-width: 1.4; stroke-dasharray: 3 3; pointer-events: none; }
+.background-scenario-result { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 3px 7px; min-height: 20px; font-size: 10px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.background-scenario-result > strong { font-weight: 650; }
+.background-scenario-result .is-original { color: var(--workspace-highlight); font-weight: 650; }
+.background-scenario-result .is-hypothetical { color: var(--workspace-edit); font-weight: 650; }
+.background-scenario-boundary-note { font-size: 10px; color: var(--threshold-muted); margin-top: 2px; }
+.background-scenarios-footer { margin-top: 4px; color: var(--threshold-muted); font-size: 10px; line-height: 1.5; }
+.background-scenarios-footer p { margin: 3px 0 0; }
+.background-scenarios-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--threshold-text); }
+.background-scenarios-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.background-scenarios-original-key, .background-scenarios-hypothetical-key { display: inline-block; flex: none; width: 11px; height: 11px; border: 2px solid var(--workspace-highlight); border-radius: 50%; }
+.background-scenarios-hypothetical-key { border-color: var(--workspace-edit); border-style: dashed; }
+.workspace-visualizer.has-background-scenarios { overflow-y: auto; scrollbar-width: thin; }
+.workspace-visualizer .simplified-scatter-plot.is-background-scenarios { height: auto; min-height: 0; flex: none; }
+.is-background-scenarios .workspace-boundary-picker { flex-basis: 192px; }
+@media (min-width: 1100px) and (max-height: 820px) {
+  .background-scenario-plot { height: 120px; }
+  .background-scenarios-grid { row-gap: 10px; }
+  .background-scenarios-footer { margin-top: 8px; }
+}
+
+@container (max-width: 460px) {
+  .background-scenarios-grid { grid-template-columns: 1fr; }
+  .background-scenarios-toolbar { grid-template-columns: 1fr; gap: 7px; }
+  .background-scenario-plot text { font-size: 11px; }
+  .background-scenario-result { font-size: 11px; }
+}
+
+/* Allocate the remaining desktop height to the eight plots, rather than
+   stacking fixed-height charts above the threshold and confusion matrix. */
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-visualizer.has-background-scenarios { padding: 12px 16px; }
+  .has-background-scenarios .workspace-visualizer-heading { margin-bottom: 5px; }
+  .has-background-scenarios .workspace-visualizer-actions { min-height: 36px; }
+  .has-background-scenarios .workspace-adjusted-legend { display: none; }
+  .has-background-scenarios .workspace-visualizer-subtitle { margin-top: 2px; }
+  .workspace-visualizer .simplified-scatter-plot.is-background-scenarios {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 360px;
+  }
+  .background-scenarios-view { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 4px; }
+  .background-scenarios-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .background-scenario-panel { display: flex; flex-direction: column; min-height: 0; padding-top: 4px; }
+  .background-scenario-plot { flex: 1; height: 0; min-height: 80px; }
+  .background-scenarios-footer { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+}
+@media (min-width: 1100px) and (min-height: 640px) and (max-height: 740px) {
+  .background-scenarios-toolbar label { flex-direction: row; align-items: center; gap: 6px; }
+  .background-scenarios-toolbar select { flex: 1; width: 0; }
+  .background-scenarios-toolbar { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+
+/* Eight combinations: in-state row, out-of-state row on desktop. */
+.background-scenarios-toolbar { grid-template-columns: 1fr; }
+.background-scenario-heading h3 { flex-direction: column; gap: 0; font-size: 10px; line-height: 1.3; }
+.background-scenario-residency { color: var(--threshold-muted); font-weight: 600; }
+.background-scenario-result { align-items: flex-start; flex-direction: column; justify-content: flex-start; min-height: 28px; line-height: 14px; gap: 0; }
+@media (min-width: 1100px) {
+  .background-scenarios-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 10px; }
+}
+
+/* The selected original's group remains identifiable while editing. */
+.background-scenario-panel { border: 1px solid var(--scenario-divider); border-radius: 8px; padding: 6px; }
+.background-scenario-panel[data-original-group="true"] { border-color: var(--workspace-highlight); box-shadow: inset 0 0 0 1px var(--workspace-highlight); background: transparent; }
+.background-scenario-heading-meta { display: flex; align-items: flex-end; flex-direction: column; gap: 3px; }
+.background-original-badge { border-radius: 4px; padding: 2px 5px; background: var(--workspace-highlight); color: #fff; font-size: 10px; font-weight: 750; line-height: 1.2; }
+.simplified-summer .background-original-badge, .simplified-app:not(.simplified-daylight):not(.simplified-summer) .background-original-badge { color: #121826; }
+.background-scenario-result .is-original { font-weight: 800; }
+.background-scenario-original { stroke-width: 3; }
+
+/* Shared columns keep each background dimension aligned across all panels. */
+.background-scenario-heading { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.background-scenario-heading h3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1fr); gap: 2px; font-size: 9.5px; line-height: 14px; }
+.background-scenario-heading h3 > span { min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.background-scenario-heading h3 > span + span { border-left: 1px solid var(--scenario-divider); padding-left: 2px; }
+.background-scenario-heading-meta { flex-direction: row; align-items: center; justify-content: space-between; min-height: 16px; }
+.background-scenario-count { margin-left: auto; }
+.background-original-badge { padding: 1px 5px; }
+
+/* Keep badges out of layout so selection never changes the plot height. */
+.background-scenario-panel { border-color: #65748b; }
+.background-scenarios-light .background-scenario-panel { border-color: #a3b0c2; }
+.background-scenario-plot { position: relative; }
+.background-scenario-heading-meta { position: absolute; top: 0; left: 36px; right: 0; min-height: 0; height: 16px; justify-content: flex-start; gap: 4px; pointer-events: none; }
+.background-comparing-badge { border-radius: 4px; padding: 1px 5px; background: var(--workspace-edit); color: #fff; font-size: 10px; font-weight: 750; line-height: 1.2; }
+.background-scenario-panel[data-original-group="true"] { border-color: var(--workspace-highlight); }
+.background-scenario-panel[data-comparing-group="true"] { border-color: var(--workspace-edit); box-shadow: inset 0 0 0 1px var(--workspace-edit); }
+.background-scenario-panel[data-original-group="true"][data-comparing-group="true"] { border-color: var(--workspace-highlight); box-shadow: inset 0 0 0 1px var(--workspace-edit); }
+/* Identical columns make original and edited profiles directly comparable. */
+.background-scenarios-profile { display: grid; grid-template-columns: 112px 26px 58px 100px 70px 72px 70px 58px 78px; justify-content: start; gap: 2px 8px; overflow-x: auto; }
+.background-scenarios-profile > .background-profile-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; column-gap: 8px; min-height: 16px; align-items: center; }
+.background-profile-row > span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.background-profile-heading { display: flex; align-items: center; gap: 6px; }
+
+.background-profile-row > [data-changed="true"] { color: var(--workspace-edit); }
+/* Draw separators in the existing gaps without changing column geometry. */
+.background-profile-row > span { position: relative; }
+.background-profile-row > span + span::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  height: 10px;
+  transform: translateY(-50%);
+  border-left: 1px solid var(--scenario-divider);
+  opacity: .65;
+  pointer-events: none;
+}
+.background-lens-source { fill: none; stroke: var(--workspace-highlight); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: .65; }
+.background-detail-lens { position: fixed; z-index: 1000; padding: 0; border: 1px solid #94a3b8; border-radius: 50%; overflow: hidden; box-shadow: 0 5px 18px #0f172a24; }
+.background-detail-lens svg { display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.background-lens-crosshair { fill: none; stroke: currentColor; stroke-width: 1; opacity: .55; pointer-events: none; }
+.background-lens-point { cursor: pointer; outline: none; }
+.background-lens-info { position: absolute; left: 8%; right: 8%; bottom: 11%; display: grid; justify-items: center; padding: 0; border-radius: 8px; font-size: 10px; line-height: 12px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }
+.background-lens-point:hover .background-lens-hit, .background-lens-point:focus-visible .background-lens-hit { stroke: #64748b; stroke-width: 1.5; }

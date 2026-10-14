@@ -1,3 +1,4 @@
+import { toPercentileClassroomView } from '../../shared/satPercentiles.js';
 import {
   DEFAULT_DATASET_ID,
   createSyntheticClassroomView,
@@ -33,7 +34,7 @@ const assertUsableClassroomView = (view) => {
 
 export const loadClassroomView = async () => {
   if (!isClassroomApiConfigured) {
-    return { view: createSyntheticClassroomView(), source: 'bundled' };
+    return { view: createBundledClassroomView(), source: 'bundled' };
   }
 
   const controller = new AbortController();
@@ -46,10 +47,10 @@ export const loadClassroomView = async () => {
     if (!response.ok) {
       throw new Error(`The classroom API returned HTTP ${response.status}.`);
     }
-    return { view: assertUsableClassroomView(await response.json()), source: 'api' };
+    return { view: toPercentileClassroomView(assertUsableClassroomView(await response.json())), source: 'api' };
   } finally {
     window.clearTimeout(timeout);
   }
 };
 
-export const createBundledClassroomView = () => createSyntheticClassroomView();
+export const createBundledClassroomView = () => toPercentileClassroomView(createSyntheticClassroomView());

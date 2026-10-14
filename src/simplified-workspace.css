@@ -564,7 +564,7 @@
 
 .workspace-background-selects {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1054,7 +1054,7 @@
   }
 
   .simplified-workspace {
-    grid-template-columns: minmax(0, 1fr) clamp(460px, 35vw, 530px);
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 25vw, 400px);
     gap: 18px;
   }
 
@@ -1070,7 +1070,7 @@
 
   .workspace-controls {
     display: grid;
-    grid-template-rows: auto minmax(340px, 1.1fr) minmax(230px, 1fr);
+    grid-template-rows: auto minmax(250px, .85fr) minmax(230px, 1fr);
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-gutter: auto;
@@ -1082,7 +1082,7 @@
 
 @media (min-width: 1800px) and (min-height: 900px) {
   .simplified-workspace {
-    grid-template-columns: minmax(0, 1fr) clamp(530px, 30vw, 700px);
+    grid-template-columns: minmax(0, 1fr) clamp(380px, 22vw, 460px);
   }
 
   .workspace-controls > .simplified-panel {
@@ -1134,7 +1134,7 @@
 
   .workspace-controls {
     gap: 8px;
-    grid-template-rows: auto minmax(284px, 1.1fr) minmax(172px, 1fr);
+    grid-template-rows: auto minmax(230px, .85fr) minmax(172px, 1fr);
   }
 
   .workspace-controls > .simplified-panel {
@@ -1329,4 +1329,111 @@
     gap: 2px;
   }
 
+}
+
+/* Keep each background choice visible alongside its original value. */
+.workspace-background-field { min-width: 0; }
+.workspace-background-selects { align-items: start; gap: 8px; }
+.workspace-background-selects label { min-height: 2.7em; display: flex; align-items: end; }
+.workspace-background-original { margin-top: 4px; color: var(--threshold-muted); font-size: 10px; line-height: 1.4; }
+.workspace-background-original[data-edited="true"] { color: var(--workspace-edit); }
+.workspace-academic-value { display: flex; align-items: baseline; gap: 6px; }
+.workspace-academic-delta { color: var(--workspace-edit); font-size: 10px; }
+@media (max-width: 380px) {
+  .workspace-background-selects { grid-template-columns: 1fr; }
+  .workspace-background-selects label { min-height: 0; }
+}
+
+/* Shared compact statistics for every visualizer view. */
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-visualizer .workspace-analysis-bar { margin-top: 6px; gap: 8px; }
+  .workspace-visualizer .workspace-threshold { padding: 6px 10px; }
+  .workspace-visualizer .workspace-threshold-value { font-size: 22px; }
+  .workspace-visualizer .workspace-threshold-summary { margin-top: 3px; padding-top: 3px; }
+  .workspace-visualizer .workspace-confusion { padding: 4px 8px; }
+  .workspace-visualizer .workspace-confusion-cell { padding: 1px 5px; gap: 1px; }
+  .workspace-visualizer .workspace-confusion-source { margin-top: 2px; }
+  .workspace-visualizer .workspace-confusion-table { border-spacing: 3px 1px; }
+  .workspace-visualizer .workspace-confusion-values > strong { font-size: 18px; line-height: 20px; }
+  .workspace-visualizer .workspace-confusion-table thead th:not([rowspan]) { padding-block: 0; }
+  .workspace-visualizer .workspace-confusion-heading h3 { line-height: 16px; }
+  .workspace-visualizer .workspace-threshold-summary > div:first-child strong { font-size: 17px; }
+}
+
+.workspace-visualizer .workspace-confusion-table thead tr:first-child th {
+  vertical-align: top;
+  padding-top: 0;
+}
+
+/* Keep the view selector beside the title, outside the plot area. */
+.workspace-visualizer-heading { flex-wrap: wrap; gap: 8px 12px; }
+.workspace-visualizer-intro { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.workspace-view-switcher { display: flex; align-items: center; gap: 5px; }
+.workspace-view-switcher .workspace-boundary-picker { flex-basis: 185px; width: 185px; }
+.workspace-view-switcher select { height: 28px; font-size: 11px; }
+.workspace-view-switcher .workspace-select-wrap svg { top: 7px; }
+.workspace-visualizer-actions { grid-template-columns: max-content max-content; gap: 12px; margin-left: auto; min-height: 32px; }
+.workspace-visualizer .simplified-outcome-legend { width: auto; }
+
+/* Compact chrome leaves more vertical space for the comparison plots. */
+.simplified-shell { padding-top: 8px; padding-bottom: 8px; }
+.simplified-shell > header { margin-bottom: 6px; padding-bottom: 6px; gap: 6px; }
+.simplified-shell .workspace-brand-icon { width: 32px; height: 32px; border-radius: 10px; }
+.workspace-brand-icon svg { width: 20px; height: 20px; }
+.simplified-shell > header h1 { font-size: 23px; }
+.workspace-controls .workspace-policy-name { padding-right: 20px; min-height: 2.6em; }
+.workspace-controls .workspace-policy-info { top: 6px; bottom: auto; right: 3px; width: 22px; height: 22px; }
+.workspace-controls .workspace-policy-count { flex-direction: row; align-items: center; gap: 4px; }
+.workspace-controls .workspace-policy-total { padding-right: 0; font-size: 12px; }
+.workspace-controls .workspace-policy-count-label { white-space: normal; font-size: 10px; line-height: 12px; }
+.workspace-controls .workspace-policy-name { padding-right: 15px; font-size: 11px; line-height: 15px; overflow-wrap: normal; }
+.workspace-controls .workspace-policy-info { right: 2px; width: 18px; height: 20px; }
+.workspace-controls .workspace-policy-info svg { width: 13px; height: 13px; }
+
+.workspace-visualizer .workspace-confusion-heading .workspace-confusion-source { margin: 0 0 0 auto; }
+.workspace-confusion-heading { flex-wrap: wrap; row-gap: 2px; }
+.workspace-confusion-heading > h3 { flex-shrink: 0; }
+.workspace-visualizer .workspace-confusion { justify-content: flex-start; gap: 2px; }
+/* Keep background values readable in the narrower desktop control rail. */
+@media (min-width: 1100px) {
+  .workspace-background-selects .workspace-select-wrap select { padding: 0 19px 0 6px; font-size: 11px; }
+  .workspace-background-selects .workspace-select-wrap svg { right: 4px; width: 12px; }
+}
+/* One policy per row; the help button sits immediately after its name. */
+.workspace-policy-options { grid-template-columns: 1fr; gap: 6px; }
+.workspace-policy-option { display: grid; grid-template-columns: max-content 24px minmax(0, 1fr); align-items: center; }
+.workspace-controls .simplified-policy-card { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: subgrid; align-items: center; min-height: 36px; padding: 6px 10px; gap: 0; }
+.workspace-controls .workspace-policy-name { grid-column: 1; min-height: 0; padding-right: 0; font-size: 12px; line-height: 20px; white-space: nowrap; }
+.workspace-controls .workspace-policy-count { grid-column: 3; justify-self: end; align-items: center; }
+.workspace-controls .workspace-policy-count-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: nowrap; }
+.workspace-controls .workspace-policy-total { font-size: 12px; padding-right: 0; }
+.workspace-controls .workspace-policy-info { position: relative; grid-column: 2; grid-row: 1; top: auto; right: auto; bottom: auto; transform: none; width: 24px; height: 28px; z-index: 1; }
+/* Reserve more width for the longer original athletics/residency values. */
+.workspace-background-selects { grid-template-columns: minmax(0, .8fr) repeat(2, minmax(0, 1.1fr)); }
+.workspace-background-field { min-width: 0; }
+.workspace-background-original { white-space: nowrap; line-height: 14px; }
+@media (max-width: 380px) {
+  .workspace-background-selects { grid-template-columns: 1fr; }
+}
+.workspace-background-selects label { font-size: 10px; white-space: nowrap; }
+/* Compact editor spacing without changing type sizes or column alignment. */
+.workspace-draft-controls { justify-content: flex-start; gap: 8px; }
+.workspace-background-selects label { min-height: 14px; }
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-controls { grid-template-rows: auto auto minmax(172px, 1fr); }
+}
+/* Size outcome rows to their content instead of stretching into spare height. */
+.workspace-controls .simplified-rate-table { flex: none; grid-template-rows: repeat(3, minmax(48px, auto)); row-gap: 3px; }
+.workspace-comparison .workspace-rate-row { padding-block: 2px; }
+.workspace-comparison .workspace-rate-value { padding-block: 3px; }
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-controls { grid-template-rows: auto auto auto; align-content: start; }
+}
+/* Distribute spare height inside panels while keeping small, fixed gutters. */
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-controls { align-content: stretch; gap: 10px; grid-template-rows: auto auto auto; }
+  .workspace-controls > .workspace-policy { display: flex; flex-direction: column; }
+  .workspace-policy-options { flex: 1; grid-template-rows: repeat(3, minmax(36px, 1fr)); }
+  .workspace-draft-controls { justify-content: space-evenly; }
+  .workspace-controls .simplified-rate-table { flex: 1; grid-template-rows: repeat(3, minmax(48px, 1fr)); }
 }

@@ -1,5 +1,11 @@
 // Exact scoring and 2D slices of the current weighted-sum classroom model.
-export const ADMISSION_DOMAINS = { gpa: [2.4, 4], sat: [950, 1600] };
+// Display/edit bounds are independent of the policy's scoring calibration.
+export const ADMISSION_DOMAINS = { gpa: [2.6, 4], sat: [60, 100] };
+const SCORING_DOMAINS = { gpa: [2.4, 4], sat: [0, 100] };
+const GPA_DISPLAY_SCALE = (4 - 2.6) / (4 - 2.4);
+const GPA_DISPLAY_OFFSET = (2.6 - 2.4) / (4 - 2.4);
+const SAT_DISPLAY_SCALE = 0.4;
+const SAT_DISPLAY_OFFSET = 0.6;
 const [GPA_MIN, GPA_MAX] = ADMISSION_DOMAINS.gpa;
 const [SAT_MIN, SAT_MAX] = ADMISSION_DOMAINS.sat;
 const CONTEXT_FIELDS = ['firstGen', 'athlete', 'resident'];
@@ -13,7 +19,7 @@ export const backgroundScore = (student, policy) => CONTEXT_FIELDS.reduce(
 
 const academicPoints = (student, policy, field) => {
   if (!student) return 0;
-  const [minimum, maximum] = ADMISSION_DOMAINS[field];
+  const [minimum, maximum] = SCORING_DOMAINS[field];
   return unit((student[field] - minimum) / (maximum - minimum)) * weight(policy, field);
 };
 
@@ -42,7 +48,7 @@ export const getDecision = (student, policy) => scoreStudent(student, policy) >=
 // fractions of the GPA/SAT domains (positive SAT means upwards on screen).
 export const thresholdAfterDrag = (policy, initialThreshold, gpaDelta, satDelta) => (
   Math.round(Math.min(100, Math.max(0,
-    initialThreshold + weight(policy, 'gpa') * gpaDelta + weight(policy, 'sat') * satDelta,
+    initialThreshold + weight(policy, 'gpa') * GPA_DISPLAY_SCALE * gpaDelta + weight(policy, 'sat') * SAT_DISPLAY_SCALE * satDelta,
   )))
 );
 
@@ -50,7 +56,7 @@ export const thresholdAfterDrag = (policy, initialThreshold, gpaDelta, satDelta)
 export const studentAfterDrag = (student, gpaDelta, satDelta) => ({
   ...student,
   gpa: Math.round(Math.min(GPA_MAX, Math.max(GPA_MIN, student.gpa + gpaDelta * (GPA_MAX - GPA_MIN))) * 100) / 100,
-  sat: Math.round(Math.min(SAT_MAX, Math.max(SAT_MIN, student.sat + satDelta * (SAT_MAX - SAT_MIN))) / 10) * 10,
+  sat: Math.round(Math.min(SAT_MAX, Math.max(SAT_MIN, student.sat + satDelta * (SAT_MAX - SAT_MIN)))),
 });
 
 // Compare cohort decisions with an independent, boolean reference outcome.
@@ -76,9 +82,9 @@ const toChartPoint = ({ x, y }) => ({ x: GPA_MIN + (GPA_MAX - GPA_MIN) * x, y: S
 // Intersect a*x + b*y = threshold - contextScore with the normalized chart square.
 // Returns a point at a tangent corner, an empty segment off-chart, and handles zero/negative weights.
 export const admissionBoundary = (policy, contextScore = 0) => {
-  const a = weight(policy, 'gpa');
-  const b = weight(policy, 'sat');
-  const cutoff = policy.threshold - contextScore;
+  const a = weight(policy, 'gpa') * GPA_DISPLAY_SCALE;
+  const b = weight(policy, 'sat') * SAT_DISPLAY_SCALE;
+  const cutoff = policy.threshold - contextScore - weight(policy, 'gpa') * GPA_DISPLAY_OFFSET - weight(policy, 'sat') * SAT_DISPLAY_OFFSET;
   const minimum = Math.min(0, a) + Math.min(0, b);
   const maximum = Math.max(0, a) + Math.max(0, b);
   const relation = cutoff <= minimum ? 'all-admitted' : cutoff > maximum ? 'none-admitted' : 'mixed';
@@ -151,7 +157,7 @@ export const backgroundBoundaryBand = policy => {
   const minimum = contextWeights.reduce((sum, value) => sum + Math.min(0, value), 0);
   const maximum = contextWeights.reduce((sum, value) => sum + Math.max(0, value), 0);
   if (maximum - minimum < EPSILON) return { hasContext: false, polygon: [], edges: [] };
-  const academicScore = p => weight(policy, 'gpa') * p.x + weight(policy, 'sat') * p.y;
+  const academicScore = p => weight(policy, 'gpa') * (GPA_DISPLAY_OFFSET + GPA_DISPLAY_SCALE * p.x) + weight(policy, 'sat') * (SAT_DISPLAY_OFFSET + SAT_DISPLAY_SCALE * p.y);
   let polygon = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
   polygon = clip(polygon, p => academicScore(p) + maximum - policy.threshold);
   polygon = clip(polygon, p => policy.threshold - academicScore(p) - minimum);
