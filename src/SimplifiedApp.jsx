@@ -224,7 +224,6 @@ const TRANSLATIONS = {
     thresholdDefault: 'Default: {value}',
     thresholdReset: 'Reset cutoff',
     outcomeFlipped: 'Outcome flipped',
-    outcomeUnchanged: 'Same outcome',
     outcomeComparison: 'Original: {original} → Edited: {edited}. Compared at the same policy and threshold.',
     adjustedPosition: 'Adjusted position',
     adjustedSamePosition: 'Adjusted profile · same GPA/SAT Percentile position',
@@ -386,7 +385,6 @@ const TRANSLATIONS = {
     thresholdDefault: '默认值：{value}',
     thresholdReset: '重置阈值',
     outcomeFlipped: '结果已反转',
-    outcomeUnchanged: '结果未改变',
     outcomeComparison: '原始：{original} → 修改后：{edited}。两者使用相同的政策与阈值。',
     adjustedPosition: '调整后位置',
     adjustedSamePosition: '背景已调整 · GPA/SAT Percentile 坐标不变',
@@ -548,7 +546,6 @@ const TRANSLATIONS = {
     thresholdDefault: 'Inicial: {value}',
     thresholdReset: 'Restablecer umbral',
     outcomeFlipped: 'Resultado cambiado',
-    outcomeUnchanged: 'Mismo resultado',
     outcomeComparison: 'Original: {original} → Editado: {edited}. Comparados con la misma política y el mismo umbral.',
     adjustedPosition: 'Posición ajustada',
     adjustedSamePosition: 'Perfil ajustado · misma posición GPA/SAT Percentile',
@@ -1755,7 +1752,9 @@ const SimplifiedApp = () => {
                           data-flipped={Boolean(decisionFlipped)} data-admitted={draftStudent ? draftDecision : undefined}
                           className={`workspace-outcome-badge ${decisionFlipped ? 'is-flipped' : ''} ${!draftStudent ? 'is-empty' : draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
                           <span className="workspace-outcome-main">{!draftStudent ? '—' : draftDecision ? t.admitted : t.notAdmitted}</span>
-                          <span className="workspace-outcome-change" aria-hidden={!draftStudent || undefined}>{decisionFlipped && <ArrowRight className="h-3 w-3" aria-hidden="true" />}{!draftStudent ? '\u00a0' : decisionFlipped ? t.outcomeFlipped : t.outcomeUnchanged}</span>
+                          <span className="workspace-outcome-change" aria-hidden={!decisionFlipped}>
+                            <ArrowRight className="h-3 w-3" aria-hidden="true" />{t.outcomeFlipped}
+                          </span>
                           {draftStudent && <span className="sr-only">{formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}</span>}
                         </div>
                         <button
