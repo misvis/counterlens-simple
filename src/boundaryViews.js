@@ -1,5 +1,10 @@
 export const BOUNDARY_VIEWS = {
   en: {
+    features: 'Feature explorer (prototype)',
+    featuresHelp: 'Plots use GPA horizontally and SAT Percentile vertically. Choose column, row and additional section groups. Category selections and income bins change the displayed groups without changing student records or model scores. All plots share their coordinate scales.',
+    featuresFormula: 'Each student keeps their own background points and prediction.',
+    featuresEditing: 'Only the current student’s group shows a cutoff, calculated from their exact current background values. Editing a background updates that line and moves it to the matching group. Original and hypothetical markers keep their actual group membership; hypothetical edits do not change cohort statistics.',
+    featuresSelectHint: 'Select a student from a plot or the list, then edit their profile here.',
     label: 'Visualizer view', band: 'Background band', score: 'Score map', breakdown: 'Score breakdown',
     scenarios: 'Background comparison',
     scenariosCaption: 'Eight backgrounds, shared GPA and SAT Percentile axes',
@@ -24,6 +29,11 @@ export const BOUNDARY_VIEWS = {
     scoreEditing: 'Select a student, then use the editor to change their profile. Use the threshold slider to move the cutoff. A point cannot be dragged here because the same academic total can come from different GPA and SAT Percentile values.',
   },
   zh: {
+    features: '特征探索（原型）',
+    featuresHelp: '横轴固定为 GPA，纵轴固定为 SAT 百分位。可选择列分组、行分组和附加分区。类别选择和收入分箱只改变展示的分组，不修改学生记录或模型得分。各图共用坐标尺度。',
+    featuresFormula: '每名学生保留自身的背景加分和预测结果。',
+    featuresEditing: '仅当前学生所在分组显示录取线，按其当前背景的实际值计算。修改背景会更新这条线，并将它移到对应分组。原始与假设标记保留实际的分组归属；假设编辑不改变群体统计。',
+    featuresSelectHint: '从图中或列表中选中学生，然后在这里编辑档案。',
     label: '可视化视图', band: '背景范围带', score: '得分地图', breakdown: '得分拆解',
     scenarios: '背景情境比较',
     scenariosCaption: '八种背景，共用 GPA 与 SAT Percentile 坐标',
@@ -48,6 +58,11 @@ export const BOUNDARY_VIEWS = {
     scoreEditing: '选中学生后，用右侧编辑器修改档案；用下方阈值滑块移动录取线。这里不能直接拖动学生点，因为同一个学业总分可能对应不同的 GPA 和 SAT Percentile。',
   },
   es: {
+    features: 'Explorar características (prototipo)',
+    featuresHelp: 'Los gráficos usan GPA en horizontal y percentil SAT en vertical. Elige grupos por columnas, filas y secciones adicionales. Las categorías y los intervalos de ingresos cambian los grupos visibles sin modificar los registros ni las puntuaciones. Los gráficos comparten escalas.',
+    featuresFormula: 'Cada estudiante conserva sus puntos de contexto y su predicción.',
+    featuresEditing: 'Solo el grupo del estudiante actual muestra un corte, calculado con sus valores actuales exactos. Editar su perfil actualiza la línea y la mueve al grupo correspondiente. Las marcas conservan sus grupos reales; las ediciones hipotéticas no cambian las estadísticas del grupo.',
+    featuresSelectHint: 'Selecciona un estudiante del gráfico o de la lista y modifica aquí su perfil.',
     label: 'Vista del visualizador', band: 'Banda de contexto', score: 'Mapa de puntos', breakdown: 'Desglose de puntos',
     scenarios: 'Comparación de contextos',
     scenariosCaption: 'Ocho contextos, mismos ejes GPA y SAT Percentile',

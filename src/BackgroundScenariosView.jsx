@@ -2,7 +2,33 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ADMISSION_DOMAINS, getDecision, scoreStudent } from '../shared/admissionModel.js';
 import { backgroundScenarios } from '../shared/backgroundScenarios.js';
+import { FACET_FEATURES, facetedBackgrounds } from '../shared/facetedBackgrounds.js';
 import './background-scenarios-view.css';
+import './feature-explorer.css';
+
+const FEATURE_COPY = {
+  en: {
+    split: 'Split plots by', residentFeature: 'Residency', firstGenFeature: 'First-generation status', athleteFeature: 'Athlete status',
+    yes: 'Separate', no: 'Combined', groupBy: 'Split by', allStudents: 'All students', plots: 'plots', plot: 'plot',
+    mixed: 'Background-dependent cutoff range',
+    mixedHelp: 'The band spans cutoffs for all ungrouped background combinations. Within the band, backgrounds can change the result. It is not a probability or uncertainty interval.',
+    cutoff: 'Admission cutoff', profileCutoff: 'Selected profile cutoff',
+  },
+  zh: {
+    split: '按特征分图', residentFeature: '居住地', firstGenFeature: '第一代大学生身份', athleteFeature: '运动员身份',
+    yes: '展开', no: '合并', groupBy: '按此特征分图：', allStudents: '全部学生', plots: '张图', plot: '张图',
+    mixed: '背景对应的录取线范围',
+    mixedHelp: '阴影带覆盖未展开背景组合的录取线范围。带内的结果可能随背景改变；它不是录取概率或不确定性区间。',
+    cutoff: '录取线', profileCutoff: '所选档案的录取线',
+  },
+  es: {
+    split: 'Dividir gráficos por', residentFeature: 'Residencia', firstGenFeature: 'Primera generación', athleteFeature: 'Deporte',
+    yes: 'Separados', no: 'Juntos', groupBy: 'Dividir por', allStudents: 'Todos los estudiantes', plots: 'gráficos', plot: 'gráfico',
+    mixed: 'Rango de cortes según el contexto',
+    mixedHelp: 'La banda abarca los cortes de las combinaciones de contexto no agrupadas. Dentro de ella, el contexto puede cambiar el resultado. No es una probabilidad ni un intervalo de incertidumbre.',
+    cutoff: 'Corte de admisión', profileCutoff: 'Corte del perfil seleccionado',
+  },
+};
 
 const COPY = {
   en: {
@@ -49,7 +75,54 @@ function OutcomeMark({ cx, cy, admitted, color, size = 4, ...rest }) {
     : <path d={`M ${cx} ${cy - size - 1} L ${cx + size + 1} ${cy} L ${cx} ${cy + size + 1} L ${cx - size - 1} ${cy} Z`} fill={color} {...rest} />;
 }
 
-function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, isMining, edgeCaseIds, isLight }) {
+function CutoffRange({ panel, x, y }) {
+  const band = panel.cutoffBand;
+  if (!band) return null;
+  return <g pointerEvents="none" data-cutoff-range>
+    {band.polygon.length > 2 && <polygon className="feature-cutoff-band" points={band.polygon.map(point => `${x(point.x)},${y(point.y)}`).join(' ')} />}
+    {band.edges.map((edge, index) => edge.points.length > 1 ? <line key={index} className="feature-cutoff-edge"
+      x1={x(edge.points[0].x)} y1={y(edge.points[0].y)} x2={x(edge.points[1].x)} y2={y(edge.points[1].y)} /> : null)}
+    {panel.profileBoundary?.points.length > 1 && <line className="feature-profile-cutoff"
+      x1={x(panel.profileBoundary.points[0].x)} y1={y(panel.profileBoundary.points[0].y)}
+      x2={x(panel.profileBoundary.points[1].x)} y2={y(panel.profileBoundary.points[1].y)} />}
+  </g>;
+}
+
+function OverlapMarks({ cx, cy, records, policy, colors, isLight, size, ...rest }) {
+  const outcomes = [...new Set(records.map(student => getDecision(student, policy)))];
+  const mixed = outcomes.length > 1;
+  return <g data-overlap-count={records.length} data-mixed-outcomes={mixed} pointerEvents="none">
+    {mixed ? <>
+      <line x1={cx - 4.5} x2={cx + 4.5} y1={cy} y2={cy} stroke="currentColor" opacity=".4" />
+      <OutcomeMark cx={cx - 4.5} cy={cy} admitted color={colors.admitted} size={3} {...rest} />
+      <OutcomeMark cx={cx + 4.5} cy={cy} admitted={false} color={colors.rejected} size={3} {...rest} />
+    </> : <OutcomeMark cx={cx} cy={cy} admitted={outcomes[0]} color={outcomes[0] ? colors.admitted : colors.rejected} size={size} {...rest} />}
+    {records.length > 1 && <g aria-hidden="true">
+      <circle cx={cx + 12} cy={cy - 11} r={5.5} fill={isLight ? '#fff' : '#1b1f27'} />
+      <text x={cx + 12} y={cy - 8} textAnchor="middle" style={{ fill: 'currentColor', fontSize: 8, fontWeight: 700 }}>{records.length}</text>
+    </g>}
+  </g>;
+}
+
+// The ring always stays at the profile's true GPA/SAT coordinate. When it
+// overlaps a cohort record, attach the hypothetical outcome outside the ring.
+function ExplorerHypotheticalMark({ cx, cy, scenario, colors, isLight, overlapsRecord, side, description, showComparing, editColor }) {
+  const radius = overlapsRecord ? 14 : 9.5;
+  const outcomeX = overlapsRecord ? cx + side * 24 : cx;
+  return <g data-scenario-hypothetical data-hypothetical-overlap={overlapsRecord} role="img" aria-label={description}
+    style={{ pointerEvents: 'none' }}>
+    <title>{description}</title>
+    <circle cx={cx} cy={cy} r={radius} fill={overlapsRecord ? 'none' : isLight ? '#fff' : '#1b1f27'}
+      stroke={editColor} strokeWidth={showComparing ? 3 : 2} strokeDasharray="3 2" />
+    {overlapsRecord && <>
+      <line x1={cx + side * radius} x2={outcomeX} y1={cy} y2={cy} stroke={editColor} strokeWidth={1.2} />
+      <circle cx={outcomeX} cy={cy} r={6.5} fill={isLight ? '#fff' : '#1b1f27'} />
+    </>}
+    <OutcomeMark cx={outcomeX} cy={cy} admitted={scenario.admitted} color={scenario.admitted ? colors.admitted : colors.rejected} size={4.5} />
+  </g>;
+}
+
+function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, isMining, edgeCaseIds, isLight, isExplorer }) {
   const plotRef = useRef(null);
   const lensRef = useRef(null);
   const closeTimer = useRef(null);
@@ -97,7 +170,12 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
   const x = value => margin.left + (value - gpaMin) / (gpaMax - gpaMin) * Math.max(1, width - margin.left - margin.right);
   const y = value => height - margin.bottom - (value - satMin) / (satMax - satMin) * (height - margin.top - margin.bottom);
   const { scenario, context, boundary } = panel;
-  const label = `${context.resident ? t.resident : t.nonresident} · ${context.firstGen ? t.firstGen : t.notFirstGen} · ${context.athlete ? t.athlete : t.notAthlete}`;
+  const contextLabels = [
+    ['resident', context.resident ? t.resident : t.nonresident],
+    ['firstGen', context.firstGen ? (t.shortFirstGen || t.firstGen) : (t.shortNotFirstGen || t.notFirstGen)],
+    ['athlete', context.athlete ? (t.shortAthlete || t.athlete) : (t.shortNotAthlete || t.notAthlete)],
+  ].filter(([key]) => key in context);
+  const label = contextLabels.map(([, value]) => value).join(' · ') || t.allStudents;
   const groups = new Map();
   panel.members.forEach(student => {
     const key = `${student.gpa}:${student.sat}`;
@@ -111,6 +189,9 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
   const showComparing = Boolean(scenario?.isDraft && !scenario.isOriginal);
   const scenarioLabel = scenario?.isOriginal ? t.original : scenario?.isDraft ? t.edited : t.hypothetical;
   const changedPosition = originalHere && scenario && (originalHere.gpa !== scenario.student.gpa || originalHere.sat !== scenario.student.sat);
+  const scenarioOverlapsRecord = Boolean(scenario && panel.members.some(student => student.gpa === scenario.student.gpa && student.sat === scenario.student.sat));
+  const scenarioDescription = scenario ? `${t.hypothetical} ${scenario.student.id}: GPA ${scenario.student.gpa}, SAT Percentile ${scenario.student.sat}, ${scoreText(scenario.score)} ${t.points}, ${scenario.admitted ? t.admitted : t.rejected}` : '';
+  const recordDescription = records => `${t.student} ${records.map(student => `${student.id}: ${getDecision(student, policy) ? t.admitted : t.rejected}`).join('; ')} · GPA ${records[0].gpa} · SAT Percentile ${records[0].sat}`;
   const openLens = (clientX, clientY) => {
     const rect = plotRef.current.getBoundingClientRect();
     const px = clientX - rect.left;
@@ -143,7 +224,8 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
       data-comparing-group={showComparing} data-original-group={Boolean(originalHere)} data-scenario-score={scenario?.score} data-scenario-original={scenario?.isOriginal ?? false}
       data-scenario-decision={scenario?.admitted ?? ''} aria-label={label}>
       <div className="background-scenario-heading">
-        <h3 title={label}><span className="background-scenario-residency">{context.resident ? t.resident : t.nonresident}</span><span>{context.firstGen ? (t.shortFirstGen || t.firstGen) : (t.shortNotFirstGen || t.notFirstGen)}</span><span>{context.athlete ? (t.shortAthlete || t.athlete) : (t.shortNotAthlete || t.notAthlete)}</span></h3>
+        <h3 title={label}>{contextLabels.length ? contextLabels.map(([key, value]) => <span key={key} className={key === 'resident' ? 'background-scenario-residency' : undefined}>{value}</span>) : <span>{t.allStudents}</span>}</h3>
+        {isExplorer && panel.plotRelation !== 'mixed' && <span className="background-scenario-boundary-note">{panel.plotRelation === 'all-admitted' ? t.all : t.none}</span>}
       </div>
       <div className="background-scenario-plot" ref={plotRef}
         onPointerLeave={closeLens} onPointerEnter={keepLens}>
@@ -161,6 +243,7 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
           onBlurCapture={event => { if (!lensRef.current?.contains(event.relatedTarget)) closeLens(); }}>
           <rect x={margin.left} y={margin.top} width={Math.max(1, width - margin.left - margin.right)} height={height - margin.top - margin.bottom} className="background-scenario-frame" />
           {panel.admittedPolygon.length > 2 && <polygon className="background-scenario-region" points={panel.admittedPolygon.map(point => `${x(point.x)},${y(point.y)}`).join(' ')} />}
+          {isExplorer && <CutoffRange panel={panel} x={x} y={y} />}
           {[gpaMin, 3.3, gpaMax].map(value => <g key={`gpa-${value}`} aria-hidden="true">
             <line className="background-scenario-gridline" x1={x(value)} x2={x(value)} y1={margin.top} y2={height - margin.bottom} />
             <text x={x(value)} y={height - margin.bottom + 23} textAnchor={value === gpaMin ? 'start' : value === gpaMax ? 'end' : 'middle'}>{value.toFixed(1)}</text>
@@ -180,7 +263,7 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
             const selected = records.some(item => item.id === selectedStudent?.id);
             const edge = records.some(item => edgeCaseIds?.has(item.id));
             const admitted = getDecision(student, policy);
-            const description = `${t.student} ${records.map(item => item.id).join(', ')} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${admitted ? t.admitted : t.rejected}`;
+            const description = isExplorer ? recordDescription(records) : `${t.student} ${records.map(item => item.id).join(', ')} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${admitted ? t.admitted : t.rejected}`;
             const select = () => {
               if (records.length === 1 && selected) return;
               const current = records.findIndex(item => item.id === selectedStudent?.id);
@@ -190,21 +273,29 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
               data-scenario-student={student.id} className="background-scenario-student"
               onClick={event => { event.stopPropagation(); select(); }}
               onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
+              {isExplorer && <title>{description}</title>}
               <circle cx={x(student.gpa)} cy={y(student.sat)} r={12} fill="transparent" className="background-scenario-focus" />
-              {selected && <circle cx={x(student.gpa)} cy={y(student.sat)} r={8} className="background-scenario-original" />}
-              <OutcomeMark cx={x(student.gpa)} cy={y(student.sat)} admitted={admitted} color={admitted ? colors.admitted : colors.rejected}
+              {selected && <circle cx={x(student.gpa)} cy={y(student.sat)} r={isExplorer && records.some(record => getDecision(record, policy) !== admitted) ? 10.5 : 8} className="background-scenario-original" />}
+              {isExplorer ? <OverlapMarks cx={x(student.gpa)} cy={y(student.sat)} records={records} policy={policy} colors={colors} isLight={isLight}
                 opacity={selected ? 1 : isMining ? edge ? 1 : 0.18 : selectedStudent ? 0.4 : 0.75} size={selected ? 4.5 : 3.2}
                 stroke={isMining && edge ? 'var(--workspace-edge)' : 'none'} strokeWidth={1.5} />
+                : <OutcomeMark cx={x(student.gpa)} cy={y(student.sat)} admitted={admitted} color={admitted ? colors.admitted : colors.rejected}
+                opacity={selected ? 1 : isMining ? edge ? 1 : 0.18 : selectedStudent ? 0.4 : 0.75} size={selected ? 4.5 : 3.2}
+                stroke={isMining && edge ? 'var(--workspace-edge)' : 'none'} strokeWidth={1.5} />}
             </g>;
           })}
-          {scenario && !scenario.isOriginal && <g className={`background-scenario-hypothetical${showComparing ? ' is-comparing' : ''}`} data-scenario-hypothetical
+          {scenario && !scenario.isOriginal && (isExplorer ? <ExplorerHypotheticalMark
+            cx={x(scenario.student.gpa)} cy={y(scenario.student.sat)} scenario={scenario} colors={colors} isLight={isLight}
+            overlapsRecord={scenarioOverlapsRecord} side={x(scenario.student.gpa) > width - margin.right - 32 ? -1 : 1}
+            description={scenarioDescription} showComparing={showComparing} editColor="var(--workspace-edit)" />
+            : <g className={`background-scenario-hypothetical${showComparing ? ' is-comparing' : ''}`} data-scenario-hypothetical
             onClick={event => event.stopPropagation()}
             aria-label={`${t.hypothetical}: GPA ${scenario.student.gpa}, SAT Percentile ${scenario.student.sat}, ${scoreText(scenario.score)} ${t.points}, ${scenario.admitted ? t.admitted : t.rejected}`}>
             {showComparing && <circle cx={x(scenario.student.gpa)} cy={y(scenario.student.sat)} r={14} className="background-scenario-comparing-halo" />}
             <circle cx={x(scenario.student.gpa)} cy={y(scenario.student.sat)} r={12} fill="transparent" />
             <circle cx={x(scenario.student.gpa)} cy={y(scenario.student.sat)} r={9.5} className="background-scenario-hypothetical-ring" />
             <OutcomeMark cx={x(scenario.student.gpa)} cy={y(scenario.student.sat)} admitted={scenario.admitted} color={scenario.admitted ? colors.admitted : colors.rejected} size={showComparing ? 5.5 : 4.5} />
-          </g>}
+          </g>)}
           {!panel.members.length && !scenario && <text x={(margin.left + width - margin.right) / 2} y={78} textAnchor="middle">{t.empty}</text>}
           {lens && <circle cx={lens.x} cy={lens.y} r={lensCenter / lensZoom} className="background-lens-source" />}
         </svg>
@@ -216,6 +307,7 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
           onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) closeLens(); }}
           onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
           <svg viewBox={`0 0 ${lensDiameter} ${lensDiameter}`} width={lensDiameter} height={lensDiameter} aria-label={`${label} · 4×`}>
+            {isExplorer && <CutoffRange panel={panel} x={zoomX} y={zoomY} />}
             {panel.admittedPolygon.length > 2 && <polygon points={panel.admittedPolygon.map(p => `${zoomX(p.x)},${zoomY(p.y)}`).join(' ')} fill={colors.admitted} opacity=".07" />}
             {boundary.points.length > 1 && <line x1={zoomX(boundary.points[0].x)} y1={zoomY(boundary.points[0].y)} x2={zoomX(boundary.points[1].x)} y2={zoomY(boundary.points[1].y)} stroke="#3b82f6" strokeWidth="1.5" />}
             {orderedGroups.map(([key, records]) => {
@@ -225,7 +317,7 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
               if (Math.hypot(cx - lensCenter, cy - lensCenter) > lensCenter - 9) return null;
               const admitted = getDecision(student, policy);
               const selected = records.some(item => item.id === selectedStudent?.id);
-              const description = `${t.student} ${records.map(item => item.id).join(', ')} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${admitted ? t.admitted : t.rejected}`;
+              const description = isExplorer ? recordDescription(records) : `${t.student} ${records.map(item => item.id).join(', ')} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${admitted ? t.admitted : t.rejected}`;
               const choose = event => {
                 let candidates = records;
                 if (event?.detail > 0) {
@@ -244,15 +336,20 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
                 className="background-lens-point" onClick={choose}
                 onPointerEnter={() => setLensStudent(student)} onFocus={() => setLensStudent(student)}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(); } }}>
-                <circle cx={cx} cy={cy} r={8} fill="transparent" className="background-lens-hit" />
-                {selected && <circle cx={cx} cy={cy} r={7} fill={isLight ? '#fff' : '#1b1f27'} stroke="#2563eb" strokeWidth={2} />}
-                <OutcomeMark cx={cx} cy={cy} admitted={admitted} color={admitted ? colors.admitted : colors.rejected} size={4.5} />
+                {isExplorer && <title>{description}</title>}
+                <circle cx={cx} cy={cy} r={isExplorer ? 12 : 8} fill="transparent" className="background-lens-hit" />
+                {selected && <circle cx={cx} cy={cy} r={isExplorer && records.some(record => getDecision(record, policy) !== admitted) ? 10.5 : 7} fill={isLight ? '#fff' : '#1b1f27'} stroke="#2563eb" strokeWidth={2} />}
+                {isExplorer ? <OverlapMarks cx={cx} cy={cy} records={records} policy={policy} colors={colors} isLight={isLight} size={4.5} />
+                  : <OutcomeMark cx={cx} cy={cy} admitted={admitted} color={admitted ? colors.admitted : colors.rejected} size={4.5} />}
               </g>;
             })}
-            {scenario && !scenario.isOriginal && Math.hypot(zoomX(scenario.student.gpa) - lensCenter, zoomY(scenario.student.sat) - lensCenter) <= lensCenter - 12 && <g pointerEvents="none">
+            {scenario && !scenario.isOriginal && Math.hypot(zoomX(scenario.student.gpa) - lensCenter, zoomY(scenario.student.sat) - lensCenter) <= lensCenter - 12 && (isExplorer ? <ExplorerHypotheticalMark
+              cx={zoomX(scenario.student.gpa)} cy={zoomY(scenario.student.sat)} scenario={scenario} colors={colors} isLight={isLight}
+              overlapsRecord={scenarioOverlapsRecord} side={zoomX(scenario.student.gpa) > lensCenter ? -1 : 1}
+              description={scenarioDescription} showComparing={showComparing} editColor="#8b5cf6" /> : <g pointerEvents="none">
               <circle cx={zoomX(scenario.student.gpa)} cy={zoomY(scenario.student.sat)} r={9} fill={isLight ? '#fff' : '#1b1f27'} stroke="#8b5cf6" strokeWidth={showComparing ? 3 : 2} strokeDasharray={showComparing ? undefined : '3 2'} />
               <OutcomeMark cx={zoomX(scenario.student.gpa)} cy={zoomY(scenario.student.sat)} admitted={scenario.admitted} color={scenario.admitted ? colors.admitted : colors.rejected} size={4.5} />
-            </g>}
+            </g>)}
             <path transform={`translate(${lensCenter} ${lensCenter})`} d="M 0 -12 V -4 M 0 4 V 12 M -12 0 H -4 M 4 0 H 12" className="background-lens-crosshair" aria-hidden="true" />
           </svg>
           {lensStudent && <div className="background-lens-info" style={{ background: isLight ? 'rgba(255,255,255,.92)' : 'rgba(27,31,39,.92)' }}>
@@ -272,9 +369,10 @@ function ScenarioPanel({ panel, policy, selectedStudent, onSelect, colors, t, is
 
 export default function BackgroundScenariosView({
   students, policy, selectedStudent, draftStudent, onSelect, isLight, colors, lang,
-  isMining, edgeCaseIds,
+  isMining, edgeCaseIds, selectedFeatures = null, onFeaturesChange,
 }) {
-  const t = COPY[lang] || COPY.en;
+  const isExplorer = selectedFeatures !== null;
+  const t = { ...(COPY[lang] || COPY.en), ...(FEATURE_COPY[lang] || FEATURE_COPY.en) };
   const activeProfile = draftStudent || selectedStudent;
   const profileValueChanged = (profile, kind, field) => {
     if (kind !== 'hypothetical' || !profile || !selectedStudent) return false;
@@ -282,8 +380,10 @@ export default function BackgroundScenariosView({
     if (field === 'decision') return getDecision(profile, policy) !== getDecision(selectedStudent, policy);
     return profile[field] !== selectedStudent[field];
   };
-  const panels = useMemo(() => backgroundScenarios({ students, policy, selectedStudent, draftStudent }),
-    [students, policy, selectedStudent, draftStudent]);
+  const panels = useMemo(() => selectedFeatures !== null
+      ? facetedBackgrounds({ students, policy, selectedStudent, draftStudent, selectedFeatures })
+      : backgroundScenarios({ students, policy, selectedStudent, draftStudent }),
+    [students, policy, selectedStudent, draftStudent, selectedFeatures]);
   const edgeIds = edgeCaseIds instanceof Set ? edgeCaseIds : new Set(edgeCaseIds || []);
   const studentOption = student => <option key={student.id} value={student.id}>
     {student.id} · GPA {student.gpa} · SAT Percentile {student.sat} · {student.firstGen ? t.firstGen : t.notFirstGen} · {student.athlete ? t.athlete : t.notAthlete} · {student.resident ? t.resident : t.nonresident}
@@ -291,8 +391,22 @@ export default function BackgroundScenariosView({
   const closestStudents = students.filter(student => edgeIds.has(student.id)).sort((a, b) =>
     Math.abs(scoreStudent(a, policy) - policy.threshold) - Math.abs(scoreStudent(b, policy) - policy.threshold));
   return (
-    <div className={`background-scenarios-view${isLight ? ' background-scenarios-light' : ''}`} data-boundary-ui data-background-scenarios
+    <div className={`background-scenarios-view${isLight ? ' background-scenarios-light' : ''}${isExplorer ? ' feature-explorer' : ''}`} data-boundary-ui data-background-scenarios
+      data-feature-explorer={isExplorer || undefined} data-panel-count={panels.length}
       onPointerDown={event => event.stopPropagation()}>
+      {isExplorer && <fieldset className="feature-explorer-controls">
+        <legend className="sr-only">{t.split}</legend>
+        <div className="feature-explorer-selectors">
+          {FACET_FEATURES.map(feature => <label key={feature}>
+            <span>{t[`${feature}Feature`]}</span>
+            <select aria-label={`${t.groupBy} ${t[`${feature}Feature`]}`} value={selectedFeatures.includes(feature) ? 'yes' : 'no'}
+              onChange={event => onFeaturesChange(FACET_FEATURES.filter(key => key === feature ? event.target.value === 'yes' : selectedFeatures.includes(key)))}>
+              <option value="no">{t.no}</option><option value="yes">{t.yes}</option>
+            </select>
+          </label>)}
+        </div>
+        <span className="sr-only" role="status" aria-live="polite">{panels.length} {panels.length === 1 ? t.plot : t.plots}</span>
+      </fieldset>}
       <div className="background-scenarios-toolbar">
         <label>
           <select aria-label={t.student} value={selectedStudent?.id || ''} onChange={event => onSelect(event.target.value || null)}>
@@ -305,7 +419,7 @@ export default function BackgroundScenariosView({
         </label>
 
       </div>
-      <div className="background-scenarios-profile" role="table" aria-label={t.comparing}>
+      {(!isExplorer || selectedStudent) && <div className="background-scenarios-profile" role="table" aria-label={t.comparing}>
         {[[t.originalProfile, selectedStudent, 'original'], [t.comparing, activeProfile, 'hypothetical']].map(([name, profile, kind]) => (
           <div className="background-profile-row" role="row" key={kind}>
             <span className="background-profile-heading" role="rowheader"><span className={`background-scenarios-${kind}-key`} /><strong>{name}</strong></span>
@@ -319,10 +433,14 @@ export default function BackgroundScenariosView({
             <span role="cell" data-changed={profileValueChanged(profile, kind, 'decision')}>{profile && (getDecision(profile, policy) ? t.admitted : t.rejected)}</span>
           </div>
         ))}
-      </div>
+      </div>}
+      {isExplorer && <div className="feature-explorer-legend">
+        <span className="feature-cutoff-key" title={panels.some(panel => panel.hasMixedBackgrounds) ? t.mixedHelp : undefined}><i className={panels.some(panel => panel.hasMixedBackgrounds) ? 'feature-band-key' : 'feature-line-key'} />{panels.some(panel => panel.hasMixedBackgrounds) ? t.mixed : t.cutoff}</span>
+        {panels.some(panel => panel.profileBoundary?.points.length > 1) && <span className="feature-cutoff-key"><i className="feature-profile-key" />{t.profileCutoff}</span>}
+      </div>}
       <div className="background-scenarios-grid">
         {panels.map(panel => <ScenarioPanel key={panel.id} panel={panel} policy={policy} selectedStudent={selectedStudent}
-          onSelect={onSelect} colors={colors} t={t} isMining={isMining} edgeCaseIds={edgeCaseIds} isLight={isLight} />)}
+          onSelect={onSelect} colors={colors} t={t} isMining={isMining} edgeCaseIds={edgeCaseIds} isLight={isLight} isExplorer={isExplorer} />)}
       </div>
 
     </div>

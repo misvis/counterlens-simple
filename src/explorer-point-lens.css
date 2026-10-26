@@ -1,0 +1,17 @@
+.explorer-point-lens {
+  --exl-surface: #1b1f27; --exl-info-surface: #1b1f27; --exl-border: #66748a; --exl-text: #e2e8f0; --exl-muted: #d5dce8; --exl-accent: #8ea7ff;
+  position: fixed; z-index: 1000; box-sizing: border-box; display: block;
+  padding: 0; border: 1px solid var(--exl-border); border-radius: 50%; background: var(--exl-surface); color: var(--exl-text);
+  font: 11px/1.35 system-ui, sans-serif; overflow: hidden; box-shadow: 0 5px 18px #0f172a24;
+}
+.explorer-point-lens.is-light { --exl-surface: #fff; --exl-info-surface: #fff; --exl-border: #94a3b8; --exl-text: #334155; --exl-muted: #475569; --exl-accent: #2563eb; }
+.exl-source-overlay { position: absolute; inset: 0; pointer-events: none; }
+.exl-chart { display: block; }
+.exl-crosshair { fill: none; stroke: currentColor; stroke-width: 1; opacity: .5; pointer-events: none; }
+.exl-info { position: absolute; left: 8%; right: 8%; bottom: 11%; display: grid; justify-items: center; border-radius: 8px; font-size: 10px; line-height: 12px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; background: var(--exl-info-surface); }
+.exl-cutoff { stroke: var(--exl-accent); stroke-width: 1.5; }
+.exl-hit { fill: transparent; stroke: transparent; }
+.exl-selected { fill: var(--exl-surface); stroke: var(--exl-accent); stroke-width: 2; }
+.exl-chart [role="button"] { cursor: pointer; }
+.exl-chart [role="button"]:focus-visible { outline: none; }
+.exl-chart [role="button"]:focus-visible .exl-hit, .exl-chart [role="button"]:hover .exl-hit { stroke: var(--exl-accent); stroke-width: 1; }

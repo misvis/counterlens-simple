@@ -1,5 +1,7 @@
 // Exact scoring and 2D slices of the current weighted-sum classroom model.
 // Display/edit bounds are independent of the policy's scoring calibration.
+import { isExplorerPolicy, explorerBackgroundContributions, explorerBackgroundExtents } from './explorerPolicies.js';
+
 export const ADMISSION_DOMAINS = { gpa: [2.6, 4], sat: [60, 100] };
 const SCORING_DOMAINS = { gpa: [2.4, 4], sat: [0, 100] };
 const GPA_DISPLAY_SCALE = (4 - 2.6) / (4 - 2.4);
@@ -13,9 +15,9 @@ const EPSILON = 1e-9;
 const unit = value => Math.min(1, Math.max(0, value));
 const weight = (policy, field) => policy.weights[field] ?? 0;
 
-export const backgroundScore = (student, policy) => CONTEXT_FIELDS.reduce(
-  (sum, field) => sum + (student?.[field] ? weight(policy, field) : 0), 0,
-);
+export const backgroundScore = (student, policy) => isExplorerPolicy(policy)
+  ? explorerBackgroundContributions(student, policy).reduce((sum, item) => sum + item.points, 0)
+  : CONTEXT_FIELDS.reduce((sum, field) => sum + (student?.[field] ? weight(policy, field) : 0), 0);
 
 const academicPoints = (student, policy, field) => {
   if (!student) return 0;
@@ -32,7 +34,8 @@ export const scoreStudent = (student, policy) => academicScore(student, policy) 
 export const scoreContributions = (student, policy) => [
   { key: 'gpa', points: academicPoints(student, policy, 'gpa') },
   { key: 'sat', points: academicPoints(student, policy, 'sat') },
-  ...CONTEXT_FIELDS.map(key => ({ key, points: student?.[key] ? weight(policy, key) : 0 })),
+  ...(isExplorerPolicy(policy) ? explorerBackgroundContributions(student, policy)
+    : CONTEXT_FIELDS.map(key => ({ key, points: student?.[key] ? weight(policy, key) : 0 }))),
 ];
 
 // This two-axis aggregation preserves the model's total score exactly.
@@ -115,7 +118,7 @@ const scoreExtents = (policy, fields) => fields.reduce(
 // the separator between them does not imply that intermediate profiles exist.
 export const scoreSpaceBoundary = policy => {
   const [xMin, xMax] = scoreExtents(policy, ['gpa', 'sat']);
-  const [yMin, yMax] = scoreExtents(policy, CONTEXT_FIELDS);
+  const [yMin, yMax] = isExplorerPolicy(policy) ? explorerBackgroundExtents(policy) : scoreExtents(policy, CONTEXT_FIELDS);
   const minimum = xMin + yMin;
   const maximum = xMax + yMax;
   const threshold = policy.threshold;
@@ -152,13 +155,19 @@ const clip = (polygon, signedDistance) => {
   return result;
 };
 
-export const backgroundBoundaryBand = policy => {
-  const contextWeights = CONTEXT_FIELDS.map(field => weight(policy, field));
-  const minimum = contextWeights.reduce((sum, value) => sum + Math.min(0, value), 0);
-  const maximum = contextWeights.reduce((sum, value) => sum + Math.max(0, value), 0);
-  if (maximum - minimum < EPSILON) return { hasContext: false, polygon: [], edges: [] };
+export const backgroundBoundaryBand = (policy, context = {}) => {
+  const fixed = CONTEXT_FIELDS.reduce((sum, field) => sum + (context[field] === true ? weight(policy, field) : 0), 0);
+  const contextWeights = CONTEXT_FIELDS.filter(field => !(field in context)).map(field => weight(policy, field));
+  const [minimum, maximum] = isExplorerPolicy(policy) ? explorerBackgroundExtents(policy, context)
+    : [contextWeights.reduce((sum, value) => sum + Math.min(0, value), fixed),
+      contextWeights.reduce((sum, value) => sum + Math.max(0, value), fixed)];
+  const extentInfo = isExplorerPolicy(policy) ? { minimum, maximum } : {};
+  if (maximum - minimum < EPSILON) return { hasContext: false, polygon: [], edges: [], ...extentInfo };
   const academicScore = p => weight(policy, 'gpa') * (GPA_DISPLAY_OFFSET + GPA_DISPLAY_SCALE * p.x) + weight(policy, 'sat') * (SAT_DISPLAY_OFFSET + SAT_DISPLAY_SCALE * p.y);
   let polygon = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+  // At a constant-score equality every background can already be admitted;
+  // inclusive clipping alone would incorrectly shade the entire chart.
+  if (polygon.every(point => academicScore(point) + minimum >= policy.threshold)) polygon = [];
   polygon = clip(polygon, p => academicScore(p) + maximum - policy.threshold);
   polygon = clip(polygon, p => policy.threshold - academicScore(p) - minimum);
   const area = Math.abs(polygon.reduce((sum, p, i) => {
@@ -169,5 +178,6 @@ export const backgroundBoundaryBand = policy => {
     hasContext: true,
     polygon: area > EPSILON ? polygon : [],
     edges: [admissionBoundary(policy, minimum), admissionBoundary(policy, maximum)],
+    ...extentInfo,
   };
 };

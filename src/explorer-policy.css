@@ -1,0 +1,11 @@
+.explorer-rule-badge { margin-left: auto; align-self: center; color: var(--threshold-muted); font-size: 10px; white-space: nowrap; }
+.workspace-policy-explanation:has(.explorer-policy-details) { max-height: min(520px, 70vh); overflow-y: auto; }
+.explorer-policy-details { margin-top: 7px; color: var(--threshold-text); }
+.explorer-policy-details > p { margin: 4px 0 7px; color: var(--threshold-muted); font-size: 11px; }
+.explorer-policy-details table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.explorer-policy-details th, .explorer-policy-details td { padding: 5px 3px; vertical-align: top; text-align: left; border-bottom: 1px solid color-mix(in srgb, var(--threshold-muted) 25%, transparent); }
+.explorer-policy-details th { font-weight: 600; }
+.explorer-policy-details tbody th { width: 30%; }
+.explorer-rule-value { display: inline-block; max-width: 100%; margin-right: 7px; line-height: 1.7; overflow-wrap: anywhere; }
+.explorer-rule-value b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.explorer-policy-details .explorer-rule-note { margin-top: 7px; }

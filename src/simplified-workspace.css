@@ -562,6 +562,13 @@
   display: block;
 }
 
+.workspace-editor-student > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-outcome-badge.is-empty { background: var(--threshold-track); color: var(--threshold-muted); }
+.workspace-draft-controls[data-empty="true"] button:disabled { opacity: .45; cursor: default; }
+.workspace-draft-controls input[type="range"]:disabled { opacity: .4; cursor: default; }
+.workspace-draft-controls input[type="range"]:disabled::-webkit-slider-thumb { opacity: 0; }
+.workspace-draft-controls input[type="range"]:disabled::-moz-range-thumb { opacity: 0; }
+
 .workspace-background-selects {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1408,6 +1415,22 @@
 .workspace-controls .workspace-policy-count-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: nowrap; }
 .workspace-controls .workspace-policy-total { font-size: 12px; padding-right: 0; }
 .workspace-controls .workspace-policy-info { position: relative; grid-column: 2; grid-row: 1; top: auto; right: auto; bottom: auto; transform: none; width: 24px; height: 28px; z-index: 1; }
+.workspace-policy-picker { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; align-items: center; }
+.workspace-policy-select-wrap { position: relative; min-width: 0; }
+.workspace-policy-select-wrap > select {
+  display: block; width: 100%; height: 36px; min-width: 0; appearance: none; border: 1px solid var(--threshold-border);
+  border-radius: 7px; padding: 6px 31px 6px 10px; background: var(--threshold-surface); color: var(--threshold-text);
+  font-size: 12px; font-weight: 650; cursor: pointer; color-scheme: dark;
+}
+.simplified-daylight .workspace-policy-select-wrap > select { color-scheme: light; }
+.workspace-policy-select-wrap > svg { position: absolute; right: 9px; top: 10px; pointer-events: none; color: var(--threshold-muted); }
+.workspace-policy-select-wrap > select:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
+.workspace-policy-summary { display: flex; justify-content: flex-end; align-items: baseline; gap: 5px; margin-top: 5px; color: var(--threshold-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.workspace-policy-summary strong { color: var(--threshold-text); font-weight: 650; }
+.workspace-controls .workspace-policy-picker .workspace-policy-info { position: static; width: 34px; height: 34px; }
+.workspace-controls .workspace-policy-info svg { width: 20px; height: 20px; }
+.simplified-app .workspace-inline-help { width: 30px; height: 30px; }
+.simplified-app .workspace-inline-help svg { width: 19px; height: 19px; }
 /* Reserve more width for the longer original athletics/residency values. */
 .workspace-background-selects { grid-template-columns: minmax(0, .8fr) repeat(2, minmax(0, 1.1fr)); }
 .workspace-background-field { min-width: 0; }

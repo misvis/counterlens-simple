@@ -13,12 +13,15 @@ const createSeededRandom = (seed) => {
   };
 };
 
-const createSyntheticRecords = () => {
+export const createSyntheticRecords = (recordCount = 72) => {
+  if (!Number.isSafeInteger(recordCount) || recordCount < 1) {
+    throw new RangeError('recordCount must be a positive safe integer.');
+  }
   const random = createSeededRandom(1973);
   // Separate random stream preserves all existing GPA/SAT/background values.
   const referenceRandom = createSeededRandom(2026);
 
-  return Array.from({ length: 72 }, (_, index) => {
+  return Array.from({ length: recordCount }, (_, index) => {
     const firstGen = random() < 0.3;
     const athlete = random() < 0.16;
     const resident = random() < 0.6;

@@ -37,6 +37,13 @@ import ThresholdDragSurface from './ThresholdDragSurface.jsx';
 import ScoreBoundaryView from './ScoreBoundaryView.jsx';
 import ScoreBreakdownView from './ScoreBreakdownView.jsx';
 import BackgroundScenariosView from './BackgroundScenariosView.jsx';
+import FeatureExplorer from './FeatureExplorer.jsx';
+import ExplorerPolicyDetails from './ExplorerPolicyDetails.jsx';
+import { EXPLORER_POLICY_COPY } from './explorerPolicyCopy.js';
+import { EXPLORER_SIMULATION_POLICIES, isExplorerPolicy } from '../shared/explorerPolicies.js';
+import { buildExplorerDemoView, samePublishedValue } from '../shared/explorerDemoDataset.js';
+import { ExplorerBackgroundEditor, ExplorerGroupOutcomes } from './ExplorerBackgroundControls.jsx';
+import { EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
 import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
@@ -69,6 +76,9 @@ const POLICY_PRESENTATION = {
     summerAccent: '#43d3c1',
   },
 };
+const policyDisplayName = (item, copy, lang) => copy[item.id]?.name
+  || (typeof item.name === 'string' ? item.name : item.name?.[lang] || item.name?.en)
+  || item.id;
 
 const THEME_SEQUENCE = ['light', 'graphite'];
 const RESEARCH_CONTRIBUTORS = ['Changjia (Eric) Yang', 'Soham Khisa'];
@@ -610,7 +620,7 @@ const BACKGROUND_FIELDS = [
   { key: 'resident', label: 'residency', positive: 'inState', negative: 'outOfState' },
 ];
 
-const BackgroundEditor = ({ features, student, original, onChange, t }) => {
+const BackgroundEditor = ({ features, student, original, onChange, t, lang, explorer = false }) => {
   const fields = BACKGROUND_FIELDS.filter(field => features.some(feature =>
     feature.key === field.key && feature.role === 'input' && feature.type === 'boolean'
       && feature.allowedUses.includes('counterfactual')));
@@ -619,19 +629,43 @@ const BackgroundEditor = ({ features, student, original, onChange, t }) => {
   return (
     <div className="workspace-background-selects">
       {fields.map(field => {
-        const changed = student[field.key] !== original[field.key];
+        const categoricalResidency = explorer && field.key === 'resident';
+        const residencyOptions = categoricalResidency ? getExplorerOptions('residency', [student, original], []) : [];
+        const residencyOption = value => {
+          const missing = value === null || value === undefined
+            || (typeof value === 'string' && !value.trim())
+            || (typeof value === 'number' && !Number.isFinite(value))
+            || !['string', 'number', 'boolean'].includes(typeof value);
+          return residencyOptions.find(option => option.missing ? missing
+            : value === (Object.hasOwn(option, 'rawValue') ? option.rawValue : option.value));
+        };
+        const residencyLabel = value => {
+          const names = residencyOption(value)?.label;
+          return names?.[lang] || names?.en || value;
+        };
+        const changed = categoricalResidency ? student.residency !== original.residency : student[field.key] !== original[field.key];
         const originalLabel = formatCopy(t.backgroundOriginal, {
-          value: t[original[field.key] ? field.positive : field.negative],
+          value: categoricalResidency ? residencyLabel(original.residency) : t[original[field.key] ? field.positive : field.negative],
         });
         return (
           <div key={field.key} className="workspace-background-field">
             <label htmlFor={`background-${field.key}`}>{field.key === 'firstGen' ? t.firstGenerationShort : t[field.label]}</label>
             <div className="workspace-select-wrap" data-edited={changed}>
-              <select id={`background-${field.key}`} value={String(student[field.key])}
+              <select id={`background-${field.key}`} value={categoricalResidency ? residencyOption(student.residency)?.value ?? '' : String(student[field.key])}
                 aria-describedby={`background-original-${field.key}`}
-                onChange={event => onChange(field.key, event.target.value === 'true')}>
-                <option value="true">{t[field.positive]}</option>
-                <option value="false">{t[field.negative]}</option>
+                onChange={event => {
+                  if (!categoricalResidency) return onChange(field.key, event.target.value === 'true');
+                  const option = residencyOptions.find(item => item.value === event.target.value);
+                  if (!option) return;
+                  const value = option.missing
+                    ? (residencyOption(student.residency)?.missing ? student.residency : original.residency)
+                    : Object.hasOwn(option, 'rawValue') ? option.rawValue : option.value;
+                  onChange('residency', value);
+                }}>
+                {categoricalResidency ? residencyOptions.map(option => <option key={option.value} value={option.value}>{option.label[lang] || option.label.en}</option>) : <>
+                  <option value="true">{t[field.positive]}</option>
+                  <option value="false">{t[field.negative]}</option>
+                </>}
               </select>
               <ChevronDown aria-hidden="true" />
             </div>
@@ -811,30 +845,60 @@ const StudentGuides = ({ student, color, kind }) => (
   </>
 );
 
+const rankStudentsByCutoff = (students, policy) => students
+  .filter(student => Number.isFinite(student.gpa) && Number.isFinite(student.sat))
+  .map(student => ({ ...student, distance: Math.abs(scoreStudent(student, policy) - policy.threshold) }))
+  .filter(student => Number.isFinite(student.distance))
+  .sort((left, right) => left.distance - right.distance);
+
+const createInitialWorkspace = (view, preferredPolicyId = 'academic') => {
+  const preview = buildExplorerDemoView(view);
+  const synthetic = view.dataset.sourceType === 'synthetic';
+  const students = synthetic ? enrichExplorerRecords(preview.records) : preview.records;
+  const policies = synthetic ? EXPLORER_SIMULATION_POLICIES : view.policies;
+  const policy = policies.find(item => item.id === preferredPolicyId) || policies[0];
+  const nearestId = rankStudentsByCutoff(students, policy)[0]?.id;
+  return { view, policyId: policy.id, student: students.find(student => student.id === nearestId) || null };
+};
+
+// Preview eligibility is part of cohort identity: changed release/privacy
+// metadata can disable the 200-record expansion even if source records match.
+const sameClassroomData = (left, right) => left.schemaVersion === right.schemaVersion
+  && ['id', 'version', 'sourceType', 'releaseStatus', 'recordCount'].every(key => left.dataset[key] === right.dataset[key])
+  && Object.hasOwn(left, 'preview') === Object.hasOwn(right, 'preview')
+  && ['records', 'features', 'policies', 'privacy', 'preview'].every(key => samePublishedValue(left[key], right[key]));
+
 const SimplifiedApp = () => {
+  const [initialWorkspace] = useState(() => createInitialWorkspace(createBundledClassroomView()));
   const [lang, setLang] = useState('en');
   const [theme, setTheme] = useState('light');
   const [showCredits, setShowCredits] = useState(false);
   const [isMining, setIsMining] = useState(false);
-  const [boundaryView, setBoundaryView] = useState('scenarios');
-  const [policyId, setPolicyId] = useState('academic');
+  // Keep the other visualizers dormant while the workspace focuses on Feature Explorer.
+  const boundaryView = 'features';
+  const [policyId, setPolicyId] = useState(initialWorkspace.policyId);
   const [thresholdOverride, setThresholdOverride] = useState(null);
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-  const [draftStudent, setDraftStudent] = useState(null);
+  const [selectedId, setSelectedId] = useState(initialWorkspace.student?.id ?? null);
+  const [draftStudent, setDraftStudent] = useState(() => initialWorkspace.student ? { ...initialWorkspace.student } : null);
+  const [explorerBinning, setExplorerBinning] = useState({ method: 'fixed', count: 3, thresholds: [50000, 75000, 100000] });
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
-  const [classroomView, setClassroomView] = useState(createBundledClassroomView);
+  const [classroomView, setClassroomView] = useState(initialWorkspace.view);
   const [dataState, setDataState] = useState(isClassroomApiConfigured ? 'loading' : 'bundled');
   const [, setDataError] = useState('');
   const trackedPageView = useRef('');
   const decisionBadgeRef = useRef(null);
   const previousDecision = useRef(null);
+  const latestPolicyId = useRef(policyId);
+
+  useEffect(() => { latestPolicyId.current = policyId; }, [policyId]);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const viewCopy = BOUNDARY_VIEWS[lang] || BOUNDARY_VIEWS.en;
-  const boundaryHelpTitle = boundaryView === 'scenarios' ? viewCopy.scenarios : boundaryView === 'breakdown' ? t.scoreHelpTitle : t.boundaryHelpTitle;
-  const explainedPolicy = explainedPolicyId ? t.policies[explainedPolicyId] : null;
+  const isFeatureView = boundaryView === 'features';
+  const isScenarioView = boundaryView === 'scenarios' || isFeatureView;
+  const boundaryHelpTitle = isScenarioView ? viewCopy[boundaryView] : boundaryView === 'breakdown' ? t.scoreHelpTitle : t.boundaryHelpTitle;
   useEffect(() => {
     if (!explainedPolicyId) return;
     const dismissOutside = (event) => {
@@ -855,11 +919,18 @@ const SimplifiedApp = () => {
       document.removeEventListener('keydown', dismissOnEscape);
     };
   }, [explainedPolicyId]);
-  const students = classroomView.records;
+  const hasSyntheticReference = classroomView.dataset.sourceType === 'synthetic';
+  const usesExplorerSimulation = hasSyntheticReference && isFeatureView;
+  const policyCopy = usesExplorerSimulation ? (EXPLORER_POLICY_COPY[lang] || EXPLORER_POLICY_COPY.en) : t.policies;
+  const explorerView = useMemo(() => isFeatureView ? buildExplorerDemoView(classroomView) : classroomView,
+    [classroomView, isFeatureView]);
+  const students = useMemo(() => hasSyntheticReference && isFeatureView
+    ? enrichExplorerRecords(explorerView.records) : explorerView.records,
+  [explorerView.records, hasSyntheticReference, isFeatureView]);
+  const explorerIncomeBins = useMemo(() => buildIncomeBins(students, explorerBinning), [students, explorerBinning]);
   const referenceFeatures = classroomView.features.filter(feature => feature.role === 'outcome' && feature.type === 'boolean' && feature.allowedUses.includes('compare'));
   // Avoid guessing a target when a release contains multiple outcomes.
   const referenceFeature = referenceFeatures.length === 1 ? referenceFeatures[0] : null;
-  const hasSyntheticReference = classroomView.dataset.sourceType === 'synthetic';
   // Admission wording describes this demo target only, not arbitrary real outcomes.
   const hasDemoAdmissionLabels = hasSyntheticReference && referenceFeature?.key === 'referenceOutcome';
   const matrixHelp = hasDemoAdmissionLabels ? t.matrixDemoAxes : t.matrixHelp;
@@ -869,7 +940,7 @@ const SimplifiedApp = () => {
       label: cell === 'tp' || cell === 'fn' ? t.admitted : t.notAdmitted,
     })])) : t.matrixCells;
   const policies = useMemo(
-    () => classroomView.policies.map((item) => ({
+    () => (usesExplorerSimulation ? EXPLORER_SIMULATION_POLICIES : classroomView.policies).map((item) => ({
       ...item,
       ...(POLICY_PRESENTATION[item.id] ?? {
         accent: '#2563eb',
@@ -877,9 +948,12 @@ const SimplifiedApp = () => {
         summerAccent: '#43d3c1',
       }),
     })),
-    [classroomView.policies],
+    [classroomView.policies, usesExplorerSimulation],
   );
   const explainedPolicySettings = policies.find(item => item.id === explainedPolicyId);
+  const explainedPolicy = explainedPolicySettings ? policyCopy[explainedPolicyId] ?? {
+    name: policyDisplayName(explainedPolicySettings, policyCopy, lang), shortName: '', description: '',
+  } : null;
   const comparisonPolicySettings = policies.find(item => item.id === 'holistic');
   const isLight = theme === 'light';
   const darkPalette = DARK_THEME_PALETTES[isLight ? 'graphite' : theme];
@@ -917,6 +991,8 @@ const SimplifiedApp = () => {
     () => students.map((student) => ({ ...student, admitted: getDecision(student, policy) })),
     [policy, students],
   );
+  const explorerOutcomeGroups = useMemo(() => summarizeExplorerOutcomes({ records: students, policy, incomeBins: explorerIncomeBins }),
+    [students, policy, explorerIncomeBins]);
   const matrix = useMemo(
     () => confusionMatrix(students, policy, referenceFeature?.key),
     [students, policy, referenceFeature?.key],
@@ -933,13 +1009,7 @@ const SimplifiedApp = () => {
   );
 
   const edgeCases = useMemo(
-    () => outcomes
-      .map((student) => ({
-        ...student,
-        distance: Math.abs(scoreStudent(student, policy) - policy.threshold),
-      }))
-      .sort((left, right) => left.distance - right.distance)
-      .slice(0, 8),
+    () => rankStudentsByCutoff(outcomes, policy).slice(0, 8),
     [outcomes, policy],
   );
   const edgeCaseIds = useMemo(() => new Set(edgeCases.map((student) => student.id)), [edgeCases]);
@@ -976,7 +1046,8 @@ const SimplifiedApp = () => {
     selectedStudent.sat !== draftStudent.sat ||
     selectedStudent.firstGen !== draftStudent.firstGen ||
     selectedStudent.athlete !== draftStudent.athlete ||
-    selectedStudent.resident !== draftStudent.resident
+    selectedStudent.resident !== draftStudent.resident ||
+    EXPLORER_FEATURES.some(feature => selectedStudent[feature.key] !== draftStudent[feature.key])
   ));
   const plotPositionChanged = Boolean(selectedStudent && draftStudent && (
     selectedStudent.gpa !== draftStudent.gpa || selectedStudent.sat !== draftStudent.sat
@@ -985,6 +1056,8 @@ const SimplifiedApp = () => {
   const datasetVersion = classroomView.dataset.version;
 
   useEffect(() => {
+    // The bundled view is already initialized, including its nearest student.
+    if (!isClassroomApiConfigured) return undefined;
     let active = true;
     loadClassroomView()
       .then(({ view, source }) => {
@@ -992,12 +1065,16 @@ const SimplifiedApp = () => {
         setClassroomView(view);
         setDataState(source);
         setDataError('');
-        setPolicyId((current) => (
-          view.policies.some((item) => item.id === current) ? current : view.policies[0].id
-        ));
-        setSelectedId(null);
-        setDraftStudent(null);
-        setThresholdOverride(null);
+        // An API copy of the same release must not undo a selection, explicit
+        // clear, counterfactual edit, or cutoff adjustment made while loading.
+        if (!sameClassroomData(initialWorkspace.view, view)) {
+          const incoming = createInitialWorkspace(view, latestPolicyId.current);
+          setPolicyId(incoming.policyId);
+          setSelectedId(incoming.student?.id ?? null);
+          setDraftStudent(incoming.student ? { ...incoming.student } : null);
+          setThresholdOverride(null);
+          setIsMining(false);
+        }
       })
       .catch((error) => {
         if (!active) return;
@@ -1007,7 +1084,7 @@ const SimplifiedApp = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialWorkspace]);
 
   useEffect(() => {
     if (dataState === 'loading') return;
@@ -1052,7 +1129,10 @@ const SimplifiedApp = () => {
   };
 
   const updateDraft = (field, value) => {
-    if (draftStudent) applyDraft({ ...draftStudent, [field]: value });
+    if (draftStudent) applyDraft({ ...draftStudent, [field]: value,
+      // Only the dormant legacy model uses a separate resident boolean.
+      ...(!isExplorerPolicy(policy) && hasSyntheticReference && field === 'residency' && ['instate', 'outofstate'].includes(value) ? { resident: value === 'instate' } : {}),
+    });
   };
 
   const selectStudent = (studentId) => {
@@ -1239,30 +1319,23 @@ const SimplifiedApp = () => {
 
         <main className="simplified-workspace">
 
-          <section className={`workspace-visualizer simplified-panel flex flex-col rounded-2xl border border-slate-800 bg-slate-900/65 shadow-xl shadow-black/10 ${boundaryView === 'scenarios' ? 'has-background-scenarios' : ''}`}
+          <section className={`workspace-visualizer simplified-panel flex flex-col rounded-2xl border border-slate-800 bg-slate-900/65 shadow-xl shadow-black/10 ${isScenarioView ? 'has-background-scenarios' : ''} ${isFeatureView ? 'has-feature-explorer' : ''}`}
             onClick={event => {
-              if (boundaryView === 'scenarios' && !event.target.closest?.('.background-scenario-panel, .workspace-analysis-bar, button, select, input, label, a, [data-policy-help]')) {
+              if (isFeatureView) {
+                // Guard actual controls and marks, not their full-width rows:
+                // the unused space beside the picker is still canvas background.
+                if (!event.target.closest?.('button, select, input, textarea, label, a, summary, [role="button"], [data-explorer-student], [data-draft-student], [data-profile-pair], [data-explorer-lens], [data-policy-help], .workspace-analysis-bar, .fex-profile-item')) {
+                  selectStudent(null);
+                }
+                return;
+              }
+              if (isScenarioView && !event.target.closest?.('.background-scenario-panel, .workspace-analysis-bar, [data-boundary-ui], button, select, input, label, a, [data-policy-help]')) {
                 selectStudent(null);
               }
             }}>
               <div className="workspace-visualizer-heading">
                 <div className="workspace-visualizer-intro">
                   <h2 className="workspace-visualizer-title font-bold text-white">{t.visualizer}</h2>
-                  <div className="workspace-view-switcher" data-boundary-ui>
-                  <div className="workspace-select-wrap workspace-boundary-picker">
-                    <select aria-label={viewCopy.label} value={boundaryView} onChange={event => {
-                      setBoundaryView(event.target.value);
-                      setExplainedPolicyId(null);
-                    }}>
-                      {['scenarios', 'band'].map(view => <option key={view} value={view}>{viewCopy[view]}</option>)}
-                    </select>
-                    <ChevronDown aria-hidden="true" />
-                  </div>
-                  <button type="button" className="workspace-inline-help rounded-md" aria-label={boundaryHelpTitle} aria-expanded={explainedPolicyId === 'boundary'} aria-controls="boundary-help" onClick={(event) => {
-                    policyHelpTrigger.current = event.currentTarget;
-                    setExplainedPolicyId(explainedPolicyId === 'boundary' ? null : 'boundary');
-                  }}><Info className="h-3.5 w-3.5" /></button>
-                  </div>
                 </div>
                 <div className="workspace-visualizer-actions">
                 <button
@@ -1271,10 +1344,6 @@ const SimplifiedApp = () => {
                   title={`${edgeCases.length} ${t.edgeCasesFound}`}
                   onClick={() => {
                     const nextMiningState = !isMining;
-                    // Match clicking empty chart space: discard the temporary
-                    // student edit while retaining the current policy and cutoff.
-                    setSelectedId(null);
-                    setDraftStudent(null);
                     setIsMining(nextMiningState);
                     if (nextMiningState) {
                       trackAnonymousEvent('borderline_cases_opened', {
@@ -1301,7 +1370,7 @@ const SimplifiedApp = () => {
                     <span className="h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ backgroundColor: outcomeColors.rejected }} />
                     {t.notAdmitted}
                   </span>
-                  <span className="workspace-adjusted-legend flex items-center gap-1.5 font-medium" style={{ visibility: draftProfileChanged && boundaryView !== 'scenarios' ? 'visible' : 'hidden' }} aria-hidden={!draftProfileChanged || boundaryView === 'scenarios'}>
+                  <span className="workspace-adjusted-legend flex items-center gap-1.5 font-medium" style={{ visibility: draftProfileChanged && !isScenarioView ? 'visible' : 'hidden' }} aria-hidden={!draftProfileChanged || isScenarioView}>
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed" />
                     {t.whatIfStudent}
                   </span>
@@ -1311,7 +1380,7 @@ const SimplifiedApp = () => {
 
 
               <div
-                className={`simplified-inset simplified-scatter-plot w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 ${boundaryView === 'scenarios' ? 'is-background-scenarios' : ''} ${isBoundaryDragging ? 'is-boundary-dragging' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}
+                className={`simplified-inset simplified-scatter-plot w-full rounded-xl border border-slate-800/80 bg-slate-950/45 p-2 ${isScenarioView ? 'is-background-scenarios' : ''} ${isBoundaryDragging ? 'is-boundary-dragging' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}
                 role="group"
                 aria-label={boundaryView === 'band' ? t.chartLabel : viewCopy[boundaryView]}
                 {...studentDragHandlers}
@@ -1323,7 +1392,7 @@ const SimplifiedApp = () => {
                   }
                 }}
               >
-                <span className="sr-only">{boundaryView === 'scenarios' ? viewCopy.scenariosHelp : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : t.chartLabel}</span>
+                <span className="sr-only">{isScenarioView ? viewCopy[`${boundaryView}Help`] : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : t.chartLabel}</span>
                 {boundaryView === 'band' && <div data-boundary-ui className="workspace-boundary-key">
                   {boundaryView === 'band' && <span className="workspace-boundary-drag-hint" title={t.boundaryDragHelp}>
                     <MoveUpRight className="h-3 w-3" aria-hidden="true" />
@@ -1336,21 +1405,24 @@ const SimplifiedApp = () => {
                       <h3 id="boundary-help-title" className="text-sm font-bold text-white">{boundaryHelpTitle}</h3>
                       <button type="button" className="rounded-md p-1" aria-label={t.close} onClick={() => { setExplainedPolicyId(null); policyHelpTrigger.current?.focus(); }}><X className="h-4 w-4" /></button>
                     </div>
-                    <p className="mt-2">{boundaryView === 'scenarios' ? viewCopy.scenariosHelp : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
+                    <p className="mt-2">{isScenarioView ? viewCopy[`${boundaryView}Help`] : boundaryView === 'score' ? viewCopy.scoreHelp : boundaryView === 'breakdown' ? viewCopy.breakdownHelp : boundaryBand.hasContext ? t.boundaryContextHelp : t.boundaryAcademicHelp}</p>
                     {boundaryView === 'band' && <p className="mt-2">{viewCopy.bandDetail}</p>}
                     {boundaryView === 'band' && boundaryBand.hasContext && <p className="mt-2">{t.boundarySelectedHelp}</p>}
                     {boundaryView === 'score' && <p className="mt-2">{boundaryBand.hasContext ? viewCopy.scoreDetail : viewCopy.scoreNoBackground}</p>}
-                    <p className="mt-2 font-semibold text-blue-300">{boundaryView === 'scenarios' ? viewCopy.scenariosFormula : boundaryView === 'breakdown' ? viewCopy.breakdownFormula : t.boundaryFormula}</p>
-                    <p className="mt-2">{boundaryView === 'scenarios' ? viewCopy.scenariosEditing : boundaryView === 'score' ? viewCopy.scoreEditing : boundaryView === 'breakdown' ? viewCopy.breakdownEditing : t.boundaryDragHelp}</p>
+                    <p className="mt-2 font-semibold text-blue-300">{isScenarioView ? viewCopy[`${boundaryView}Formula`] : boundaryView === 'breakdown' ? viewCopy.breakdownFormula : t.boundaryFormula}</p>
+                    <p className="mt-2">{isScenarioView ? viewCopy[`${boundaryView}Editing`] : boundaryView === 'score' ? viewCopy.scoreEditing : boundaryView === 'breakdown' ? viewCopy.breakdownEditing : t.boundaryDragHelp}</p>
                   </div>
                 )}
                 {boundaryView === 'score' ? <ScoreBoundaryView students={students} policy={policy}
                   selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
-                  : boundaryView === 'scenarios' ? <BackgroundScenariosView students={students} policy={policy}
+                  : isFeatureView ? <FeatureExplorer students={students} policy={policy}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds}
-                    />
+                    binning={explorerBinning} onBinningChange={setExplorerBinning} incomeBins={explorerIncomeBins} />
+                  : isScenarioView ? <BackgroundScenariosView students={students} policy={policy}
+                    selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
+                    isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds} />
                   : boundaryView === 'breakdown' ? <ScoreBreakdownView students={students} policy={policy}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds} /> : <ResponsiveContainer width="100%" height="100%">
@@ -1573,67 +1645,47 @@ const SimplifiedApp = () => {
                 </div>
               </div>
 
-              <div className="workspace-policy-options">
-                {policies.map((item) => {
-                  const active = item.id === policy.id;
-                  const itemCopy = t.policies[item.id] ?? {
-                    name: item.id,
-                    shortName: 'Policy',
-                    description: '',
-                  };
-                  const admittedCount = policyAdmissionCounts[item.id];
-                  return (
-                    <div key={item.id} className="workspace-policy-option">
-                    <button
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => {
+              <div className="workspace-policy-picker">
+                <div className="workspace-policy-select-wrap">
+                  <select id="workspace-policy-select" aria-label={t.choosePolicy} value={policy.id}
+                      onChange={event => {
+                        const nextPolicyId = event.target.value;
                         setExplainedPolicyId(null);
-                        setPolicyId(item.id);
+                        setPolicyId(nextPolicyId);
                         setIsMining(false);
-                        if (item.id !== policy.id) {
+                        if (nextPolicyId !== policy.id) {
                           setThresholdOverride(null);
                           trackAnonymousEvent('policy_selected', {
                             datasetId,
                             datasetVersion,
-                            policyId: item.id,
+                            policyId: nextPolicyId,
                             locale: lang,
                             theme,
                           });
                         }
-                      }}
-                      className={`simplified-policy-card w-full rounded-xl border px-3 py-2 text-left transition ${
-                        active
-                          ? 'simplified-selected border-blue-400/60 bg-blue-500/12 shadow-lg shadow-blue-500/5'
-                          : 'simplified-inset border-slate-800 bg-slate-950/45 hover:border-slate-700 hover:bg-slate-900'
-                      }`}
-                    >
-                      <span className={`workspace-policy-name ${active ? 'font-semibold text-white' : 'font-semibold text-slate-300'}`}>{itemCopy.name}</span>
-                      <span
-                        className="workspace-policy-count text-slate-400"
-                        aria-label={formatCopy(t.admittedCountLabel, { admitted: admittedCount, total: students.length })}
-                      >
-                        <strong className="workspace-policy-total font-bold">{admittedCount} / {students.length}</strong>
-                        <span className="workspace-policy-count-label">{lang === 'en' ? 'admitted' : t.admitted}</span>
-                      </span>
-                      <span className="sr-only">{itemCopy.shortName}. {itemCopy.description}</span>
-                    </button>
+                      }}>
+                    {policies.map(item => <option key={item.id} value={item.id}>{policyDisplayName(item, policyCopy, lang)}</option>)}
+                  </select>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </div>
                     <button
                       type="button"
                       className="workspace-policy-info rounded-md text-slate-400 hover:bg-slate-800 hover:text-white"
-                      aria-label={`${t.aboutPolicy}: ${itemCopy.name}`}
-                      aria-expanded={explainedPolicyId === item.id}
+                      aria-label={`${t.aboutPolicy}: ${policyDisplayName(policy, policyCopy, lang)}`}
+                      aria-expanded={explainedPolicyId === policy.id}
                       aria-controls="policy-help"
                       onClick={(event) => {
                         policyHelpTrigger.current = event.currentTarget;
-                        setExplainedPolicyId(explainedPolicyId === item.id ? null : item.id);
+                        setExplainedPolicyId(explainedPolicyId === policy.id ? null : policy.id);
                       }}
                     >
-                      <Info className="h-4 w-4" />
+                      <Info aria-hidden="true" />
                     </button>
-                    </div>
-                  );
-                })}
+              </div>
+              <div className="workspace-policy-summary" role="status" aria-live="polite"
+                aria-label={formatCopy(t.admittedCountLabel, { admitted: policyAdmissionCounts[policy.id], total: students.length })}>
+                <strong>{policyAdmissionCounts[policy.id]} / {students.length}</strong>
+                <span>{lang === 'en' ? 'admitted' : t.admitted}</span>
               </div>
               {explainedPolicy && (
                 <div id="policy-help" data-policy-help role="region" aria-labelledby="policy-help-title" className="workspace-policy-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
@@ -1649,6 +1701,7 @@ const SimplifiedApp = () => {
                       }}
                     ><X className="h-4 w-4" /></button>
                   </div>
+                  {isExplorerPolicy(explainedPolicySettings) ? <ExplorerPolicyDetails policy={explainedPolicySettings.id === policy.id ? policy : explainedPolicySettings} lang={lang} /> : <>
                   <p className="mt-1 font-semibold text-blue-300">{explainedPolicy.shortName}</p>
                   <p className="mt-1">{explainedPolicy.description}</p>
                   {explainedPolicy.details && explainedPolicySettings && comparisonPolicySettings && (
@@ -1664,13 +1717,14 @@ const SimplifiedApp = () => {
                     </ul>
                   )}
                   {explainedPolicy.caution && <p className="mt-2 border-t border-slate-700 pt-2">{explainedPolicy.caution}</p>}
+                  </>}
                 </div>
               )}
 
             </section>
 
 
-              <section className={`workspace-counterfactual simplified-panel flex flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 ${isStudentDragging ? 'is-student-dragging' : ''}`}>
+              <section className={`workspace-counterfactual simplified-panel flex flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 ${isFeatureView ? 'has-explorer-editor' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}>
                 <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-1.5">
                   <div className="flex items-start gap-2">
                     <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">2</div>
@@ -1680,32 +1734,33 @@ const SimplifiedApp = () => {
                   </div>
                 </div>
 
-                {!draftStudent ? (
+                {!draftStudent && !isFeatureView ? (
                   <div className="workspace-empty simplified-inset flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 text-center">
                     <GraduationCap className="h-8 w-8 text-slate-700" />
                     <h3 className="mt-3 text-sm font-semibold text-slate-300">{t.selectStudent}</h3>
-                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{boundaryView === 'scenarios' ? viewCopy.scenariosSelectHint : boundaryView === 'score' ? viewCopy.scoreSelectHint : boundaryView === 'breakdown' ? viewCopy.breakdownSelectHint : t.selectStudentDesc}</p>
+                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-slate-500">{isScenarioView ? viewCopy[`${boundaryView}SelectHint`] : boundaryView === 'score' ? viewCopy.scoreSelectHint : boundaryView === 'breakdown' ? viewCopy.breakdownSelectHint : t.selectStudentDesc}</p>
                   </div>
                 ) : (
-                  <div className="workspace-draft-controls">
+                  <div className="workspace-draft-controls" data-empty={!draftStudent}>
                     <div className="workspace-profile-bar rounded-xl bg-slate-950/55 px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-white">
-                          {t.student} {draftStudent.id}
+                        <div className="workspace-editor-student text-xs font-semibold text-white">
+                          <span>{t.student}</span><span>{draftStudent?.id ?? '—'}</span>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <div ref={decisionBadgeRef} role="status" aria-live="polite" aria-atomic="true"
-                          title={formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}
-                          data-flipped={Boolean(decisionFlipped)} data-admitted={draftDecision}
-                          className={`workspace-outcome-badge ${decisionFlipped ? 'is-flipped' : ''} ${draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
-                          <span className="workspace-outcome-main">{draftDecision ? t.admitted : t.notAdmitted}</span>
-                          <span className="workspace-outcome-change">{decisionFlipped && <ArrowRight className="h-3 w-3" aria-hidden="true" />}{decisionFlipped ? t.outcomeFlipped : t.outcomeUnchanged}</span>
-                          <span className="sr-only">{formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}</span>
+                          title={draftStudent ? formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted }) : undefined}
+                          data-flipped={Boolean(decisionFlipped)} data-admitted={draftStudent ? draftDecision : undefined}
+                          className={`workspace-outcome-badge ${decisionFlipped ? 'is-flipped' : ''} ${!draftStudent ? 'is-empty' : draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
+                          <span className="workspace-outcome-main">{!draftStudent ? '—' : draftDecision ? t.admitted : t.notAdmitted}</span>
+                          <span className="workspace-outcome-change" aria-hidden={!draftStudent || undefined}>{decisionFlipped && <ArrowRight className="h-3 w-3" aria-hidden="true" />}{!draftStudent ? '\u00a0' : decisionFlipped ? t.outcomeFlipped : t.outcomeUnchanged}</span>
+                          {draftStudent && <span className="sr-only">{formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}</span>}
                         </div>
                         <button
                           type="button"
+                          disabled={!draftStudent}
                           onClick={() => setDraftStudent({ ...selectedStudent })}
                           className="flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-400 hover:border-slate-600 hover:text-white"
                         >
@@ -1720,8 +1775,8 @@ const SimplifiedApp = () => {
                         <div className="mb-1 flex justify-between text-xs">
                           <label htmlFor="gpa-slider" className="font-medium text-slate-300">GPA</label>
                           <span className="workspace-academic-value font-mono text-blue-300">
-                            {draftStudent.gpa !== selectedStudent.gpa && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) })}>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</span>}
-                            {draftStudent.gpa.toFixed(2)}
+                            {draftStudent && draftStudent.gpa !== selectedStudent.gpa && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) })}>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</span>}
+                            {draftStudent ? draftStudent.gpa.toFixed(2) : '—'}
                           </span>
                         </div>
                         <input
@@ -1730,7 +1785,9 @@ const SimplifiedApp = () => {
                           min={ADMISSION_DOMAINS.gpa[0]}
                           max="4"
                           step="0.01"
-                          value={draftStudent.gpa}
+                          value={draftStudent?.gpa ?? ADMISSION_DOMAINS.gpa[0]}
+                          disabled={!draftStudent}
+                          aria-valuetext={!draftStudent ? t.selectStudent : undefined}
                           onInput={(event) => updateDraft('gpa', Number(event.currentTarget.value))}
                           className="w-full accent-blue-500"
                         />
@@ -1739,8 +1796,8 @@ const SimplifiedApp = () => {
                         <div className="mb-1 flex justify-between text-xs">
                           <label htmlFor="sat-slider" className="font-medium text-slate-300" title="SAT User Group percentile · College Board table, accessed 2026-10-14. Each step is one percentile point.">SAT Percentile</label>
                           <span className="workspace-academic-value font-mono text-blue-300">
-                            {draftStudent.sat !== selectedStudent.sat && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.sat })}>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</span>}
-                            {draftStudent.sat}
+                            {draftStudent && draftStudent.sat !== selectedStudent.sat && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.sat })}>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</span>}
+                            {draftStudent?.sat ?? '—'}
                           </span>
                         </div>
                         <input
@@ -1749,15 +1806,19 @@ const SimplifiedApp = () => {
                           min={ADMISSION_DOMAINS.sat[0]}
                           max="100"
                           step="1"
-                          value={draftStudent.sat}
+                          value={draftStudent?.sat ?? ADMISSION_DOMAINS.sat[0]}
+                          disabled={!draftStudent}
+                          aria-valuetext={!draftStudent ? t.selectStudent : undefined}
                           onInput={(event) => updateDraft('sat', Number(event.currentTarget.value))}
                           className="w-full accent-blue-500"
                         />
                       </div>
                     </div>
 
-                    <BackgroundEditor features={classroomView.features} student={draftStudent}
-                      original={selectedStudent} onChange={updateDraft} t={t} />
+                    {isFeatureView ? <ExplorerBackgroundEditor key={selectedStudent?.id ?? 'unselected'} student={draftStudent}
+                      original={selectedStudent} students={students} onChange={updateDraft} lang={lang} />
+                      : <BackgroundEditor features={classroomView.features} student={draftStudent}
+                        original={selectedStudent} onChange={updateDraft} t={t} lang={lang} />}
 
 
                   </div>
@@ -1771,7 +1832,7 @@ const SimplifiedApp = () => {
                   </div>
                 </div>
 
-                <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
+                {isFeatureView ? <ExplorerGroupOutcomes groups={explorerOutcomeGroups} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}
@@ -1796,7 +1857,7 @@ const SimplifiedApp = () => {
                     rightStats={impact.nonResidents}
                     t={t}
                   />
-                </div>
+                </div>}
 
               </section>
           </aside>
