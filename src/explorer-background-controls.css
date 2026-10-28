@@ -7,12 +7,17 @@
 }
 .simplified-daylight .explorer-background-editor,
 .simplified-daylight .explorer-group-outcomes { --exb-surface: #fff; --exb-border: #c1cddd; }
-.explorer-background-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 10px; }
-.exb-field { min-width: 0; }
-.exb-field > label { display: block; margin-bottom: 4px; color: var(--threshold-muted); font-size: 10px; font-weight: 600; line-height: 1.4; }
+.explorer-background-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.exb-field { position: relative; min-width: 0; }
+/* Persistent inset labels save a separate row without hiding field names. */
+.workspace-controls .exb-field > label {
+  position: absolute; top: 3px; left: 7px; right: 20px; z-index: 1;
+  display: block; margin: 0; color: var(--threshold-muted); font-size: 11px; font-weight: 600; line-height: 14px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
 .exb-field > select,
 .exb-field > input {
-  width: 100%; min-width: 0; height: 31px; padding: 4px 6px; border: 1px solid var(--exb-border); border-radius: 6px;
+  width: 100%; min-width: 0; height: 40px; padding: 17px 6px 3px; border: 1px solid var(--exb-border); border-radius: 6px;
   background: var(--exb-surface); color: var(--threshold-text); font-size: 11px; line-height: 1.3; color-scheme: dark;
 }
 .simplified-daylight .exb-field > select,
@@ -25,21 +30,31 @@
 .exb-field > input:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 .exb-field[data-edited="true"] > select,
 .exb-field[data-edited="true"] > input { border-color: var(--workspace-edit); background: var(--workspace-edit-surface); }
-.exb-helper { display: block; height: 14px; margin-top: 3px; min-width: 0; }
+.exb-helper { display: block; height: 14px; margin-top: 2px; min-width: 0; }
+/* Show original values and errors only when there is something to explain. */
+.exb-helper:empty { display: none; }
 .exb-original { display: block; color: var(--workspace-edit); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .exb-field > input[aria-invalid="true"] { border-color: var(--workspace-down); }
 .exb-error { display: block; color: var(--workspace-down); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.explorer-group-outcomes { display: grid; gap: 9px; padding-top: 4px; }
+.explorer-group-outcomes { --exb-rate-width: 64px; --exb-count-width: 74px; --exb-column-gap: 10px; display: grid; gap: 9px; padding-top: 0; }
+.exb-outcome-columns,
+.exb-outcome-row { display: grid; grid-template-columns: minmax(0, 1fr) var(--exb-rate-width) var(--exb-count-width); column-gap: var(--exb-column-gap); }
+.exb-outcome-columns { align-items: end; padding-bottom: 4px; border-bottom: 1px solid var(--exb-border); color: var(--threshold-text); font-size: 11px; font-weight: 600; line-height: 14px; }
+.exb-outcome-columns > span:not(:first-child) { text-align: right; }
 /* Keep the scrolling sidebar's grid track as tall as the complete results. */
 .workspace-controls > .workspace-comparison:has(.explorer-group-outcomes) { min-height: min-content; }
 .exb-outcome-group { min-width: 0; }
 .exb-outcome-group + .exb-outcome-group { border-top: 1px solid color-mix(in srgb, var(--exb-border) 45%, transparent); padding-top: 7px; }
 .exb-outcome-group h3 { margin: 0 0 3px; font-size: 11px; font-weight: 650; line-height: 1.4; }
 .exb-outcome-rows { display: grid; gap: 2px; }
-.exb-outcome-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 35px 38px; gap: 7px; align-items: baseline; min-height: 23px; padding: 2px 0 5px; font-size: 10px; line-height: 1.4; }
+.exb-outcome-row { position: relative; align-items: baseline; min-height: 23px; padding: 2px 0 5px; font-size: 10px; line-height: 1.4; }
 .exb-outcome-label { min-width: 0; overflow-wrap: anywhere; color: var(--threshold-muted); }
 .exb-outcome-rate { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
 .exb-outcome-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--threshold-muted); }
-.exb-outcome-track { position: absolute; inset: auto 80px 1px 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--exb-border) 30%, transparent); overflow: hidden; }
+.exb-outcome-track { position: absolute; inset: auto calc(var(--exb-rate-width) + var(--exb-count-width) + 2 * var(--exb-column-gap)) 1px 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--exb-border) 30%, transparent); overflow: hidden; }
 .exb-outcome-track > span { display: block; height: 100%; background: var(--workspace-highlight); opacity: .6; }
 @media (max-width: 360px) { .explorer-background-editor { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 1100px) and (min-height: 640px) {
+  .explorer-group-outcomes { --exb-rate-width: 60px; --exb-count-width: 68px; --exb-column-gap: 8px; }
+  .workspace-controls .exb-field:has(> input) > label { right: 7px; }
+}

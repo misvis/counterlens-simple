@@ -163,7 +163,7 @@ test('Every simulated score, eight contributions, and decision match an independ
   const example = { gpa: 3.05, sat: 88, zipIncome: 102280, residency: 'instate',
     ethnicity: 'Two or More',
     major: 'BiologicalSci', transfer: 'yes', mathStatus: 'Enrolled' };
-  close(scoreStudent(example, policies[1]), 54.33533, 'Fixed canonical-profile example under Holistic Review');
+  close(scoreStudent(example, policies[1]), 54.33533, 'Fixed canonical-profile example under Whole Person Review');
   assert.equal(getDecision(example, policies[1]), false);
   assert.equal(getDecision({ ...example, ethnicity: 'Asian' }, policies[1]), true);
 });
@@ -195,7 +195,7 @@ test('Academic Focus restores the original GPA/SAT rule and ignores every backgr
   assert.ok(scoreStudent({ ...profile, sat: 80 }, academic) > scoreStudent(profile, academic));
 });
 
-test('Income Support changes only the income bonus from Holistic Review and monotonically favors lower ZIP income', () => {
+test('Income Support changes only the income bonus from Whole Person Review and monotonically favors lower ZIP income', () => {
   const holistic = policies.find(policy => policy.id === 'holistic');
   const incomeSupport = policies.find(policy => policy.id === 'opportunity');
   assert.deepEqual(holistic.weights, { gpa: 45, sat: 25 });
@@ -228,7 +228,7 @@ test('Income Support changes only the income bonus from Holistic Review and mono
   assert.equal(incomeSupport.weights.gpa + incomeSupport.weights.sat + maximum, 100);
 });
 
-test('Each of the six background edits can change Holistic Review and Income Support predictions and exact cutoffs', () => {
+test('Each of the six background edits can change Whole Person Review and Income Support predictions and exact cutoffs', () => {
   for (const preset of policies.filter(policy => policy.id !== 'academic')) for (const key of keys) {
     const rule = preset.backgroundRules[key];
     const options = rule.type === 'categorical' ? Object.keys(rule.points) : [...rule.domain];

@@ -26,7 +26,7 @@ export const DEMO_QUESTIONNAIRE = {
         {
           value: 'holistic',
           label: {
-            en: 'Whole-Person Review',
+            en: 'Whole Person Review',
             zh: '综合评估',
             es: 'Evaluación integral',
           },

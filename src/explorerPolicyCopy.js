@@ -1,8 +1,8 @@
 export const EXPLORER_POLICY_COPY = {
   en: {
     academic: { name: 'Academic Focus', shortName: 'GPA and SAT', description: 'Uses GPA and SAT only; backgrounds do not change the score.' },
-    holistic: { name: 'Holistic Review', shortName: 'Academic scores and six backgrounds', description: 'GPA and SAT plus contributions from all six background features.' },
-    opportunity: { name: 'Income Support', shortName: 'More support for lower-income ZIP areas', description: 'Uses the Holistic Review rules with a larger bonus for lower ZIP-area median household income.' },
+    holistic: { name: 'Whole Person Review', shortName: 'Academic scores and six backgrounds', description: 'GPA and SAT plus contributions from all six background features.' },
+    opportunity: { name: 'Income Support', shortName: 'More support for lower-income ZIP areas', description: 'Uses the Whole Person Review rules with a larger bonus for lower ZIP-area median household income.' },
   },
   zh: {
     academic: { name: '学业优先', shortName: 'GPA 与 SAT', description: '仅使用 GPA 和 SAT，背景不影响得分。' },

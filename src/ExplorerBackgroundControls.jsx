@@ -7,6 +7,11 @@ const COPY = {
   zh: { original: '原始', missing: '缺失', income: 'ZIP 地区家庭收入中位数（美元）', invalid: '请输入非负金额。', admitted: '录取', noStudents: '无学生' },
   es: { original: 'Original', missing: 'Sin datos', income: 'Ingreso familiar mediano de zona ZIP ($)', invalid: 'Introduce un importe no negativo.', admitted: 'admitidos', noStudents: 'Sin estudiantes' },
 };
+const OUTCOME_COLUMNS = {
+  en: { group: 'Group', rate: 'Admission rate', count: 'Admitted / total' },
+  zh: { group: '群体', rate: '录取率', count: '录取人数 / 总人数' },
+  es: { group: 'Grupo', rate: 'Tasa de admisión', count: 'Admitidos / total' },
+};
 const localized = (value, lang) => typeof value === 'string' ? value : value?.[lang] || value?.en || '';
 const missingCategory = value => value === null || value === undefined
   || (typeof value === 'string' && !value.trim())
@@ -66,7 +71,7 @@ export function ExplorerBackgroundEditor({ student, original, students = [], onC
       const initial = !disabled && optionFor(options, original[feature.key]);
       const changed = !disabled && !Object.is(student[feature.key], original[feature.key]);
       return <div className="exb-field" key={feature.key} data-edited={changed} data-background-field={feature.key}>
-        <label htmlFor={`explorer-background-${feature.key}`}>{localized(feature.label, lang)}</label>
+        <label htmlFor={`explorer-background-${feature.key}`} title={localized(feature.label, lang)}>{localized(feature.label, lang)}</label>
         <select id={`explorer-background-${feature.key}`} value={current?.value ?? ''} disabled={disabled} title={disabled ? undefined : localized(current?.label, lang) || t.missing}
           aria-describedby={changed ? `explorer-original-${feature.key}` : undefined}
           onChange={event => {
@@ -88,7 +93,11 @@ export function ExplorerBackgroundEditor({ student, original, students = [], onC
 
 export function ExplorerGroupOutcomes({ groups = [], lang = 'en' }) {
   const t = COPY[lang] || COPY.en;
+  const columns = OUTCOME_COLUMNS[lang] || OUTCOME_COLUMNS.en;
   return <div className="explorer-group-outcomes" data-explorer-group-outcomes>
+    <div className="exb-outcome-columns">
+      <span>{columns.group}</span><span>{columns.rate}</span><span>{columns.count}</span>
+    </div>
     {groups.map(feature => <section className="exb-outcome-group" key={feature.key} data-outcome-feature={feature.key}
       aria-labelledby={`explorer-outcome-${feature.key}`}>
       <h3 id={`explorer-outcome-${feature.key}`}>{localized(feature.label, lang)}</h3>

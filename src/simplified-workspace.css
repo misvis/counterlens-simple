@@ -19,6 +19,8 @@
   --threshold-text: var(--obs-text, #ffffff);
   --threshold-muted: var(--obs-muted, #d5dce8);
   --threshold-track: #606d88;
+  --workspace-plot-surface: var(--obs-inset-bg, #0e1117);
+  --workspace-plot-border: #3d485b;
   --matrix-meter-fill: #fbbf65;
   --matrix-meter-track: #554633;
 }
@@ -42,6 +44,8 @@
   --threshold-text: #17243a;
   --threshold-muted: #475569;
   --threshold-track: #cbd5e1;
+  --workspace-plot-surface: #f6f8fb;
+  --workspace-plot-border: #dbe3ee;
   --matrix-meter-fill: #b45309;
   --matrix-meter-track: #e5d8c7;
 }
@@ -59,6 +63,7 @@
   --threshold-text: #f4faf7;
   --threshold-muted: #c0d5d0;
   --threshold-track: #49635f;
+  --workspace-plot-surface: #040f10;
 }
 
 .simplified-app.simplified-daylight [class*="text-blue-"] {
@@ -123,36 +128,36 @@
 
 .workspace-visualizer-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .workspace-visualizer-actions {
   display: grid;
   grid-template-columns: max-content 160px;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   flex-shrink: 0;
-  min-height: 54px;
+  min-height: 28px;
 }
 
 .workspace-edge-button {
   position: relative;
   overflow: hidden;
-  min-height: 36px;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 16px;
   white-space: nowrap;
 }
 
-.workspace-visualizer-title {
-  font-size: clamp(18px, 1.6vw, 23px);
-  line-height: 1.25;
-}
+.workspace-edge-button > svg { width: 12px; height: 12px; }
 
 .workspace-visualizer-intro {
   min-width: 0;
-  padding-top: 1px;
+  padding-top: 0;
 }
 
 .workspace-visualizer-subtitle {
@@ -164,7 +169,13 @@
 .workspace-visualizer .simplified-outcome-legend {
   width: 160px;
   min-width: 0;
+  padding-top: 0;
+  row-gap: 1px;
+  font-size: 11px;
+  line-height: 14px;
 }
+
+.workspace-adjusted-legend[aria-hidden="true"] { display: none; }
 
 .workspace-adjusted-legend {
   min-height: 16px;
@@ -357,6 +368,7 @@
   padding: 16px;
 }
 
+.workspace-visualizer-title,
 .workspace-controls h2 {
   font-size: 16px;
   line-height: 1.3;
@@ -722,6 +734,12 @@
   margin-top: 12px;
 }
 
+.workspace-threshold,
+.workspace-confusion {
+  --threshold-surface: var(--workspace-plot-surface);
+  --threshold-border: var(--workspace-plot-border);
+}
+
 .workspace-threshold {
   position: relative;
   display: flex;
@@ -730,7 +748,6 @@
   min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--threshold-border);
-  border-top: 3px solid var(--workspace-highlight);
   border-radius: 12px;
   background: var(--threshold-surface);
   color: var(--threshold-text);
@@ -743,8 +760,7 @@
 
 .workspace-threshold-heading,
 .workspace-threshold-name,
-.workspace-threshold-setting,
-.workspace-threshold-reset {
+.workspace-threshold-setting {
   display: flex;
   align-items: center;
 }
@@ -787,24 +803,46 @@
   font-weight: 500;
 }
 
-.workspace-threshold-reset {
+.simplified-app button.workspace-reset {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  flex: none;
   gap: 4px;
-  min-height: 28px;
-  min-width: 28px;
+  box-sizing: border-box;
+  height: 32px;
+  min-height: 32px;
   padding: 4px 8px;
   border: 1px solid var(--threshold-border);
-  border-radius: 7px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--threshold-muted);
+  font-family: inherit;
   font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
-.workspace-threshold-reset:disabled {
+.simplified-app button.workspace-reset > svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.simplified-app button.workspace-reset:disabled {
   opacity: .55;
   cursor: default;
 }
 
-.workspace-threshold-reset:not(:disabled):hover {
+.simplified-app button.workspace-reset:not(:disabled):hover {
+  border-color: var(--workspace-highlight);
   background: var(--workspace-highlight-ring);
+}
+
+.simplified-app button.workspace-reset:focus-visible {
+  outline: 2px solid var(--workspace-highlight);
+  outline-offset: 2px;
 }
 
 .workspace-threshold-rule {
@@ -892,7 +930,6 @@
   min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--threshold-border);
-  border-top: 3px solid var(--workspace-highlight);
   border-radius: 12px;
   background: var(--threshold-surface);
   color: var(--threshold-text);
@@ -1069,7 +1106,7 @@
   }
 
   .simplified-workspace {
-    grid-template-columns: minmax(0, 1fr) clamp(340px, 25vw, 400px);
+    grid-template-columns: minmax(0, 1fr) clamp(304px, 21vw, 340px);
     gap: 18px;
   }
 
@@ -1097,13 +1134,14 @@
 
 @media (min-width: 1800px) and (min-height: 900px) {
   .simplified-workspace {
-    grid-template-columns: minmax(0, 1fr) clamp(380px, 22vw, 460px);
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 18vw, 368px);
   }
 
   .workspace-controls > .simplified-panel {
     padding: 20px;
   }
 
+  .workspace-visualizer-title,
   .workspace-controls h2 {
     font-size: 18px;
   }
@@ -1179,6 +1217,7 @@
     bottom: 12px;
   }
 
+  .workspace-visualizer-title,
   .workspace-controls h2 {
     font-size: 15px;
   }
@@ -1381,14 +1420,36 @@
 }
 
 /* Keep the view selector beside the title, outside the plot area. */
-.workspace-visualizer-heading { flex-wrap: wrap; gap: 8px 12px; }
+.workspace-visualizer-heading { flex-wrap: wrap; gap: 6px 12px; }
 .workspace-visualizer-intro { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 .workspace-view-switcher { display: flex; align-items: center; gap: 5px; }
 .workspace-view-switcher .workspace-boundary-picker { flex-basis: 185px; width: 185px; }
 .workspace-view-switcher select { height: 28px; font-size: 11px; }
 .workspace-view-switcher .workspace-select-wrap svg { top: 7px; }
-.workspace-visualizer-actions { grid-template-columns: max-content max-content; gap: 12px; margin-left: auto; min-height: 32px; }
+.workspace-visualizer-actions { grid-template-columns: max-content max-content; gap: 12px; margin-left: auto; min-height: 28px; }
 .workspace-visualizer .simplified-outcome-legend { width: auto; }
+
+/* Keep choosing a student beside mining cases; let the toolbar wrap before it crowds. */
+.workspace-case-tools { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.workspace-case-tools > .workspace-edge-button { flex-shrink: 0; }
+.workspace-student-select {
+  width: 210px; min-width: 0; height: 28px; padding: 3px 6px;
+  border: 1px solid var(--threshold-border); border-radius: 6px;
+  background: var(--threshold-surface); color: var(--threshold-text);
+  font-size: 11px; line-height: 16px; color-scheme: dark; cursor: pointer;
+}
+.simplified-daylight .workspace-student-select { color-scheme: light; }
+.workspace-student-select:hover { border-color: var(--workspace-highlight); }
+.workspace-student-select:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
+.has-feature-explorer .workspace-visualizer-actions { display: flex; flex-wrap: wrap; flex-shrink: 1; max-width: 100%; row-gap: 6px; }
+.has-feature-explorer .workspace-case-tools { flex: 1 1 360px; }
+.has-feature-explorer .workspace-student-select { flex: 1 1 210px; max-width: 210px; }
+@media (max-width: 360px) {
+  .has-feature-explorer .workspace-visualizer-actions { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 6px 10px; }
+  .has-feature-explorer .workspace-case-tools { display: contents; }
+  .has-feature-explorer .workspace-student-select { grid-column: 1 / -1; width: 100%; max-width: none; }
+  .has-feature-explorer .workspace-case-tools > .workspace-edge-button { justify-self: start; }
+}
 
 /* Compact chrome leaves more vertical space for the comparison plots. */
 .simplified-shell { padding-top: 8px; padding-bottom: 8px; }
@@ -1435,6 +1496,9 @@
 .workspace-policy-select-wrap > select:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 .workspace-policy-summary { display: flex; justify-content: flex-end; align-items: baseline; gap: 5px; margin-top: 5px; color: var(--threshold-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .workspace-policy-summary strong { color: var(--threshold-text); font-weight: 650; }
+.workspace-policy-heading { align-items: center; column-gap: 8px; }
+.workspace-policy-heading > .workspace-policy-summary { margin: 0 0 0 auto; flex-shrink: 0; white-space: nowrap; }
+.workspace-controls > .workspace-policy { padding-block: 10px; }
 .workspace-controls .workspace-policy-picker .workspace-policy-info { position: static; width: 34px; height: 34px; }
 .workspace-controls .workspace-policy-info svg { width: 20px; height: 20px; }
 .simplified-app .workspace-inline-help { width: 30px; height: 30px; }
@@ -1467,4 +1531,23 @@
   .workspace-policy-options { flex: 1; grid-template-rows: repeat(3, minmax(36px, 1fr)); }
   .workspace-draft-controls { justify-content: space-evenly; }
   .workspace-controls .simplified-rate-table { flex: 1; grid-template-rows: repeat(3, minmax(48px, 1fr)); }
+}
+
+/* Keep the Explorer editor compact; helper messages expand only when needed. */
+.workspace-controls > .workspace-counterfactual.has-explorer-editor { padding-top: 10px; padding-bottom: 8px; }
+.has-explorer-editor > :first-child { margin-bottom: 4px; }
+.has-explorer-editor .workspace-draft-controls { flex: none; justify-content: flex-start; gap: 6px; }
+.has-explorer-editor .workspace-profile-bar { padding-block: 2px; }
+.workspace-controls > .workspace-comparison:has(.explorer-group-outcomes) { padding-top: 10px; }
+.workspace-comparison:has(.explorer-group-outcomes) > :first-child { margin-bottom: 2px; }
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace-controls:has(> .has-explorer-editor) { grid-template-rows: auto min-content auto; }
+  /* Give the plots more width while retaining readable controls in the sidebar. */
+  .workspace-controls { grid-template-columns: minmax(0, 1fr); }
+  .workspace-controls > .simplified-panel { min-width: 0; padding-inline: 12px; }
+  .workspace-policy-heading > div:has(> h2) { min-width: 0; }
+  .has-explorer-editor .workspace-profile-bar { padding-inline: 4px; }
+  .has-explorer-editor .workspace-profile-bar > div { gap: 6px; }
+  .has-explorer-editor .workspace-outcome-badge { min-width: 116px; padding-inline: 6px; }
+  .has-explorer-editor .workspace-outcome-change > svg { display: none; }
 }

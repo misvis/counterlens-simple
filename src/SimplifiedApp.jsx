@@ -37,7 +37,7 @@ import ThresholdDragSurface from './ThresholdDragSurface.jsx';
 import ScoreBoundaryView from './ScoreBoundaryView.jsx';
 import ScoreBreakdownView from './ScoreBreakdownView.jsx';
 import BackgroundScenariosView from './BackgroundScenariosView.jsx';
-import FeatureExplorer from './FeatureExplorer.jsx';
+import FeatureExplorer, { ExplorerStudentSelect } from './FeatureExplorer.jsx';
 import ExplorerPolicyDetails from './ExplorerPolicyDetails.jsx';
 import { EXPLORER_POLICY_COPY } from './explorerPolicyCopy.js';
 import { EXPLORER_SIMULATION_POLICIES, isExplorerPolicy } from '../shared/explorerPolicies.js';
@@ -262,17 +262,17 @@ const TRANSLATIONS = {
         description: 'GPA and SAT Percentile only, with a strict admission cutoff.',
       },
       holistic: {
-        name: 'Whole-Person Review',
+        name: 'Whole Person Review',
         shortName: 'Academic scores + background points',
         description: 'Uses GPA and SAT Percentile, with extra points for first-generation students, athletes, and in-state residents.',
       },
       opportunity: {
         name: 'Opportunity-Aware',
         shortName: 'More points for first-generation students',
-        description: 'Gives more points for first-generation status and less weight to GPA and SAT Percentile than Whole-Person Review. Also adds points for athletes and in-state residents.',
+        description: 'Gives more points for first-generation status and less weight to GPA and SAT Percentile than Whole Person Review. Also adds points for athletes and in-state residents.',
         details: [
-          'First-generation students receive {firstGen} extra points here and {comparisonFirstGen} under Whole-Person Review.',
-          'The default cutoff is {cutoff}; Whole-Person Review starts at {comparisonCutoff}. Use the slider to try another cutoff.',
+          'First-generation students receive {firstGen} extra points here and {comparisonFirstGen} under Whole Person Review.',
+          'The default cutoff is {cutoff}; Whole Person Review starts at {comparisonCutoff}. Use the slider to try another cutoff.',
         ],
         caution: 'Family income and school resources are not included in this simulation.',
       },
@@ -849,13 +849,10 @@ const rankStudentsByCutoff = (students, policy) => students
   .sort((left, right) => left.distance - right.distance);
 
 const createInitialWorkspace = (view, preferredPolicyId = 'academic') => {
-  const preview = buildExplorerDemoView(view);
   const synthetic = view.dataset.sourceType === 'synthetic';
-  const students = synthetic ? enrichExplorerRecords(preview.records) : preview.records;
   const policies = synthetic ? EXPLORER_SIMULATION_POLICIES : view.policies;
   const policy = policies.find(item => item.id === preferredPolicyId) || policies[0];
-  const nearestId = rankStudentsByCutoff(students, policy)[0]?.id;
-  return { view, policyId: policy.id, student: students.find(student => student.id === nearestId) || null };
+  return { view, policyId: policy.id };
 };
 
 // Preview eligibility is part of cohort identity: changed release/privacy
@@ -876,8 +873,8 @@ const SimplifiedApp = () => {
   const [policyId, setPolicyId] = useState(initialWorkspace.policyId);
   const [thresholdOverride, setThresholdOverride] = useState(null);
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
-  const [selectedId, setSelectedId] = useState(initialWorkspace.student?.id ?? null);
-  const [draftStudent, setDraftStudent] = useState(() => initialWorkspace.student ? { ...initialWorkspace.student } : null);
+  const [selectedId, setSelectedId] = useState(null);
+  const [draftStudent, setDraftStudent] = useState(null);
   const [explorerBinning, setExplorerBinning] = useState({ method: 'fixed', count: 3, thresholds: [50000, 75000, 100000] });
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
@@ -1053,7 +1050,7 @@ const SimplifiedApp = () => {
   const datasetVersion = classroomView.dataset.version;
 
   useEffect(() => {
-    // The bundled view is already initialized, including its nearest student.
+    // The bundled view starts with a policy and no student selected.
     if (!isClassroomApiConfigured) return undefined;
     let active = true;
     loadClassroomView()
@@ -1067,8 +1064,8 @@ const SimplifiedApp = () => {
         if (!sameClassroomData(initialWorkspace.view, view)) {
           const incoming = createInitialWorkspace(view, latestPolicyId.current);
           setPolicyId(incoming.policyId);
-          setSelectedId(incoming.student?.id ?? null);
-          setDraftStudent(incoming.student ? { ...incoming.student } : null);
+          setSelectedId(null);
+          setDraftStudent(null);
           setThresholdOverride(null);
           setIsMining(false);
         }
@@ -1321,7 +1318,7 @@ const SimplifiedApp = () => {
               if (isFeatureView) {
                 // Guard actual controls and marks, not their full-width rows:
                 // the unused space beside the picker is still canvas background.
-                if (!event.target.closest?.('button, select, input, textarea, label, a, summary, [role="button"], [data-explorer-student], [data-draft-student], [data-profile-pair], [data-explorer-lens], [data-policy-help], .workspace-analysis-bar, .fex-profile-item')) {
+                if (!event.target.closest?.('button, select, input, textarea, label, a, summary, [role="button"], [data-explorer-student], [data-draft-student], [data-profile-pair], [data-explorer-lens], [data-policy-help], .workspace-analysis-bar')) {
                   selectStudent(null);
                 }
                 return;
@@ -1335,6 +1332,9 @@ const SimplifiedApp = () => {
                   <h2 className="workspace-visualizer-title font-bold text-white">{t.visualizer}</h2>
                 </div>
                 <div className="workspace-visualizer-actions">
+                <div className="workspace-case-tools">
+                {isFeatureView && <ExplorerStudentSelect students={students} selectedStudent={selectedStudent}
+                  onSelect={selectStudent} isMining={isMining} edgeCaseIds={edgeCaseIds} lang={lang} />}
                 <button
                   type="button"
                   aria-pressed={isMining}
@@ -1358,6 +1358,7 @@ const SimplifiedApp = () => {
                   {t.mineEdgeCases}
                   <span className="rounded px-1 text-[10px]" style={{ visibility: isMining ? 'visible' : 'hidden', background: 'var(--workspace-edge-ring)' }} aria-hidden={!isMining}>{edgeCases.length}</span>
                 </button>
+                </div>
                 <div className="simplified-outcome-legend grid shrink-0 justify-items-start gap-1 pt-0.5 text-xs font-semibold">
                   <span className="flex items-center gap-1.5 text-emerald-300">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: outcomeColors.admitted }} />
@@ -1415,6 +1416,8 @@ const SimplifiedApp = () => {
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
                   : isFeatureView ? <FeatureExplorer students={students} policy={policy}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
+                    onEdit={applyDraft} onThresholdChange={setThresholdOverride} contextKey={`${datasetId}:${datasetVersion}`}
+                    onRestoreSelection={(studentId, draft) => { setSelectedId(studentId); setDraftStudent(draft); }}
                     isLight={isLight} colors={outcomeColors} lang={lang} isMining={isMining} edgeCaseIds={edgeCaseIds}
                     binning={explorerBinning} onBinningChange={setExplorerBinning} incomeBins={explorerIncomeBins} />
                   : isScenarioView ? <BackgroundScenariosView students={students} policy={policy}
@@ -1550,8 +1553,8 @@ const SimplifiedApp = () => {
                   </div>
                   <div className="workspace-threshold-setting">
                     <output htmlFor="admission-threshold" className="workspace-threshold-value">{policy.threshold}<span> / 100</span></output>
-                    <button type="button" className="workspace-threshold-reset" aria-label={t.thresholdReset} title={`${t.thresholdReset} · ${formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })}`} disabled={policy.threshold === presetPolicy.threshold} onClick={() => setThresholdOverride(null)}>
-                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                    <button type="button" className="workspace-reset" aria-label={t.thresholdReset} title={`${t.thresholdReset} · ${formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })}`} disabled={policy.threshold === presetPolicy.threshold} onClick={() => setThresholdOverride(null)}>
+                      <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
                     </button>
                   </div>
                 </div>
@@ -1635,10 +1638,15 @@ const SimplifiedApp = () => {
 
           <aside className="workspace-controls" aria-label={t.controlsLabel}>
             <section className="workspace-policy simplified-panel rounded-2xl border border-slate-800 bg-slate-900/70 shadow-xl shadow-black/10">
-              <div className="mb-2 flex items-start gap-2.5">
+              <div className="workspace-policy-heading mb-2 flex items-start gap-2.5">
                 <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
                 <div>
                   <h2 className="text-base font-bold leading-tight text-white">{t.choosePolicy}</h2>
+                </div>
+                <div className="workspace-policy-summary" role="status" aria-live="polite"
+                  aria-label={formatCopy(t.admittedCountLabel, { admitted: policyAdmissionCounts[policy.id], total: students.length })}>
+                  <strong>{policyAdmissionCounts[policy.id]} / {students.length}</strong>
+                  <span>{lang === 'en' ? 'admitted' : t.admitted}</span>
                 </div>
               </div>
 
@@ -1678,11 +1686,6 @@ const SimplifiedApp = () => {
                     >
                       <Info aria-hidden="true" />
                     </button>
-              </div>
-              <div className="workspace-policy-summary" role="status" aria-live="polite"
-                aria-label={formatCopy(t.admittedCountLabel, { admitted: policyAdmissionCounts[policy.id], total: students.length })}>
-                <strong>{policyAdmissionCounts[policy.id]} / {students.length}</strong>
-                <span>{lang === 'en' ? 'admitted' : t.admitted}</span>
               </div>
               {explainedPolicy && (
                 <div id="policy-help" data-policy-help role="region" aria-labelledby="policy-help-title" className="workspace-policy-explanation border border-slate-700 bg-slate-900 text-slate-300 shadow-xl">
@@ -1761,9 +1764,9 @@ const SimplifiedApp = () => {
                           type="button"
                           disabled={!draftStudent}
                           onClick={() => setDraftStudent({ ...selectedStudent })}
-                          className="flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-400 hover:border-slate-600 hover:text-white"
+                          className="workspace-reset"
                         >
-                          <RotateCcw className="h-3 w-3" /> {t.reset}
+                          <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
                         </button>
                       </div>
                     </div>

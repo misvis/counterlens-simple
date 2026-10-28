@@ -45,7 +45,7 @@ test('Conditional bands bound the exact hidden-background cutoffs for every grou
   }
 });
 
-test('Whole-Person Review keeps a visible range with no grouping and exact lines when fully grouped', () => {
+test('Whole Person Review keeps a visible range with no grouping and exact lines when fully grouped', () => {
   const policy = { ...holistic, threshold: 52 };
   const [all] = facetedBackgrounds({ students: records, policy });
   assert.ok(all.cutoffBand.polygon.length >= 3);

@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { ADMISSION_DOMAINS, admissionBoundary, backgroundScore, getDecision } from '../shared/admissionModel.js';
+import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
 import { EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
+import { cutoffMatchesContext, getExplorerCutoff } from './explorerCutoff.js';
+import useExplorerDrag from './useExplorerDrag.js';
 import './feature-explorer-matrix.css';
 
 const ROW_LABEL_MAX_WIDTH = 102;
@@ -23,10 +25,15 @@ const RESET_COPY = {
   zh: { label: '重置', accessible: '重置可视化视图' },
   es: { label: 'Restablecer', accessible: 'Restablecer visualizador' },
 };
-const PROFILE_SHORT_LABELS = {
-  en: { zipIncome: 'ZIP', mathStatus: 'Math' },
-  zh: { zipIncome: '地区收入', mathStatus: '数学' },
-  es: { zipIncome: 'ZIP', mathStatus: 'Matemáticas' },
+const SHARED_CUTOFF_COPY = {
+  en: 'Shared cutoff · Applies to all students (GPA and SAT only)',
+  zh: '统一录取边界 · 适用于所有学生（仅考虑 GPA 和 SAT）',
+  es: 'Corte común · Se aplica a todos los estudiantes (solo GPA y SAT)',
+};
+const DRAG_COPY = {
+  en: { cutoff: 'Drag to adjust the admission threshold. Arrow keys also adjust it; Escape cancels a drag.', student: 'Drag to edit GPA and SAT. Escape cancels a drag.' },
+  zh: { cutoff: '拖动以调整录取阈值，也可用方向键调整；Esc 取消拖动。', student: '拖动以修改 GPA 和 SAT；Esc 取消拖动。' },
+  es: { cutoff: 'Arrastra para ajustar el umbral. También puedes usar las flechas; Escape cancela el arrastre.', student: 'Arrastra para editar GPA y SAT. Escape cancela el arrastre.' },
 };
 const label = (value, lang) => typeof value === 'string' ? value : value?.[lang] || value?.en || '';
 const featureFor = key => EXPLORER_FEATURES.find(feature => feature.key === key);
@@ -98,7 +105,7 @@ function OutcomeMark({ admitted, cx, cy, color, size = 4 }) {
   return admitted ? <circle cx={cx} cy={cy} r={size} fill={color} /> : <path d={`M${cx},${cy - size - 1} L${cx + size + 1},${cy} L${cx},${cy + size + 1} L${cx - size - 1},${cy} Z`} fill={color} />;
 }
 
-function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, policy, colors, selectedStudent, draftStudent, onSelect, isLight, edgeIds, isMining, lang, t, descriptions, currentCutoff, pairRole, peerPanel, registerPair, navigatePair }) {
+function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, policy, colors, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, edgeIds, isMining, lang, t, descriptions, currentCutoff, pairRole, peerPanel, registerPair, navigatePair }) {
   const plotElement = useRef(null);
   const svgElement = useRef(null);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 340 });
@@ -115,6 +122,12 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
   const width = fillHeight && plotSize.width ? plotSize.width : requestedWidth;
   const height = fillHeight ? plotSize.height : 220;
   const margin = { left: 43, right: 16, top: 22, bottom: 42 };
+  const { dragKind, dragHandlers } = useExplorerDrag({
+    svgRef: svgElement, width, height, margin, domains, policy, students: panel.members,
+    selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection,
+    contextKey: `${contextKey}:${policy.id}:${panel.id}`,
+  });
+  const dragCopy = DRAG_COPY[lang] || DRAG_COPY.en;
   const x = value => margin.left + (value - domains.gpa[0]) / (domains.gpa[1] - domains.gpa[0]) * (width - margin.left - margin.right);
   const y = value => height - margin.bottom - (value - domains.sat[0]) / (domains.sat[1] - domains.sat[0]) * (height - margin.top - margin.bottom);
   const originalHere = selectedStudent && panel.members.some(student => student.id === selectedStudent.id);
@@ -129,21 +142,37 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
     && (draftStudent.gpa !== selectedStudent.gpa || draftStudent.sat !== selectedStudent.sat);
   const draftAdmitted = showDraft && getDecision(draftStudent, policy);
   const title = contextLabel(panel.context, lang) || t.allStudents;
-  const boundary = currentCutoff && recordMatchesExplorerContext(currentCutoff.profile, panel.context) ? currentCutoff.boundary : null;
+  const boundary = cutoffMatchesContext(currentCutoff, panel.context) ? currentCutoff.boundary : null;
   const peerRole = pairRole === 'original' ? 'draft' : 'original';
   const pairCopy = PAIR_COPY[lang] || PAIR_COPY.en;
   const pairTitle = pairRole ? `${pairRole === 'original' ? t.original : t.hypothetical}: ${selectedStudent.id} · ${peerPanel ? `${pairCopy[peerRole]} · ${contextLabel(peerPanel.context, lang)}` : pairCopy.hidden}` : '';
-  return <div ref={plotElement} className="fex-plot" data-explorer-panel={panel.id} data-original-group={Boolean(originalHere)} data-pair-role={pairRole || undefined}>
+  return <div ref={plotElement} className="fex-plot" data-explorer-panel={panel.id} data-original-group={Boolean(originalHere)} data-pair-role={pairRole || undefined} data-dragging={dragKind || undefined} {...dragHandlers}>
     <svg ref={svgElement} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label={title}>
       <title>{title}</title>
       <rect className="fex-frame" x={margin.left} y={margin.top} width={width - margin.left - margin.right} height={height - margin.top - margin.bottom} />
       {ticks(domains.gpa).map((value, index) => <g key={`x-${index}`}><line className="fex-gridline" x1={x(value)} x2={x(value)} y1={margin.top} y2={height - margin.bottom} /><text x={x(value)} y={height - margin.bottom + 16} textAnchor="middle">{formatValue(value, 'gpa')}</text></g>)}
       {ticks(domains.sat).map((value, index) => <g key={`y-${index}`}><line className="fex-gridline" x1={margin.left} x2={width - margin.right} y1={y(value)} y2={y(value)} /><text x={margin.left - 6} y={y(value) + 4} textAnchor="end">{formatValue(value, 'sat')}</text></g>)}
-      {boundary?.points.length > 1 && <line className="fex-current-cutoff" data-profile-cutoff="current" aria-label={currentCutoff.description}
-        data-cutoff-income={Number.isFinite(currentCutoff.profile.zipIncome) ? currentCutoff.profile.zipIncome : 'missing'} data-cutoff-background-score={currentCutoff.score}
+      {boundary?.points.length > 1 && <line className="fex-current-cutoff" data-cutoff-scope={currentCutoff.scope}
+        data-profile-cutoff={currentCutoff.scope === 'profile' ? 'current' : undefined}
+        data-policy-cutoff={currentCutoff.scope === 'all' ? 'academic' : undefined} aria-label={currentCutoff.description}
+        data-cutoff-income={currentCutoff.scope === 'profile' ? (Number.isFinite(currentCutoff.profile.zipIncome) ? currentCutoff.profile.zipIncome : 'missing') : undefined}
+        data-cutoff-background-score={currentCutoff.score}
         x1={x(boundary.points[0].x)} y1={y(boundary.points[0].y)} x2={x(boundary.points[1].x)} y2={y(boundary.points[1].y)}>
         <title>{currentCutoff.description}</title>
       </line>}
+      {boundary?.points.length > 1 && onThresholdChange && <g className="fex-cutoff-control" data-cutoff-drag role="slider" tabIndex={0}
+        aria-label={`${currentCutoff.description}. ${dragCopy.cutoff}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={policy.threshold}
+        onClick={event => event.stopPropagation()} onKeyDown={event => {
+          const delta = event.shiftKey ? 10 : 1;
+          const next = { ArrowRight: policy.threshold + delta, ArrowUp: policy.threshold + delta,
+            ArrowLeft: policy.threshold - delta, ArrowDown: policy.threshold - delta, Home: 0, End: 100 }[event.key];
+          if (next === undefined) return;
+          event.preventDefault(); event.stopPropagation();
+          onThresholdChange(Math.max(0, Math.min(100, next)));
+        }}>
+        <title>{`${currentCutoff.description}. ${dragCopy.cutoff}`}</title>
+        <line className="fex-cutoff-hit" x1={x(boundary.points[0].x)} y1={y(boundary.points[0].y)} x2={x(boundary.points[1].x)} y2={y(boundary.points[1].y)} />
+      </g>}
       <text className="fex-axis" x={(margin.left + width - margin.right) / 2} y={height - 5} textAnchor="middle">GPA</text>
       <text className="fex-axis" transform={`translate(12 ${(margin.top + height - margin.bottom) / 2}) rotate(-90)`} textAnchor="middle">SAT Percentile</text>
       <text className="fex-member-count" x={width - margin.right} y={13} textAnchor="end">n={panel.members.length}</text>
@@ -152,7 +181,7 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
         const admitted = getDecision(student, policy), cx = x(student.gpa), cy = y(student.sat);
         return <g key={student.id} role="button" tabIndex={0} className="fex-student" data-explorer-student={student.id} aria-pressed={student.id === selectedStudent?.id}
           aria-label={`${student.id === selectedStudent?.id ? `${t.original}: ` : ''}${descriptions.get(student.id)}`} opacity={isMining && !edgeIds.has(student.id) && student.id !== selectedStudent?.id ? .3 : 1}>
-          <title>{descriptions.get(student.id)}</title>
+          <title>{`${descriptions.get(student.id)}. ${dragCopy.student}`}</title>
           <circle className="fex-hit" cx={cx} cy={cy} r={11} />
           {isMining && edgeIds.has(student.id) && <circle className="fex-edge-case" cx={cx} cy={cy} r={8} />}
           {student.id === selectedStudent?.id && <circle className="fex-original-ring" cx={cx} cy={cy} r={8} />}
@@ -160,7 +189,7 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
         </g>;
       })}
       {showDraft && <g className="fex-draft" data-draft-student={draftStudent.id} role="img" aria-label={`${t.hypothetical}: ${draftStudent.id}, GPA ${draftStudent.gpa}, SAT Percentile ${draftStudent.sat}`}>
-        <title>{`${t.hypothetical}: ${draftStudent.id}`}</title>
+        <title>{`${t.hypothetical}: ${draftStudent.id}. ${dragCopy.student}`}</title>
         <circle className="fex-draft-hit" cx={draftX} cy={draftY} r={12} />
         <circle className="fex-draft-ring" cx={draftX} cy={draftY} r={11} />
         <OutcomeMark admitted={draftAdmitted} cx={draftX} cy={draftY} color={draftAdmitted ? colors.admitted : colors.rejected} size={4.5} />
@@ -176,18 +205,34 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
     </button>}
     <ExplorerPointLens svgRef={svgElement} panelId={panel.id} panelLabel={title} records={panel.members}
       width={width} height={height} margin={margin} domains={domains} boundary={boundary}
-      selectedStudentId={selectedStudent?.id} policy={policy} colors={colors} isLight={isLight} lang={lang} onSelect={onSelect} />
+      selectedStudentId={selectedStudent?.id} policy={policy} colors={colors} isLight={isLight} lang={lang} onSelect={onSelect} disabled={Boolean(dragKind)} />
   </div>;
 }
 
-export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins }) {
+export function ExplorerStudentSelect({ students, selectedStudent, onSelect, isMining, edgeCaseIds, lang = 'en' }) {
+  const t = COPY[lang] || COPY.en;
+  const edgeIds = useMemo(() => edgeCaseIds instanceof Set ? edgeCaseIds : new Set(edgeCaseIds || []), [edgeCaseIds]);
+  const studentChoices = useMemo(() => {
+    if (!isMining) return students;
+    const recordsById = new Map(students.map(student => [student.id, student]));
+    return [
+      ...Array.from(edgeIds, id => recordsById.get(id)).filter(Boolean),
+      ...students.filter(student => !edgeIds.has(student.id)),
+    ];
+  }, [students, edgeIds, isMining]);
+  return <select className="workspace-student-select" aria-label={t.student} value={selectedStudent?.id || ''} onChange={event => onSelect(event.target.value || null)}>
+    <option value="">{t.choose}</option>
+    {studentChoices.map(student => <option key={student.id} value={student.id}>{student.id} · GPA {student.gpa} · SAT {student.sat}{isMining && edgeIds.has(student.id) ? ` · ${t.closest}` : ''}</option>)}
+  </select>;
+}
+
+export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins }) {
   const t = COPY[lang] || COPY.en;
   const resetCopy = RESET_COPY[lang] || RESET_COPY.en;
   const [layout, setLayout] = useState({ columns: '', rows: '', sections: [] });
   const [selectedValues, setSelectedValues] = useState({});
   const [resetVersion, setResetVersion] = useState(0);
   const viewport = useRef(null);
-  const profileSummary = useRef(null);
   const rowLabelMeasure = useRef(null);
   const pairButtons = useRef({});
   const [availableWidth, setAvailableWidth] = useState(800);
@@ -203,14 +248,6 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     setRowLabelWidth(Math.min(ROW_LABEL_MAX_WIDTH, Math.ceil(Math.max(0, ...widths)) + 4));
   }, [groups.rows, layout.rows, lang]);
   const edgeIds = useMemo(() => edgeCaseIds instanceof Set ? edgeCaseIds : new Set(edgeCaseIds || []), [edgeCaseIds]);
-  const studentChoices = useMemo(() => {
-    if (!isMining) return students;
-    const recordsById = new Map(students.map(student => [student.id, student]));
-    return [
-      ...Array.from(edgeIds, id => recordsById.get(id)).filter(Boolean),
-      ...students.filter(student => !edgeIds.has(student.id)),
-    ];
-  }, [students, edgeIds, isMining]);
   useEffect(() => {
     const element = viewport.current;
     if (!element) return undefined;
@@ -218,18 +255,18 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  useEffect(() => { profileSummary.current?.scrollTo({ left: 0, behavior: 'instant' }); }, [selectedStudent?.id]);
   const domains = useMemo(() => Object.fromEntries(['gpa', 'sat'].map(key => {
       const values = students.map(student => student[key]).filter(Number.isFinite);
       return [key, [Math.min(ADMISSION_DOMAINS[key][0], ...values), Math.max(ADMISSION_DOMAINS[key][1], ...values)]];
     })), [students]);
   const profile = selectedStudent ? draftStudent || selectedStudent : null;
   const currentCutoff = useMemo(() => {
-    if (!profile) return null;
-    const score = backgroundScore(profile, policy);
+    const cutoff = getExplorerCutoff(policy, profile);
+    if (!cutoff) return null;
     return {
-      boundary: admissionBoundary(policy, score), profile, score,
-      description: `${t.currentCutoff} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(profile, feature.key, options[feature.key], lang, t)}`).join(' · ')}`,
+      ...cutoff,
+      description: cutoff.scope === 'all' ? (SHARED_CUTOFF_COPY[lang] || SHARED_CUTOFF_COPY.en)
+        : `${t.currentCutoff} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(profile, feature.key, options[feature.key], lang, t)}`).join(' · ')}`,
     };
   }, [profile, policy, lang, options, t]);
   const descriptions = useMemo(() => new Map(students.map(student => [student.id, `${student.id} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(student, feature.key, options[feature.key], lang, t)}`).join(' · ')} · ${getDecision(student, policy) ? t.admitted : t.rejected}`])), [students, options, lang, policy, t]);
@@ -242,7 +279,6 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     onBinningChange({ method: 'fixed', count: 3, thresholds: [50000, 75000, 100000] });
     setResetVersion(current => current + 1);
     viewport.current?.scrollTo({ left: 0, top: 0, behavior: 'instant' });
-    profileSummary.current?.scrollTo({ left: 0, behavior: 'instant' });
   };
   const registerPair = (role, element) => { pairButtons.current[role] = element; };
   const navigatePair = role => {
@@ -277,7 +313,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
       onSelect(point.dataset.explorerStudent);
       return;
     }
-    if (event.target.closest?.('.fex-controls, .fex-student-toolbar, [data-draft-student], [data-explorer-lens], [data-profile-pair]')) return;
+    if (event.target.closest?.('.fex-controls, [data-draft-student], [data-explorer-lens], [data-profile-pair]')) return;
     onSelect(null);
   };
   const columnCount = Math.max(1, groups.columns.length);
@@ -287,8 +323,8 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   return <div className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
     onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) { event.preventDefault(); onSelect(event.target.dataset.explorerStudent); } }}>
     <div className="fex-controls">
-      <button type="button" className="fex-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
-        <RotateCcw size={13} aria-hidden="true" /><span>{resetCopy.label}</span>
+      <button type="button" className="workspace-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
+        <RotateCcw size={12} aria-hidden="true" /><span>{resetCopy.label}</span>
       </button>
       {['rows', 'columns'].map(role => <label key={role}>{t[role]}<select aria-label={t[role]} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
         <option value="">{t.none}</option>{EXPLORER_FEATURES.map(feature => <option key={feature.key} value={feature.key} disabled={activeKeys.includes(feature.key) && layout[role] !== feature.key}>{label(feature.label, lang)}</option>)}
@@ -299,22 +335,6 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
         </label>)}</div>
       </details>
       {activeKeys.map(key => <ValuePicker key={key} feature={featureFor(key)} options={options[key]} selected={selectedValues[key]} onChange={values => setSelectedValues(current => ({ ...current, [key]: values }))} binning={binning} onBinningChange={changeBinning} lang={lang} t={t} />)}
-    </div>
-    <div className="fex-student-toolbar">
-      <select aria-label={t.student} value={selectedStudent?.id || ''} onChange={event => onSelect(event.target.value || null)}><option value="">{t.choose}</option>{studentChoices.map(student => <option key={student.id} value={student.id}>{student.id} · GPA {student.gpa} · SAT {student.sat}{isMining && edgeIds.has(student.id) ? ` · ${t.closest}` : ''}</option>)}</select>
-      <dl ref={profileSummary} className="fex-profile-summary" aria-label={profile ? `${t.profile} · ${profile.id}` : undefined}
-        aria-hidden={!profile || undefined} tabIndex={profile ? 0 : -1}>
-        {profile && EXPLORER_FEATURES.map(feature => {
-          const value = profileValueLabel(profile, feature.key, options[feature.key], lang, t);
-          const prefix = (PROFILE_SHORT_LABELS[lang] || PROFILE_SHORT_LABELS.en)[feature.key];
-          return <div className="fex-profile-item" key={feature.key} data-profile-field={feature.key}
-            data-edited={!Object.is(profile[feature.key], selectedStudent[feature.key])}
-            title={`${label(feature.label, lang)}: ${value}`}>
-            <dt className="sr-only">{label(feature.label, lang)}</dt>
-            <dd>{prefix && <span aria-hidden="true">{prefix} </span>}{value}</dd>
-          </div>;
-        })}
-      </dl>
     </div>
     <div className="sr-only" role="status" aria-live="polite">{groups.panelCount} {t.plots}</div>
     <div ref={rowLabelMeasure} className="fex-row-measure" aria-hidden="true">
@@ -330,6 +350,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
             {section.panels.filter(panel => panel.rowValue === row.value).map(panel => {
               const pairRole = profilePair?.originalPanel?.id === panel.id ? 'original' : profilePair?.draftPanel?.id === panel.id ? 'draft' : null;
               return <ExplorerPlot key={panel.id} panel={panel} width={plotWidth} fillHeight={singlePlot} domains={domains} policy={policy} colors={colors} selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={onSelect} isLight={isLight} edgeIds={edgeIds} isMining={isMining} lang={lang} t={t} descriptions={descriptions} currentCutoff={currentCutoff}
+                onEdit={onEdit} onThresholdChange={onThresholdChange} onRestoreSelection={onRestoreSelection} contextKey={contextKey}
                 pairRole={pairRole} peerPanel={pairRole === 'original' ? profilePair?.draftPanel : profilePair?.originalPanel} registerPair={registerPair} navigatePair={navigatePair} />;
             })}
           </div>)}

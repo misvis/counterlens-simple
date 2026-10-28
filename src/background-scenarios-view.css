@@ -73,9 +73,9 @@
 /* Allocate the remaining desktop height to the eight plots, rather than
    stacking fixed-height charts above the threshold and confusion matrix. */
 @media (min-width: 1100px) and (min-height: 640px) {
-  .workspace-visualizer.has-background-scenarios { padding: 12px 16px; }
-  .has-background-scenarios .workspace-visualizer-heading { margin-bottom: 5px; }
-  .has-background-scenarios .workspace-visualizer-actions { min-height: 36px; }
+  .workspace-visualizer.has-background-scenarios { padding: 10px 16px 12px; }
+  .has-background-scenarios .workspace-visualizer-heading { margin-bottom: 4px; }
+  .has-background-scenarios .workspace-visualizer-actions { min-height: 28px; }
   .has-background-scenarios .workspace-adjusted-legend { display: none; }
   .has-background-scenarios .workspace-visualizer-subtitle { margin-top: 2px; }
   .workspace-visualizer .simplified-scatter-plot.is-background-scenarios {

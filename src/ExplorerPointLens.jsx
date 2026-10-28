@@ -21,7 +21,7 @@ const distanceSquared = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 // Hover updates only this component, leaving the original SVG marks untouched.
 export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], width, height = 220,
   margin = { left: 43, right: 16, top: 22, bottom: 42 }, domains, boundary,
-  selectedStudentId, policy, colors, isLight, lang = 'en', onSelect }) {
+  selectedStudentId, policy, colors, isLight, lang = 'en', onSelect, disabled = false }) {
   const t = COPY[lang] || COPY.en;
   const clipId = useId().replace(/:/g, '');
   const portalRef = useRef(null);
@@ -87,7 +87,8 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return undefined;
+    // Switching to a drag tears down the previous effect and its pending lens.
+    if (!svg || disabled) return undefined;
     const activate = () => {
       if (dismissActiveLens && activeLensId !== clipId) dismissActiveLens();
       dismissActiveLens = dismiss;
@@ -97,7 +98,9 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         if (!portalRef.current?.contains(event.target)) dismiss();
       };
       const outsidePointer = event => {
-        if (!portalRef.current?.contains(event.target) && !svg.contains(event.target)) dismiss();
+        // Grabbing a source point or cutoff must also clear the lens before
+        // the drag captures the pointer. Clicks inside the lens still select.
+        if (!portalRef.current?.contains(event.target)) dismiss();
       };
       const escape = event => {
         if (event.key !== 'Escape') return;
@@ -218,6 +221,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     const blankClick = event => {
       if (!event.target.closest?.('[data-explorer-student], [data-draft-student]')) dismiss();
     };
+    svg.addEventListener('pointerdown', dismiss, true);
     svg.addEventListener('pointermove', pointerMove, { passive: true });
     svg.addEventListener('pointerenter', keepOpen);
     svg.addEventListener('pointerleave', scheduleLeave);
@@ -225,6 +229,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     svg.addEventListener('focusout', blur);
     svg.addEventListener('click', blankClick);
     return () => {
+      svg.removeEventListener('pointerdown', dismiss, true);
       svg.removeEventListener('pointermove', pointerMove);
       svg.removeEventListener('pointerenter', keepOpen);
       svg.removeEventListener('pointerleave', scheduleLeave);
@@ -233,7 +238,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       svg.removeEventListener('click', blankClick);
       dismiss();
     };
-  }, [svgRef, panelId, points, policy, boundary, width, height, left, right, top, bottom, clipId, dismiss, keepOpen, scheduleLeave]);
+  }, [svgRef, panelId, points, policy, boundary, width, height, left, right, top, bottom, clipId, dismiss, keepOpen, scheduleLeave, disabled]);
 
   const nearby = useMemo(() => session ? points
     .map(point => ({ ...point, distance: distanceSquared(point, session.point) }))
@@ -261,7 +266,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
   };
   const describe = point => point.record.id + ' · GPA ' + point.record.gpa + ' · SAT ' + point.record.sat
     + ' · ' + (point.admitted ? t.admitted : t.rejected);
-  if (!session || !nearby.length) return null;
+  if (disabled || !session || !nearby.length) return null;
   const { popup, chartSize, radius } = session;
   const center = chartSize / 2;
   const projectedBoundary = boundary?.points?.length > 1 ? boundary.points.slice(0, 2).map(point => ({

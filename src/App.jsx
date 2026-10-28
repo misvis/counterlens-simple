@@ -35,7 +35,7 @@ const TRANSLATIONS = {
   en: {
     scenarios: "Demo Scenarios",
     scenarioMerit: "Academic Merit",
-    scenarioHolistic: "Holistic Review",
+    scenarioHolistic: "Whole Person Review",
     scenarioDiversity: "Diversity/Equity",
     scenarioAthletic: "Sports Priority",
     title: "CounterLens",

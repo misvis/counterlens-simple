@@ -64,7 +64,7 @@ const policy = (id, rules, gpa = 45, sat = 25, threshold = 55) => Object.freeze(
 // IDs retain the local demo's existing policy-selection identifiers. The
 // algorithm and revision identify these separately from its legacy rules.
 // Restore the original Academic Focus GPA/SAT rule. Income Support changes
-// only the income contribution from Holistic Review, keeping that comparison's
+// only the income contribution from Whole Person Review, keeping that comparison's
 // academic weights and cutoff fixed; its maximum total is 100.
 export const EXPLORER_SIMULATION_POLICIES = Object.freeze([
   policy('academic', academicBackgroundRules, 60, 40, 62),

@@ -49,7 +49,7 @@ const names = {
   language_changed: 'Language changed',
   theme_changed: 'Theme changed',
   academic: 'Academic Focus',
-  holistic: 'Whole-Person Review',
+  holistic: 'Whole Person Review',
   opportunity: 'Opportunity-Aware',
 };
 const title = (name) => names[name] || name;
