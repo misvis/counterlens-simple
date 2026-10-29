@@ -9,6 +9,7 @@ const categorical = (key, names, values) => Object.freeze({
   key, type: 'categorical', label: label(...names), values: Object.freeze(values),
 });
 
+// Use one English alphabetical field order across every localized UI surface.
 export const EXPLORER_FEATURES = Object.freeze([
   categorical('ethnicity', ['Ethnicity', '族裔', 'Etnicidad'], [
     option('White', 'White', '白人', 'Blanco'),
@@ -48,7 +49,7 @@ export const EXPLORER_FEATURES = Object.freeze([
     option('Not Enrolled', 'Not Enrolled', '未选课', 'No inscrito'),
     option('None', 'None', '无（None）', 'Ninguno'),
   ]),
-]);
+].sort((a, b) => a.label.en.localeCompare(b.label.en, 'en')));
 
 const FEATURES_BY_KEY = new Map(EXPLORER_FEATURES.map(feature => [feature.key, feature]));
 const ALL_OPTION = option('__all__', 'All students', '全部学生', 'Todos los estudiantes');
@@ -157,7 +158,8 @@ export const getExplorerOptions = (featureKey, records, incomeBins) => {
   const feature = FEATURES_BY_KEY.get(featureKey);
   if (!feature) return [];
   if (feature.type === 'number') {
-    const options = (incomeBins ?? buildIncomeBins(records)).filter(item => !item.missing);
+    const options = (incomeBins ?? buildIncomeBins(records)).filter(item => !item.missing)
+      .sort((a, b) => a.min - b.min);
     return records.some(record => !isFiniteIncome(record[featureKey])) ? [...options, MISSING_OPTION] : options;
   }
   const known = new Set(feature.values.map(item => item.value));
@@ -173,17 +175,16 @@ export const getExplorerOptions = (featureKey, records, incomeBins) => {
   }
   const options = [...feature.values, ...[...extras.values()].sort((a, b) => a.value.localeCompare(b.value))];
   // Sort only the display copy: the simulation indexes the original metadata.
-  if (featureKey === 'ethnicity' || featureKey === 'major') {
-    options.sort((a, b) => englishCategoryOrder.compare(a.label.en, b.label.en));
-  }
+  options.sort((a, b) => englishCategoryOrder.compare(a.label.en, b.label.en));
   return [...options, ...(missing ? [MISSING_OPTION] : [])];
 };
 
 export const normalizeExplorerLayout = (layout = {}) => {
   const columns = FEATURES_BY_KEY.has(layout.columns) ? layout.columns : '';
   const rows = FEATURES_BY_KEY.has(layout.rows) && layout.rows !== columns ? layout.rows : '';
-  const sections = [...new Set(Array.isArray(layout.sections) ? layout.sections : [])]
-    .filter(key => FEATURES_BY_KEY.has(key) && key !== columns && key !== rows);
+  const requestedSections = new Set(Array.isArray(layout.sections) ? layout.sections : []);
+  const sections = EXPLORER_FEATURES.map(feature => feature.key)
+    .filter(key => requestedSections.has(key) && key !== columns && key !== rows);
   return { columns, rows, sections };
 };
 

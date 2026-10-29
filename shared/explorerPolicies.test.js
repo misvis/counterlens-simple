@@ -55,13 +55,14 @@ const candidates = (policy, context = {}) => keys.reduce((profiles, key) => {
 test('Simulation policies use the six declared backgrounds and exclude legacy boolean inputs', () => {
   assert.equal(EXPLORER_POLICY_ALGORITHM, 'explorer_weighted_sum_v1');
   assert.equal(EXPLORER_POLICY_REVISION, 'six-background-simulation-v4');
-  assert.deepEqual(EXPLORER_BACKGROUND_KEYS, keys);
+  // Display order is alphabetical; scoring retains its original accumulation order.
+  assert.deepEqual([...EXPLORER_BACKGROUND_KEYS].sort(), [...keys].sort());
   assert.deepEqual(policies.map(policy => policy.id), ['academic', 'holistic', 'opportunity']);
   for (const policy of policies) {
     assert.equal(isExplorerPolicy(policy), true);
     assert.equal(policy.simulationRevision, EXPLORER_POLICY_REVISION);
     assert.deepEqual(Object.keys(policy.weights).sort(), ['gpa', 'sat']);
-    assert.deepEqual(Object.keys(policy.backgroundRules), keys);
+    assert.deepEqual(Object.keys(policy.backgroundRules).sort(), [...keys].sort());
     for (const feature of EXPLORER_FEATURES.filter(item => item.type === 'categorical')) {
       assert.deepEqual(Object.keys(policy.backgroundRules[feature.key].points).sort(), feature.values.map(item => item.value).sort());
     }
@@ -149,8 +150,8 @@ test('Explicit None and Not Specified remain separate from missing values despit
 test('Every simulated score, eight contributions, and decision match an independent oracle', () => {
   for (const policy of policies) for (const record of records) {
     const contributions = scoreContributions(record, policy);
-    assert.deepEqual(contributions.map(item => item.key), ['gpa', 'sat', ...keys]);
-    assert.deepEqual(explorerBackgroundContributions(record, policy).map(item => item.key), keys);
+    assert.deepEqual(contributions.map(item => item.key), ['gpa', 'sat', ...EXPLORER_BACKGROUND_KEYS]);
+    assert.deepEqual(explorerBackgroundContributions(record, policy).map(item => item.key), EXPLORER_BACKGROUND_KEYS);
     close(scoreStudent(record, policy), expectedScore(record, policy));
     close(backgroundScore(record, policy), expectedBackground(record, policy));
     close(contributions.reduce((sum, item) => sum + item.points, 0), expectedScore(record, policy));

@@ -17,6 +17,9 @@ const alphabeticalValues = {
   ethnicity: ['American Indian/Alaska Native', 'Asian', 'Black/African American', 'Hispanic/Latino',
     'Native Hawaiian/Other Pacific Islander', 'Not Specified', 'Two or More', 'White'],
   major: ['Biochem', 'BiologicalSci', 'ChemEng', 'CompEng', 'CompSci', 'Economics', 'Math', 'Psychology'],
+  mathStatus: ['Enrolled', 'None', 'Not Enrolled'],
+  residency: ['instate', 'outofstate'],
+  transfer: ['no', 'yes'],
 };
 const clone = value => deserialize(serialize(value));
 const allPanels = result => result.sections.flatMap(section => section.panels);
@@ -58,7 +61,7 @@ test('Synthetic enrichment is stable by ID, preserves source values and every mo
 });
 
 test('Every synthetic categorical field has multiple observed categories and localized definitions', () => {
-  assert.deepEqual(keys, ['ethnicity', 'residency', 'zipIncome', 'major', 'transfer', 'mathStatus']);
+  assert.deepEqual(keys, ['ethnicity', 'major', 'mathStatus', 'residency', 'transfer', 'zipIncome']);
   for (const feature of EXPLORER_FEATURES) {
     for (const language of ['en', 'zh', 'es']) assert.ok(feature.label[language]);
     if (feature.type === 'number') continue;
@@ -95,7 +98,7 @@ test('Declared categorical values match the supplied dataset strings, order, and
   }
 });
 
-test('Ethnicity and major display sorting reaches columns, rows, sections and outcomes without changing 200 simulated profiles or scores', () => {
+test('All categorical display sorting reaches columns, rows, sections and outcomes without changing 200 simulated profiles or scores', () => {
   const demo = toPercentileClassroomView({ ...createSyntheticClassroomView(), records: createSyntheticRecords(200) });
   const cohort = Object.freeze(enrichExplorerRecords(demo.records).map(record => Object.freeze(record)));
   const before = clone(cohort);
@@ -110,11 +113,17 @@ test('Ethnicity and major display sorting reaches columns, rows, sections and ou
     assert.deepEqual(buildExplorerGroups({ records: cohort, layout: { sections: [key] } }).sections.map(section => section.context[0].option.value), expected);
     assert.deepEqual(summary.find(feature => feature.key === key).groups.map(group => group.option.value), expected);
   }
-  for (const key of ['residency', 'transfer', 'mathStatus']) {
-    assert.deepEqual(getExplorerOptions(key, cohort), EXPLORER_FEATURES.find(feature => feature.key === key).values);
-  }
   const bins = buildIncomeBins(cohort, { method: 'fixed', count: 4 });
   assert.deepEqual(getExplorerOptions('zipIncome', cohort, bins), bins);
+  const reversedBins = Object.freeze([...bins].reverse());
+  assert.deepEqual(getExplorerOptions('zipIncome', cohort, reversedBins), bins);
+  for (const role of ['columns', 'rows', 'sections']) {
+    const groups = buildExplorerGroups({ records: cohort, layout: { [role]: role === 'sections' ? ['zipIncome'] : 'zipIncome' }, incomeBins: reversedBins });
+    const displayed = role === 'sections' ? groups.sections.map(section => section.context[0].option) : groups[role];
+    assert.deepEqual(displayed, bins);
+  }
+  assert.deepEqual(summarizeExplorerOutcomes({ records: cohort, policy, incomeBins: reversedBins }).find(feature => feature.key === 'zipIncome').groups.map(group => group.option), bins);
+  assert.deepEqual(reversedBins, [...bins].reverse());
   assert.deepEqual(cohort, before);
   assert.deepEqual(EXPLORER_FEATURES, metadata);
   assert.deepEqual(enrichExplorerRecords(demo.records), before);
@@ -206,7 +215,7 @@ test('Literal None math status is an explicit category distinct from null, undef
     { id: 'undefined' }, { id: 'blank', mathStatus: '' },
   ];
   const options = getExplorerOptions('mathStatus', cohort);
-  assert.deepEqual(options.map(item => item.value), ['Enrolled', 'Not Enrolled', 'None', '__missing__']);
+  assert.deepEqual(options.map(item => item.value), ['Enrolled', 'None', 'Not Enrolled', '__missing__']);
   assert.equal(options.find(item => item.value === 'None').missing, undefined);
   const groups = buildExplorerGroups({ records: cohort, layout: { columns: 'mathStatus' } });
   assert.deepEqual(allPanels(groups).find(panel => panel.columnValue === 'None').members.map(item => item.id), ['none']);
@@ -270,8 +279,9 @@ test('Known categories remain visible and missing data is separate from Not Spec
 });
 
 test('Layout normalization rejects invalid keys and gives columns, then rows precedence over sections', () => {
+  assert.deepEqual(normalizeExplorerLayout({ sections: [...keys].reverse() }).sections, keys);
   assert.deepEqual(normalizeExplorerLayout({ columns: 'major', rows: 'major', sections: ['major', 'income', 'transfer', 'transfer', 'mathStatus'] }), {
-    columns: 'major', rows: '', sections: ['transfer', 'mathStatus'],
+    columns: 'major', rows: '', sections: ['mathStatus', 'transfer'],
   });
   assert.deepEqual(normalizeExplorerLayout({ columns: 'bad', rows: 'residency', sections: ['residency', 'ethnicity'] }), {
     columns: '', rows: 'residency', sections: ['ethnicity'],
@@ -524,7 +534,7 @@ test('Profile pairing finds the two actual panels across columns, rows and secti
   assert.equal(pair.draftPanel, allPanels(groups).find(panel => recordMatchesExplorerContext(draft, panel.context)));
   assert.notEqual(pair.originalPanel.id, pair.draftPanel.id);
   assert.equal(pair.draftPanel.members.length, 0);
-  assert.deepEqual(pair.originalPanel.context.map(item => item.key), ['residency', 'mathStatus', 'major', 'ethnicity']);
+  assert.deepEqual(pair.originalPanel.context.map(item => item.key), ['mathStatus', 'residency', 'major', 'ethnicity']);
   assert.deepEqual({ cohort, draft, groups }, before);
   assert.equal(allPanels(groups).reduce((sum, panel) => sum + panel.members.length, 0), 1);
 });

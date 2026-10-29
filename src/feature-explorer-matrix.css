@@ -10,24 +10,31 @@
 }
 .feature-explorer-matrix.fex-light { --fex-surface: #fff; --fex-plot-surface: var(--workspace-plot-surface, #f6f8fb); --fex-border: var(--workspace-plot-border, #dbe3ee); --fex-grid: #e8edf3; }
 .workspace-visualizer.has-feature-explorer .simplified-scatter-plot.is-background-scenarios { flex: none; min-height: 0; height: auto; }
-.fex-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; margin-bottom: 8px; }
-.fex-controls > label { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; font-weight: 650; }
+.fex-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 3px; margin-bottom: 8px; }
+.fex-controls > label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; font-weight: 650; }
+.fex-controls > .workspace-reset, .fex-controls > label, .fex-controls > .fex-sections-picker { margin-right: 9px; }
 .fex-binning label { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11px; font-weight: 650; }
 .feature-explorer-matrix select, .feature-explorer-matrix input:not([type="checkbox"]), .feature-explorer-matrix button {
   border: 1px solid var(--fex-border); border-radius: 5px; background: var(--fex-surface); color: var(--threshold-text); font: inherit;
 }
 .feature-explorer-matrix select, .feature-explorer-matrix input:not([type="checkbox"]) { width: 100%; min-width: 0; min-height: 30px; padding: 4px 7px; }
-.fex-controls > label > select { width: 145px; }
+.fex-controls > label > select { width: 128px; flex-shrink: 0; padding-inline: 7px; }
+.feature-explorer-matrix:lang(es) .fex-controls > label > select { width: 164px; }
 .feature-explorer-matrix button { min-height: 28px; padding: 3px 8px; font-size: 11px; }
 .feature-explorer-matrix button:hover { border-color: var(--workspace-highlight); }
 .feature-explorer-matrix select:focus-visible, .feature-explorer-matrix input:focus-visible, .feature-explorer-matrix button:focus-visible, .feature-explorer-matrix summary:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 .feature-explorer-matrix input[type="checkbox"] { accent-color: var(--workspace-highlight); flex-shrink: 0; }
 .fex-picker { min-width: 0; max-width: 100%; font-size: 11px; }
-.fex-picker > summary { cursor: pointer; min-height: 30px; padding: 7px 0; box-sizing: border-box; overflow-wrap: anywhere; }
-.fex-picker-selection { margin-left: 6px; color: var(--threshold-muted); font-weight: 400; }
-.fex-picker-body { width: min(300px, 100%); min-width: min(220px, 100%); padding: 8px; margin: 2px 0 6px; border: 1px solid var(--fex-border); border-radius: 6px; background: var(--fex-surface); }
-.fex-picker[open] { flex-basis: 260px; }
-.fex-picker[open] > .fex-picker-body { width: 100%; }
+.feature-explorer-matrix .fex-picker-trigger { display: flex; align-items: center; gap: 3px; cursor: pointer; min-height: 30px; padding: 5px 4px; text-align: left; white-space: nowrap; }
+.feature-explorer-matrix .fex-controls > .workspace-reset { padding-inline: 10px; }
+.feature-explorer-matrix .fex-sections-picker > .fex-picker-trigger { gap: 6px; padding-inline: 10px; }
+.fex-picker-trigger > svg { flex-shrink: 0; color: var(--threshold-muted); }
+.fex-picker-trigger[aria-expanded="true"] { border-color: var(--workspace-highlight); }
+.fex-picker-trigger[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.fex-picker-selection { margin-left: 3px; color: var(--threshold-muted); font-weight: 400; }
+.fex-picker-body { position: fixed; inset: auto; box-sizing: border-box; width: min(280px, calc(100vw - 24px)); max-height: min(420px, calc(100dvh - 24px)); overflow: auto; overscroll-behavior: contain; padding: 10px; margin: 0; border: 1px solid var(--fex-border); border-radius: 8px; background: var(--fex-surface); color: var(--threshold-text); font-size: 11px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
+.fex-picker-body::backdrop { background: transparent; }
+.fex-picker-body.fex-value-options:not(:popover-open) { display: none; }
 .fex-binning { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 8px; margin-bottom: 8px; }
 .fex-custom-bins { grid-column: 1 / -1; display: flex; align-items: end; gap: 6px; }
 .fex-custom-bins label { flex: 1; }
@@ -90,6 +97,13 @@
 .fex-draft-connector { stroke: var(--workspace-edit); stroke-width: 1.2; stroke-dasharray: 3 3; pointer-events: none; }
 .fex-no-values { padding: 24px 4px; color: var(--threshold-muted); font-size: 12px; }
 .fex-empty-panel { opacity: .8; }
+@media (min-width: 1100px) {
+  /* Reserve scrollbar space so adding filters never creates another row or
+     moves the plots on narrower desktops. Popovers use the native top layer. */
+  .fex-controls { flex-wrap: nowrap; height: 40px; box-sizing: border-box; padding: 2px 2px 6px; margin: -2px -2px 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .fex-controls > * { flex-shrink: 0; }
+  .fex-controls > button:focus-visible, .fex-controls > label > select:focus-visible, .fex-controls .fex-picker-trigger:focus-visible { outline-offset: -2px; }
+}
 @media (min-width: 1100px) and (min-height: 640px) {
   .workspace-visualizer.has-feature-explorer > .simplified-scatter-plot.is-background-scenarios { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
   .workspace-visualizer.has-feature-explorer .feature-explorer-matrix { display: flex; flex-direction: column; flex: 1; min-height: 0; }

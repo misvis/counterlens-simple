@@ -3,6 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
 import { EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
+import { ExplorerDropdown } from './ExplorerDropdown.jsx';
 import { cutoffMatchesContext, getExplorerCutoff } from './explorerCutoff.js';
 import useExplorerDrag from './useExplorerDrag.js';
 import './feature-explorer-matrix.css';
@@ -40,7 +41,10 @@ const featureFor = key => EXPLORER_FEATURES.find(feature => feature.key === key)
 const featureLabel = (key, lang) => label(featureFor(key)?.label, lang);
 const formatValue = (value, key) => key === 'gpa' ? Number(value.toFixed(2)).toString() : String(Math.round(value));
 const ticks = domain => Array.from({ length: 4 }, (_, index) => domain[0] + (domain[1] - domain[0]) * index / 3);
-const contextLabel = (context, lang) => context.map(({ key, option }) => `${featureLabel(key, lang)}: ${label(option.label, lang)}`).join(' · ');
+const contextLabel = (context, lang) => EXPLORER_FEATURES.flatMap(feature => {
+  const entry = context.find(item => item.key === feature.key);
+  return entry ? [`${featureLabel(feature.key, lang)}: ${label(entry.option.label, lang)}`] : [];
+}).join(' · ');
 const PROFILE_FIELDS = ['gpa', 'sat', ...EXPLORER_FEATURES.map(feature => feature.key)];
 const profilesDiffer = (original, edited) => Boolean(original && edited && PROFILE_FIELDS.some(key => !Object.is(original[key], edited[key])));
 const profileValueLabel = (student, key, options, lang, t) => {
@@ -71,9 +75,7 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
     setCustomInput(thresholds.join(', '));
     onBinningChange({ ...binning, method: 'custom', thresholds });
   };
-  return <details className="fex-picker" data-feature-picker={feature.key}>
-    <summary>{label(feature.label, lang)}<span className="fex-picker-selection">{all ? t.all : `${chosen.length} ${t.values}`}</span></summary>
-    <div className="fex-picker-body">
+  return <ExplorerDropdown featureKey={feature.key} label={<>{label(feature.label, lang)}<span className="fex-picker-selection">{all ? t.all : `${chosen.length} ${t.values}`}</span></>}>
       {feature.key === 'zipIncome' && <div className="fex-binning">
         <label>{t.bins}<select aria-label={t.bins} value={binning.method} onChange={event => {
           setInvalid(false);
@@ -97,8 +99,7 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
         <input type="checkbox" checked={chosen.includes(option.value)} onChange={event => onChange(event.target.checked ? [...chosen, option.value] : chosen.filter(value => value !== option.value))} />
         <span>{label(option.label, lang)}</span>
       </label>)}</div>
-    </div>
-  </details>;
+  </ExplorerDropdown>;
 }
 
 function OutcomeMark({ admitted, cx, cy, color, size = 4 }) {
@@ -240,7 +241,8 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const options = useMemo(() => Object.fromEntries(EXPLORER_FEATURES.map(feature => [feature.key, getExplorerOptions(feature.key, students, incomeBins)])), [students, incomeBins]);
   const groups = useMemo(() => buildExplorerGroups({ records: students, layout, incomeBins, selectedValues }), [students, layout, incomeBins, selectedValues]);
   const profilePair = useMemo(() => buildExplorerProfilePair(groups, selectedStudent, draftStudent), [groups, selectedStudent, draftStudent]);
-  const activeKeys = [layout.rows, layout.columns, ...layout.sections].filter(Boolean);
+  const activeKeys = EXPLORER_FEATURES.map(feature => feature.key)
+    .filter(key => key === layout.rows || key === layout.columns || layout.sections.includes(key));
   const rowGutter = layout.rows ? rowLabelWidth + MATRIX_COLUMN_GAP : 0;
   useLayoutEffect(() => {
     if (!layout.rows || !rowLabelMeasure.current) return;
@@ -320,7 +322,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const singlePlot = groups.panelCount === 1;
   const plotWidth = Math.max(240, Math.floor((availableWidth - rowGutter - (columnCount - 1) * MATRIX_COLUMN_GAP) / columnCount));
   const matrixWidth = rowGutter + columnCount * plotWidth + (columnCount - 1) * MATRIX_COLUMN_GAP;
-  return <div className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
+  return <div lang={lang} className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
     onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) { event.preventDefault(); onSelect(event.target.dataset.explorerStudent); } }}>
     <div className="fex-controls">
       <button type="button" className="workspace-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
@@ -329,11 +331,15 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
       {['rows', 'columns'].map(role => <label key={role}>{t[role]}<select aria-label={t[role]} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
         <option value="">{t.none}</option>{EXPLORER_FEATURES.map(feature => <option key={feature.key} value={feature.key} disabled={activeKeys.includes(feature.key) && layout[role] !== feature.key}>{label(feature.label, lang)}</option>)}
       </select></label>)}
-      <details key={resetVersion} className="fex-picker fex-sections-picker"><summary>{layout.sections.length ? `${t.sections} · ${layout.sections.length}` : t.add}</summary>
-        <div className="fex-picker-body fex-value-options">{EXPLORER_FEATURES.map(feature => <label key={feature.key}>
+      <ExplorerDropdown key={resetVersion} className="fex-sections-picker" bodyClassName="fex-value-options" label={layout.sections.length ? `${t.sections} · ${layout.sections.length}` : t.add}>
+        <div className="fex-value-actions">
+          <button type="button" onClick={() => changeLayout({ sections: EXPLORER_FEATURES.map(feature => feature.key).filter(key => key !== layout.rows && key !== layout.columns) })}>{t.all}</button>
+          <button type="button" onClick={() => changeLayout({ sections: [] })}>{t.clear}</button>
+        </div>
+        {EXPLORER_FEATURES.map(feature => <label key={feature.key}>
           <input type="checkbox" disabled={feature.key === layout.columns || feature.key === layout.rows} checked={layout.sections.includes(feature.key)} onChange={event => changeLayout({ sections: event.target.checked ? [...layout.sections, feature.key] : layout.sections.filter(key => key !== feature.key) })} />{label(feature.label, lang)}
-        </label>)}</div>
-      </details>
+        </label>)}
+      </ExplorerDropdown>
       {activeKeys.map(key => <ValuePicker key={key} feature={featureFor(key)} options={options[key]} selected={selectedValues[key]} onChange={values => setSelectedValues(current => ({ ...current, [key]: values }))} binning={binning} onBinningChange={changeBinning} lang={lang} t={t} />)}
     </div>
     <div className="sr-only" role="status" aria-live="polite">{groups.panelCount} {t.plots}</div>
