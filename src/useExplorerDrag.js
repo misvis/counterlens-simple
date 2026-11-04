@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { explorerStudentAfterDrag, explorerThresholdAfterDrag } from './explorerDragGeometry.js';
+import { nearestExplorerPoint } from './explorerLensGeometry.js';
 
 const finiteStudent = student => Number.isFinite(student?.gpa) && Number.isFinite(student?.sat);
 
 export default function useExplorerDrag({
-  svgRef, width, height, margin, domains, policy, students,
+  svgRef, width, height, margin, domains, policy, students, points,
   selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey,
 }) {
   const drag = useRef(null);
@@ -69,7 +70,11 @@ export default function useExplorerDrag({
       // Capture retargets click to the plot. Resolve a tap here so it selects
       // its original marker instead of being mistaken for a blank-plot click.
       if (!current.moved && current.kind === 'student' && !current.isDraft) {
-        callbacks.current.onSelect(current.original.id);
+        const { original, previousId } = current;
+        const overlap = students.filter(student => student.gpa === original.gpa && student.sat === original.sat);
+        const index = overlap.findIndex(student => student.id === previousId);
+        const next = index < 0 ? original : overlap[(index + 1) % overlap.length];
+        if (next.id !== previousId) callbacks.current.onSelect(next.id);
       }
     }
     finish(cancelled);
@@ -90,16 +95,18 @@ export default function useExplorerDrag({
         const handlers = callbacks.current;
         if (kind === 'threshold' ? typeof handlers?.onThresholdChange !== 'function'
           : ['onSelect', 'onEdit', 'onRestoreSelection'].some(key => typeof handlers?.[key] !== 'function')) return;
-        const isDraft = marker.hasAttribute('data-draft-student');
-        const original = kind === 'student'
-          ? (isDraft ? selectedStudent : students.find(student => String(student.id) === marker.dataset.explorerStudent)) : null;
-        const startStudent = isDraft ? draftStudent : original;
-        if (kind === 'student' && (!finiteStudent(original) || !finiteStudent(startStudent))) return;
         const plotWidth = width - margin.left - margin.right;
         const plotHeight = height - margin.top - margin.bottom;
         const matrix = svg.getScreenCTM();
         if (!matrix || !(plotWidth > 0 && plotHeight > 0)) return;
         const inverse = matrix.inverse();
+        const start = new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse);
+        const hit = kind === 'student' ? nearestExplorerPoint(points, start,
+          marker.dataset.draftStudent ?? marker.dataset.explorerStudent) : null;
+        const isDraft = Boolean(hit?.edited);
+        const original = isDraft ? selectedStudent : hit?.record;
+        const startStudent = hit?.record;
+        if (kind === 'student' && (!finiteStudent(original) || !finiteStudent(startStudent))) return;
         event.preventDefault();
         event.stopPropagation();
         const element = event.currentTarget;
@@ -125,7 +132,7 @@ export default function useExplorerDrag({
           width: plotWidth, height: plotHeight,
           domains: { gpa: [...domains.gpa], sat: [...domains.sat] },
           policy, threshold: policy.threshold, lastThreshold: policy.threshold,
-          start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse),
+          start,
           clientX: event.clientX, clientY: event.clientY, moved: false,
           original, startStudent: startStudent ? { ...startStudent } : null,
           lastStudent: startStudent ? { ...startStudent } : null,

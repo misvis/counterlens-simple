@@ -1,9 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { approachesExplorerLens, getExplorerLensGeometry, getExplorerLensNeighbors } from './explorerLensGeometry.js';
+import { getExplorerLensGeometry, getExplorerLensNeighbors, nearestExplorerPoint } from './explorerLensGeometry.js';
 
 const desktop = { width: 1280, height: 800 };
 const phone = { width: 390, height: 844 };
+
+test('an overlapping hit area only breaks ties between equally near centers', () => {
+  const s56 = { record: { id: 'S56' }, x: 470, y: 360 };
+  const s112 = { record: { id: 'S112' }, x: 470, y: 375.25 };
+  for (const points of [[s56, s112], [s112, s56]]) {
+    assert.equal(nearestExplorerPoint(points, { x: 470, y: 364 }, 'S112'), s56);
+    assert.equal(nearestExplorerPoint(points, { x: 470, y: 371 }, 'S56'), s112);
+    assert.equal(nearestExplorerPoint(points, { x: 470, y: 367.625 }, 'S112'), s112);
+  }
+});
 
 test('the neighborhood preserves coincident marks and includes all sides of the source circle', () => {
   const points = [[-6, 0], [-5, 0], [-3, 4], [0, 0], [0, 0], [0, 6], [5, 0], [6, 0]]
@@ -82,15 +92,4 @@ test('a viewport too small to use still returns contained finite geometry', () =
   for (const view of [{ width: 90, height: 90 }, { width: 1, height: 1 }]) {
     assertInside(getExplorerLensGeometry({ x: view.width / 2, y: view.height / 2 }, view), view);
   }
-});
-
-test('holds the camera steady when approaching an off-center point in the popup', () => {
-  const focus = { x: 200, y: 300 };
-  const lens = getExplorerLensGeometry(focus, desktop);
-  const dx = lens.left + lens.diameter / 2 - focus.x;
-  for (const fraction of [0.05, 0.15, 0.25, 0.5]) {
-    assert.equal(approachesExplorerLens({ x: focus.x + dx * fraction, y: focus.y - 35 * fraction }, focus, lens), true);
-  }
-  assert.equal(approachesExplorerLens({ x: focus.x - 2, y: focus.y }, focus, lens), false);
-  assert.equal(approachesExplorerLens({ x: focus.x + 3, y: focus.y + 35 }, focus, lens), false);
 });

@@ -1,11 +1,10 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getDecision, scoreStudent } from '../shared/admissionModel.js';
-import { approachesExplorerLens, getExplorerLensGeometry, getExplorerLensNeighbors } from './explorerLensGeometry.js';
+import { getExplorerLensGeometry, getExplorerLensNeighbors, nearestExplorerPoint } from './explorerLensGeometry.js';
 import './explorer-point-lens.css';
 
 const ZOOM = 4;
-const LEAVE_DELAY = 240;
 // Only the active lens installs document listeners.
 let dismissActiveLens = null;
 let activeLensId = null;
@@ -44,7 +43,7 @@ const LensComparison = memo(function LensComparison({ original, edited, policy, 
 });
 
 // Hover updates only this component, leaving the original SVG marks untouched.
-export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], width, height = 220,
+export function ExplorerPointLens({ svgRef, panelId, panelLabel, points, width, height = 220,
   margin = { left: 43, right: 16, top: 22, bottom: 42 }, domains, boundary,
   selectedStudent, draftStudent, draftHere, policy, colors, isLight, lang = 'en', onSelect, disabled = false }) {
   const selectedStudentId = selectedStudent?.id;
@@ -53,7 +52,6 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
   const portalRef = useRef(null);
   const sourceElement = useRef(null);
   const suppressFocus = useRef(false);
-  const leaveTimer = useRef(null);
   const focusFrame = useRef(null);
   const pointerFrame = useRef(null);
   const pendingPointer = useRef(null);
@@ -65,16 +63,13 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
   const { left, right, top, bottom } = margin;
   const [gpaMin, gpaMax] = domains.gpa;
   const [satMin, satMax] = domains.sat;
-  const points = useMemo(() => (draftHere && draftStudent ? [...records, draftStudent] : records)
-    .filter(record => Number.isFinite(record.gpa) && Number.isFinite(record.sat)).map(record => ({
-    record,
-    edited: draftHere && record === draftStudent,
-    coordinateKey: record.gpa + ',' + record.sat,
-    x: coordinate(record.gpa, [gpaMin, gpaMax], left, width - left - right),
-    y: coordinate(record.sat, [satMin, satMax], height - bottom, -(height - top - bottom)),
-    admitted: getDecision(record, policy),
-  })).sort((a, b) => a.x - b.x || String(a.record.id).localeCompare(String(b.record.id))),
-  [records, draftHere, draftStudent, policy, gpaMin, gpaMax, satMin, satMax, left, right, top, bottom, width, height]);
+  // Clip the panel's displacement line to the lens even when an endpoint is outside the sample.
+  const displacement = useMemo(() => {
+    if (!draftHere) return null;
+    const original = points.find(point => !point.edited && point.record.id === selectedStudentId);
+    const edited = points.find(point => point.edited);
+    return original && edited && distanceSquared(original, edited) > 0 ? { original, edited } : null;
+  }, [points, draftHere, selectedStudentId]);
 
   const cancelPointerFrame = useCallback(() => {
     cancelAnimationFrame(pointerFrame.current);
@@ -82,10 +77,8 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     pendingPointer.current = null;
   }, []);
   const dismiss = useCallback(() => {
-    clearTimeout(leaveTimer.current);
     cancelAnimationFrame(focusFrame.current);
     cancelPointerFrame();
-    leaveTimer.current = null;
     focusFrame.current = null;
     measuredGeometry.current = null;
     sessionRef.current = null;
@@ -98,15 +91,6 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       activeLensId = null;
     }
   }, [cancelPointerFrame, clipId]);
-  const keepOpen = useCallback(() => {
-    clearTimeout(leaveTimer.current);
-    leaveTimer.current = null;
-  }, []);
-  const scheduleLeave = useCallback(() => {
-    cancelPointerFrame();
-    if (sessionRef.current && leaveTimer.current === null) leaveTimer.current = setTimeout(dismiss, LEAVE_DELAY);
-  }, [cancelPointerFrame, dismiss]);
-
   useEffect(() => {
     const svg = svgRef.current;
     // Switching to a drag tears down the previous effect and its pending lens.
@@ -147,7 +131,8 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     const measure = () => {
       if (measuredGeometry.current) return measuredGeometry.current;
       const rect = svg.getBoundingClientRect();
-      if (!rect.width || !rect.height) return null;
+      const matrix = svg.getScreenCTM();
+      if (!matrix || !rect.width || !rect.height) return null;
       const scrollport = svg.closest('.fex-matrix-viewport');
       const clip = scrollport?.getBoundingClientRect();
       const visible = clip ? {
@@ -156,40 +141,29 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         top: Math.max(rect.top, clip.top + scrollport.clientTop),
         bottom: Math.min(rect.bottom, clip.top + scrollport.clientTop + scrollport.clientHeight),
       } : rect;
-      return { rect, visible, viewport: { width: window.innerWidth, height: window.innerHeight } };
+      return { matrix, inverse: matrix.inverse(), visible, viewport: { width: window.innerWidth, height: window.innerHeight } };
     };
-    const prepare = (point, geometry, targetId) => {
-      if (sessionRef.current && distanceSquared(sessionRef.current.point, point) < .25) {
-        keepOpen();
+    const prepare = (point, geometry, targetId, keyboard = false) => {
+      if (sessionRef.current?.keyboard === keyboard && distanceSquared(sessionRef.current.point, point) === 0) {
         return;
       }
-      const { rect, visible, viewport } = geometry;
-      const focus = { x: rect.left + point.x * rect.width / width, y: rect.top + point.y * rect.height / height };
+      const { matrix, visible, viewport } = geometry;
+      const focus = new DOMPoint(point.x, point.y).matrixTransform(matrix);
       if (focus.x < Math.max(visible.left, 0) || focus.x > Math.min(visible.right, viewport.width)
         || focus.y < Math.max(visible.top, 0) || focus.y > Math.min(visible.bottom, viewport.height)) return;
-      const scale = Math.max(rect.width / width, rect.height / height);
+      const scale = Math.hypot(matrix.a, matrix.b);
       const popup = getExplorerLensGeometry(focus, viewport, ZOOM, scale, sessionRef.current?.popup.side, draftStudent ? 220 : 196);
       if (popup.diameter < 24) return;
       const nearby = getExplorerLensNeighbors(points, point, popup.radius);
       if (!nearby.length) {
-        // Briefly retain the last neighborhood across the gap to the lens.
-        scheduleLeave();
+        if (sessionRef.current) dismiss();
         return;
       }
-      keepOpen();
       activate();
       // Cache only after activation installs scroll/resize invalidation.
       measuredGeometry.current = geometry;
-      let nearest = null;
-      let nearestDistance = 12 ** 2;
-      for (const candidate of nearby) {
-        const distance = distanceSquared(candidate, point);
-        if (distance < nearestDistance || (distance === nearestDistance && (!nearest || candidate.record.id === targetId))) {
-          nearest = candidate;
-          nearestDistance = distance;
-        }
-      }
-      const anchor = { point, focus, popup, radius: popup.radius, chartSize: popup.diameter - 2, scale, nearby, points, nearest };
+      const nearest = nearestExplorerPoint(nearby, point, targetId);
+      const anchor = { point, focus, popup, radius: popup.radius, chartSize: popup.diameter - 2, scale, nearby, points, nearest, keyboard, hit: targetId != null };
       sessionRef.current = anchor;
       setSession(anchor);
     };
@@ -198,22 +172,11 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       const pointer = pendingPointer.current;
       pendingPointer.current = null;
       if (!pointer || !svg.isConnected) return;
-      const open = sessionRef.current;
-      // A new visible mark is an explicit target, even when it lies along
-      // the approach to the lens. Ignore transparent hit halos on that path.
-      const newTarget = pointer.element && !pointer.halo && pointer.element !== sourceElement.current;
-      if (open && !newTarget && approachesExplorerLens(pointer, open.focus, open.popup)) {
-        keepOpen();
-        return;
-      }
       const geometry = measure();
       if (!geometry) return;
-      const point = {
-        x: (pointer.x - geometry.rect.left) * width / geometry.rect.width,
-        y: (pointer.y - geometry.rect.top) * height / geometry.rect.height,
-      };
+      const point = new DOMPoint(pointer.x, pointer.y).matrixTransform(geometry.inverse);
       if (point.x < left || point.x > width - right || point.y < top || point.y > height - bottom) {
-        scheduleLeave();
+        if (sessionRef.current) dismiss();
         return;
       }
       if (pointer.element) sourceElement.current = pointer.element;
@@ -226,7 +189,6 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       pendingPointer.current = {
         x: event.clientX, y: event.clientY,
         element: event.target.closest?.('[data-explorer-student], [data-draft-student]'),
-        halo: event.target.matches?.('.fex-hit, .fex-draft-hit'),
       };
       // Coalesce events to the latest location once per animation frame.
       if (pointerFrame.current === null) pointerFrame.current = requestAnimationFrame(processPointer);
@@ -237,7 +199,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         return;
       }
       const element = event.target.closest?.('[data-explorer-student], [data-draft-student]');
-      if (!element) return;
+      if (!element?.matches(':focus-visible')) return;
       const edited = element.hasAttribute('data-draft-student');
       const point = points.find(candidate => Boolean(candidate.edited) === edited
         && candidate.record.id === (edited ? element.dataset.draftStudent : element.dataset.explorerStudent));
@@ -249,24 +211,21 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         focusFrame.current = null;
         if (!svg.isConnected || !element.isConnected || document.activeElement !== element) return;
         const geometry = measure();
-        if (geometry) prepare({ x: point.x, y: point.y }, geometry, point.record.id);
+        if (geometry) prepare({ x: point.x, y: point.y }, geometry, point.record.id, true);
       });
     };
     const blur = event => {
-      if (!svg.contains(event.relatedTarget) && !portalRef.current?.contains(event.relatedTarget)) scheduleLeave();
+      if (!svg.contains(event.relatedTarget) && !portalRef.current?.contains(event.relatedTarget)) dismiss();
     };
     const leaveSource = event => {
-      if (portalRef.current?.contains(event.relatedTarget)) {
-        cancelPointerFrame();
-        keepOpen();
-      } else scheduleLeave();
+      cancelPointerFrame();
+      if (!portalRef.current?.contains(event.relatedTarget)) dismiss();
     };
     const blankClick = event => {
       if (!event.target.closest?.('[data-explorer-student], [data-draft-student]')) dismiss();
     };
     svg.addEventListener('pointerdown', dismiss, true);
     svg.addEventListener('pointermove', pointerMove, { passive: true });
-    svg.addEventListener('pointerenter', keepOpen);
     svg.addEventListener('pointerleave', leaveSource);
     svg.addEventListener('focusin', focus);
     svg.addEventListener('focusout', blur);
@@ -274,14 +233,13 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     return () => {
       svg.removeEventListener('pointerdown', dismiss, true);
       svg.removeEventListener('pointermove', pointerMove);
-      svg.removeEventListener('pointerenter', keepOpen);
       svg.removeEventListener('pointerleave', leaveSource);
       svg.removeEventListener('focusin', focus);
       svg.removeEventListener('focusout', blur);
       svg.removeEventListener('click', blankClick);
       dismiss();
     };
-  }, [svgRef, panelId, points, draftStudent, policy, boundary, width, height, left, right, top, bottom, clipId, cancelPointerFrame, dismiss, keepOpen, scheduleLeave, disabled]);
+  }, [svgRef, panelId, points, draftStudent, policy, boundary, width, height, left, right, top, bottom, clipId, cancelPointerFrame, dismiss, disabled]);
 
   const nearby = session?.points === points ? session.nearby : [];
   const coincident = useMemo(() => {
@@ -306,7 +264,10 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
   const describe = point => point.record.id + ' · GPA ' + point.record.gpa + ' · SAT ' + point.record.sat
     + ' · ' + (point.admitted ? t.admitted : t.rejected);
   if (disabled || !session || !nearby.length) return null;
-  const inspected = inspectedPoint?.session === session ? inspectedPoint.point : session.nearest;
+  // A click can select a student underneath another mark at the exact same position.
+  const selectedAtFocus = !session.keyboard && selectedStudentId
+    ? coincident.get(session.nearest?.coordinateKey)?.find(point => point.record.id === selectedStudentId) : null;
+  const inspected = inspectedPoint?.session === session ? inspectedPoint.point : selectedAtFocus ?? session.nearest;
   const inspect = point => setInspectedPoint({ session, point });
   const { popup, chartSize, radius } = session;
   const center = chartSize / 2;
@@ -327,6 +288,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
 
   return <>
     <svg className="exl-source-overlay" width={width} height={height} viewBox={'0 0 ' + width + ' ' + height} aria-hidden="true">
+      {!session.keyboard && session.hit && <circle className="fex-hover-ring" cx={inspected.x} cy={inspected.y} r={8} />}
       <circle className="fex-lens-source" cx={session.point.x} cy={session.point.y} r={radius} />
     </svg>
     {createPortal(<>
@@ -337,9 +299,9 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       <div ref={portalRef}
       className={'explorer-point-lens' + (isLight ? ' is-light' : '')} data-explorer-lens={panelId} data-lens-side={popup.side}
       role="dialog" aria-label={'4× ' + t.detail + ': ' + panelLabel} aria-modal="false"
-      style={{ left: popup.left, top: popup.top, width: popup.diameter, height: popup.diameter }}
-      onPointerEnter={keepOpen} onPointerLeave={scheduleLeave} onFocus={keepOpen}
-      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && !svgRef.current?.contains(event.relatedTarget)) scheduleLeave(); }}
+      style={{ left: popup.left, top: popup.top, width: popup.diameter, height: popup.diameter, pointerEvents: session.keyboard ? 'auto' : 'none' }}
+      onPointerLeave={event => { if (!svgRef.current?.contains(event.relatedTarget)) dismiss(); }}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && !svgRef.current?.contains(event.relatedTarget)) dismiss(); }}
       onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
       <svg className="exl-chart" width={chartSize} height={chartSize} viewBox={'0 0 ' + chartSize + ' ' + chartSize}
         role="group" aria-label={t.detail}>
@@ -347,13 +309,14 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         <g clipPath={'url(#' + clipId + ')'}>
           {projectedBoundary && projectedBoundary.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))
             && <line className="exl-cutoff" aria-label={t.threshold} x1={projectedBoundary[0].x} y1={projectedBoundary[0].y} x2={projectedBoundary[1].x} y2={projectedBoundary[1].y} />}
-          {originalPoint && editedPoint && !samePosition && <line className="exl-compare-connector"
-            x1={lensX(originalPoint)} y1={lensY(originalPoint)} x2={lensX(editedPoint)} y2={lensY(editedPoint)} />}
+          {displacement && <line className="exl-compare-connector"
+            x1={lensX(displacement.original)} y1={lensY(displacement.original)}
+            x2={lensX(displacement.edited)} y2={lensY(displacement.edited)} />}
           {nearby.filter(point => !point.edited).map(point => {
             const cx = lensX(point);
             const cy = lensY(point);
             const overlap = coincident.get(point.coordinateKey).length;
-            return <g key={point.record.id} role="button" tabIndex={0} data-lens-student={point.record.id} data-lens-overlap={overlap}
+            return <g key={point.record.id} role="button" tabIndex={session.keyboard ? 0 : -1} data-lens-student={point.record.id} data-lens-overlap={overlap}
               aria-label={point.record.id === selectedStudentId ? t.original + ' · ' + describe(point) : describe(point)} aria-pressed={point.record.id === selectedStudentId}
               onPointerEnter={() => inspect(point)} onFocus={() => inspect(point)}
               onClick={event => pickPointer(event, point)}
@@ -366,7 +329,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
           })}
           {editedPoint && <g className="exl-draft" data-lens-draft={draftStudent.id} data-coincident={Boolean(samePosition)}
             transform={`translate(${lensX(editedPoint)} ${lensY(editedPoint)})`} role="img"
-            aria-label={t.edited + ' · ' + describe(editedPoint)} tabIndex={samePosition ? undefined : 0}
+            aria-label={t.edited + ' · ' + describe(editedPoint)} tabIndex={samePosition ? undefined : session.keyboard ? 0 : -1}
             onPointerEnter={() => inspect(editedPoint)} onFocus={() => inspect(editedPoint)}
             style={{ pointerEvents: samePosition ? 'none' : undefined }}>
             <circle className="exl-edited-ring" r={samePosition ? 14 : 10} />

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
 import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
@@ -11,6 +11,8 @@ import './feature-explorer-matrix.css';
 
 const ROW_LABEL_MAX_WIDTH = 102;
 const MATRIX_COLUMN_GAP = 6;
+const PLOT_MARGIN = { left: 43, right: 16, top: 22, bottom: 42 };
+const hasCoordinates = student => Number.isFinite(student?.gpa) && Number.isFinite(student?.sat);
 
 const COPY = {
   en: { columns: 'Columns', rows: 'Rows', sections: 'Sections', add: 'Add sections', none: 'None', all: 'All', clear: 'Clear', search: 'Search values', values: 'values', bins: 'Income bins', hcup2014: '2014 HCUP intervals', mergeMiddle: 'The middle two quartiles are combined.', quantile: 'Cohort quantiles', custom: 'Custom', count: 'Bins', cutPoints: 'Cut points ($)', apply: 'Apply', invalid: 'Enter increasing, positive amounts separated by commas.', student: 'Student', choose: 'Choose a student', profile: 'Background', empty: 'No students', missingCoordinates: 'Missing coordinates', noValues: 'Select at least one value.', original: 'Original', hypothetical: 'Hypothetical', admitted: 'Admitted', rejected: 'Not admitted', currentCutoff: 'Threshold line', plots: 'plots', missing: 'Unknown', allStudents: 'All students', closest: 'Closest to threshold' },
@@ -128,24 +130,34 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
   }, [fillHeight]);
   const width = fillHeight && plotSize.width ? plotSize.width : requestedWidth;
   const height = fillHeight ? plotSize.height : 220;
-  const margin = { left: 43, right: 16, top: 22, bottom: 42 };
-  const { dragKind, dragHandlers } = useExplorerDrag({
-    svgRef: svgElement, width, height, margin, domains, policy, students: panel.members,
-    selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection,
-    contextKey: `${contextKey}:${policy.id}:${panel.id}`,
-  });
+  const margin = PLOT_MARGIN;
   const dragCopy = DRAG_COPY[lang] || DRAG_COPY.en;
-  const x = value => margin.left + (value - domains.gpa[0]) / (domains.gpa[1] - domains.gpa[0]) * (width - margin.left - margin.right);
-  const y = value => height - margin.bottom - (value - domains.sat[0]) / (domains.sat[1] - domains.sat[0]) * (height - margin.top - margin.bottom);
+  const x = useCallback(value => PLOT_MARGIN.left + (value - domains.gpa[0]) / (domains.gpa[1] - domains.gpa[0])
+    * (width - PLOT_MARGIN.left - PLOT_MARGIN.right), [domains.gpa, width]);
+  const y = useCallback(value => height - PLOT_MARGIN.bottom - (value - domains.sat[0]) / (domains.sat[1] - domains.sat[0])
+    * (height - PLOT_MARGIN.top - PLOT_MARGIN.bottom), [domains.sat, height]);
   const originalHere = selectedStudent && panel.members.some(student => student.id === selectedStudent.id);
   const draftChanged = profilesDiffer(selectedStudent, draftStudent);
   const draftHere = draftChanged && recordMatchesExplorerContext(draftStudent, panel.context);
-  const finite = student => Number.isFinite(student?.gpa) && Number.isFinite(student?.sat);
-  const visibleMembers = panel.members.filter(finite);
-  const showDraft = draftHere && finite(draftStudent);
+  const visibleMembers = panel.members.filter(hasCoordinates);
+  const showDraft = draftHere && hasCoordinates(draftStudent);
+  // Both hover and pointer-down use these projected centers. SVG paint order
+  // alone cannot distinguish two students with overlapping click targets.
+  const points = useMemo(() => {
+    const records = showDraft ? [...panel.members, draftStudent] : panel.members;
+    return records.filter(hasCoordinates).map(record => ({
+      record, edited: showDraft && record === draftStudent, coordinateKey: record.gpa + ',' + record.sat,
+      x: x(record.gpa), y: y(record.sat), admitted: getDecision(record, policy),
+    })).sort((a, b) => a.x - b.x || String(a.record.id).localeCompare(String(b.record.id)));
+  }, [panel.members, showDraft, draftStudent, policy, x, y]);
+  const { dragKind, dragHandlers } = useExplorerDrag({
+    svgRef: svgElement, width, height, margin, domains, policy, students: panel.members, points,
+    selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection,
+    contextKey: `${contextKey}:${policy.id}:${panel.id}`,
+  });
   const draftX = showDraft ? x(draftStudent.gpa) : 0;
   const draftY = showDraft ? y(draftStudent.sat) : 0;
-  const draftMoved = showDraft && originalHere && finite(selectedStudent)
+  const draftMoved = showDraft && originalHere && hasCoordinates(selectedStudent)
     && (draftStudent.gpa !== selectedStudent.gpa || draftStudent.sat !== selectedStudent.sat);
   const draftAdmitted = showDraft && getDecision(draftStudent, policy);
   const title = contextLabel(panel.context, lang) || t.allStudents;
@@ -206,7 +218,7 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4" /></svg>
       <span>{selectedStudent.id}</span>{peerPanel && <span className="fex-pair-arrow" aria-hidden="true">↔</span>}
     </button>}
-    {(visibleMembers.length > 0 || showDraft) && <ExplorerPointLens svgRef={svgElement} panelId={panel.id} panelLabel={title} records={panel.members}
+    {(visibleMembers.length > 0 || showDraft) && <ExplorerPointLens svgRef={svgElement} panelId={panel.id} panelLabel={title} points={points}
       width={width} height={height} margin={margin} domains={domains} boundary={boundary}
       selectedStudent={selectedStudent} draftStudent={draftChanged && (originalHere || showDraft) ? draftStudent : null} draftHere={showDraft}
       policy={policy} colors={colors} isLight={isLight} lang={lang} onSelect={onSelect} disabled={Boolean(dragKind)} />}
@@ -315,7 +327,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const selectFromEvent = event => {
     const point = event.target.closest?.('[data-explorer-student]');
     if (point) {
-      onSelect(point.dataset.explorerStudent);
+      if (point.dataset.explorerStudent !== selectedStudent?.id) onSelect(point.dataset.explorerStudent);
       return;
     }
     if (event.target.closest?.('.fex-controls, [data-draft-student], [data-explorer-lens], [data-profile-pair]')) return;
@@ -326,7 +338,12 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const plotWidth = Math.max(240, Math.floor((availableWidth - rowGutter - (columnCount - 1) * MATRIX_COLUMN_GAP) / columnCount));
   const matrixWidth = rowGutter + columnCount * plotWidth + (columnCount - 1) * MATRIX_COLUMN_GAP;
   return <div lang={lang} className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
-    onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) { event.preventDefault(); onSelect(event.target.dataset.explorerStudent); } }}>
+    onKeyDown={event => {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) {
+        event.preventDefault();
+        if (event.target.dataset.explorerStudent !== selectedStudent?.id) onSelect(event.target.dataset.explorerStudent);
+      }
+    }}>
     <div className="fex-controls">
       <button type="button" className="workspace-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
         <RotateCcw size={12} aria-hidden="true" /><span>{resetCopy.label}</span>

@@ -4,6 +4,19 @@ const SOURCE_GAP = 9;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+export function nearestExplorerPoint(points, focus, targetId) {
+  let nearest = null;
+  let best = Infinity;
+  for (const point of points) {
+    const distance = (point.x - focus.x) ** 2 + (point.y - focus.y) ** 2;
+    if (distance < best || (distance === best && point.record.id === targetId)) {
+      nearest = point;
+      best = distance;
+    }
+  }
+  return nearest;
+}
+
 // Points are sorted by x once per plot. Inspect only the vertical strip
 // intersecting the source circle, returning the original point references.
 export function getExplorerLensNeighbors(points, focus, radius) {
@@ -53,17 +66,4 @@ export function getExplorerLensGeometry(focus, viewport, zoom = 4, scale = 1, pr
   left = clamp(left, padX, width - padX - diameter);
   top = clamp(top, padY, height - padY - diameter);
   return { left, top, diameter, side, radius };
-}
-
-// Freeze the source while crossing from it into the interactive popup.
-// Allow a widening approach so the user can aim at points off its center.
-export function approachesExplorerLens(pointer, focus, popup) {
-  const dx = popup.left + popup.diameter / 2 - focus.x;
-  const dy = popup.top + popup.diameter / 2 - focus.y;
-  const length = Math.hypot(dx, dy);
-  if (!length) return false;
-  const x = pointer.x - focus.x, y = pointer.y - focus.y;
-  const along = (x * dx + y * dy) / length;
-  const across = Math.abs(x * dy - y * dx) / length;
-  return along > 0 && along <= length && across <= 2 + along * popup.diameter / (2 * length);
 }
