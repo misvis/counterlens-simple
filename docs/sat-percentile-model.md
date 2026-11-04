@@ -3,7 +3,7 @@
 The visualizer uses SAT User Group percentile as a numeric input (0–100),
 not a rescaled SAT score. Its SAT contribution is `weight.sat * percentile / 100`.
 The editor and student drag use one-percentile-point increments. GPA scoring,
-policy weights, cutoffs, and simulated reference labels remain unchanged.
+policy weights, thresholds, and simulated reference labels remain unchanged.
 Admission outcomes are recomputed; GPA × percentile boundaries remain straight.
 
 Source: https://research.collegeboard.org/reports/sat-suite/understanding-scores/sat

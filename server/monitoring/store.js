@@ -252,7 +252,7 @@ export class ClassroomStore {
           policy: i < 12 ? 'holistic' : i < 20 ? 'opportunity' : 'academic',
           confidence: i < 2 ? 2 : i < 7 ? 3 : i < 18 ? 4 : 5,
           reflection: [
-            'I would ask who benefits from the cutoff.',
+            'I would ask who benefits from this threshold.',
             'A higher admission rate does not answer every fairness question.',
             'I would compare similar students under each policy.',
           ][i % 3],

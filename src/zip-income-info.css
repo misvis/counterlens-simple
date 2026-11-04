@@ -1,0 +1,19 @@
+.zip-income-help { display: inline-flex; flex: none; vertical-align: middle; }
+.zip-income-help > button.fex-picker-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; min-height: 0; padding: 0; border: 0;
+  border-radius: 4px; color: var(--threshold-muted); background: transparent; cursor: pointer;
+}
+.zip-income-help > .fex-picker-trigger[aria-expanded] > svg { color: inherit; transform: none; }
+.zip-income-help > button:hover, .zip-income-help > button[aria-expanded="true"] { color: var(--workspace-highlight); }
+.zip-income-help :focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -1px; }
+.zip-income-help > .fex-picker-body {
+  width: min(290px, calc(100vw - 24px)); background: var(--workspace-plot-surface);
+  border: 1px solid var(--workspace-plot-border); font-size: 12px; line-height: 1.5; text-align: left; font-weight: 400; white-space: normal;
+}
+.zip-income-help .fex-picker-body p { margin: 4px 0 7px; }
+.zip-income-help .fex-picker-body a { color: var(--workspace-highlight); text-decoration: underline; text-underline-offset: 2px; }
+.fex-income-picker-with-help, .exb-income-heading { display: flex; align-items: center; gap: 2px; }
+.exb-income-heading h3 { margin-bottom: 0; }
+.exb-field[data-background-field="zipIncome"] > .zip-income-help { position: absolute; top: 0; right: 3px; z-index: 2; }
+.workspace-controls .exb-field[data-background-field="zipIncome"] > label { right: 27px; }

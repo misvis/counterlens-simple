@@ -76,6 +76,20 @@ const seededUnit = (id, field) => {
   return (hash >>> 0) / 4294967296;
 };
 
+// AHRQ HCUP, ZIPINC_QRTL, 2014 (USD): https://hcup-us.ahrq.gov/db/vars/zipinc_qrtl/nisnote.jsp
+const HCUP_2014_CUTS = Object.freeze([40000, 51000, 66000]);
+const DEMO_INCOME_EDGES = [28000, ...HCUP_2014_CUTS, 160000];
+
+function syntheticZipIncome(id) {
+  // Equal probability per national quartile. Interpolate on a log-dollar
+  // scale inside each band; the two outer endpoints are demo assumptions.
+  const rank = seededUnit(id, 'zipIncome') * 4;
+  const band = Math.floor(rank);
+  const lower = DEMO_INCOME_EDGES[band];
+  const upper = DEMO_INCOME_EDGES[band + 1];
+  return Math.floor(lower * (upper / lower) ** (rank - band));
+}
+
 // Call only for explicitly synthetic records. Source fields always win, even
 // when null: existing values and missingness must never be overwritten.
 export const enrichExplorerRecords = records => records.map(record => {
@@ -94,7 +108,7 @@ export const enrichExplorerRecords = records => records.map(record => {
     residency: record.resident === true ? 'instate'
       : record.resident === false ? 'outofstate'
         : pick('residency'),
-    zipIncome: Math.round(28000 + seededUnit(record.id, 'zipIncome') * 132000),
+    zipIncome: syntheticZipIncome(record.id),
     major: pick('major'),
     transfer: pick('transfer'),
     mathStatus: pick('mathStatus'),
@@ -102,6 +116,9 @@ export const enrichExplorerRecords = records => records.map(record => {
   };
 });
 
+export const DEFAULT_INCOME_BINNING = Object.freeze({
+  method: 'hcup2014', count: 4, thresholds: HCUP_2014_CUTS,
+});
 const fixedThresholds = {
   3: [50000, 100000],
   4: [40000, 80000, 120000],
@@ -110,6 +127,7 @@ const fixedThresholds = {
 };
 const formatDollars = amount => `$${amount.toLocaleString('en-US', { maximumFractionDigits: 20 })}`;
 const edgeId = edge => edge === Infinity ? 'inf' : edge === -Infinity ? '-inf' : String(edge);
+const outsideIncomeRange = (value, minimum) => !isFiniteIncome(value) || value < minimum;
 const incomeOption = (min, max) => {
   const range = min === -Infinity && max === Infinity ? null
     : min === -Infinity ? `< ${formatDollars(max)}`
@@ -122,26 +140,31 @@ const incomeOption = (min, max) => {
   };
 };
 
-// Every numeric interval is [min, max); the two infinite outer edges also
-// cover finite incomes outside the observed sample. Quantiles are calculated
-// once from the full supplied cohort and keep equal incomes in the same bin.
-export const buildIncomeBins = (records, settings = {}) => {
-  const count = [3, 4, 5, 6].includes(Number(settings.count)) ? Number(settings.count) : 3;
-  const incomes = records.map(record => record.zipIncome).filter(isFiniteIncome).sort((a, b) => a - b);
+// HCUP quartiles start at $1. Cohort quantiles and custom intervals use open
+// tails and cover finite values outside the observed sample as well.
+export const buildIncomeBins = (records, settings = DEFAULT_INCOME_BINNING) => {
+  const count = Number(settings.count);
+  let minimum = -Infinity;
   let thresholds;
   if (settings.method === 'custom') {
     thresholds = (Array.isArray(settings.thresholds) ? settings.thresholds : []).filter(isFiniteIncome);
   } else if (settings.method === 'quantile') {
-    thresholds = incomes.length ? Array.from({ length: count - 1 }, (_, index) =>
-      incomes[Math.floor((index + 1) * incomes.length / count)])
+    const quantiles = [3, 4, 5, 6].includes(count) ? count : 3;
+    const incomes = records.map(record => record.zipIncome).filter(isFiniteIncome).sort((a, b) => a - b);
+    thresholds = incomes.length ? Array.from({ length: quantiles - 1 }, (_, index) =>
+      incomes[Math.floor((index + 1) * incomes.length / quantiles)])
       .filter(value => value > incomes[0]) : [];
+  } else if (settings.method === 'fixed') {
+    thresholds = fixedThresholds[count] || fixedThresholds[3];
   } else {
-    thresholds = fixedThresholds[count];
+    minimum = 1;
+    const cuts = DEFAULT_INCOME_BINNING.thresholds;
+    thresholds = count === 3 ? [cuts[0], cuts[2]] : cuts;
   }
   thresholds = [...new Set(thresholds)].sort((a, b) => a - b);
-  const edges = [-Infinity, ...thresholds, Infinity];
+  const edges = [minimum, ...thresholds, Infinity];
   const bins = edges.slice(0, -1).map((min, index) => incomeOption(min, edges[index + 1]));
-  if (records.some(record => !isFiniteIncome(record.zipIncome))) bins.push(MISSING_OPTION);
+  if (records.some(record => outsideIncomeRange(record.zipIncome, minimum))) bins.push({ ...MISSING_OPTION, minimum });
   return bins;
 };
 
@@ -160,7 +183,8 @@ export const getExplorerOptions = (featureKey, records, incomeBins) => {
   if (feature.type === 'number') {
     const options = (incomeBins ?? buildIncomeBins(records)).filter(item => !item.missing)
       .sort((a, b) => a.min - b.min);
-    return records.some(record => !isFiniteIncome(record[featureKey])) ? [...options, MISSING_OPTION] : options;
+    const minimum = options[0]?.min ?? -Infinity;
+    return records.some(record => outsideIncomeRange(record[featureKey], minimum)) ? [...options, { ...MISSING_OPTION, minimum }] : options;
   }
   const known = new Set(feature.values.map(item => item.value));
   const extras = new Map();
@@ -192,7 +216,7 @@ const matchesOption = (record, key, item) => {
   const feature = FEATURES_BY_KEY.get(key);
   if (!feature || !item) return false;
   const value = record[key];
-  if (item.missing) return feature.type === 'number' ? !isFiniteIncome(value) : isMissingCategory(value);
+  if (item.missing) return feature.type === 'number' ? outsideIncomeRange(value, item.minimum ?? -Infinity) : isMissingCategory(value);
   if (feature.type === 'number') return isFiniteIncome(value) && value >= item.min && value < item.max;
   return value === (Object.hasOwn(item, 'rawValue') ? item.rawValue : item.value);
 };

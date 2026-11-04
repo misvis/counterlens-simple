@@ -1,52 +1,80 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getDecision } from '../shared/admissionModel.js';
-import { getExplorerLensGeometry } from './explorerLensGeometry.js';
+import { getDecision, scoreStudent } from '../shared/admissionModel.js';
+import { approachesExplorerLens, getExplorerLensGeometry, getExplorerLensNeighbors } from './explorerLensGeometry.js';
 import './explorer-point-lens.css';
 
 const ZOOM = 4;
-const OPEN_DELAY = 300;
 const LEAVE_DELAY = 240;
-// Only the active or pending lens installs document listeners.
+// Only the active lens installs document listeners.
 let dismissActiveLens = null;
 let activeLensId = null;
 const COPY = {
-  en: { detail: 'Point detail', admitted: 'Admitted', rejected: 'Not admitted', cutoff: 'Current cutoff' },
-  zh: { detail: '数据点详情', admitted: '录取', rejected: '未录取', cutoff: '当前录取线' },
-  es: { detail: 'Detalle de puntos', admitted: 'Admitido', rejected: 'No admitido', cutoff: 'Corte actual' },
+  en: { detail: 'Point detail', admitted: 'Admitted', rejected: 'Not admitted', threshold: 'Threshold', original: 'Original', edited: 'Edited', score: 'Score', zipIncome: 'ZIP income' },
+  zh: { detail: '数据点详情', admitted: '录取', rejected: '未录取', threshold: '阈值', original: '原始', edited: '修改后', score: '得分', zipIncome: '邮区收入' },
+  es: { detail: 'Detalle de puntos', admitted: 'Admitido', rejected: 'No admitido', threshold: 'Umbral', original: 'Original', edited: 'Editado', score: 'Puntuación', zipIncome: 'Ingreso ZIP' },
 };
 const coordinate = (value, domain, start, length) => start + (value - domain[0]) / (domain[1] - domain[0]) * length;
 const distanceSquared = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
+// Moving the lens over the same student only repositions the drawing.
+const LensComparison = memo(function LensComparison({ original, edited, policy, colors, lang, t }) {
+  const format = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format;
+  const formatScore = new Intl.NumberFormat(lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
+  const academic = key => original[key] === edited[key] ? format(original[key]) : `${format(original[key])} → ${format(edited[key])}`;
+  const incomeChanged = original.zipIncome !== edited.zipIncome && Number.isFinite(original.zipIncome) && Number.isFinite(edited.zipIncome);
+  return <>
+    <div className="exl-compare-heading" data-lens-comparison={original.id}>
+      <strong>{original.id} · {t.threshold} {format(policy.threshold)}</strong>
+      <span>GPA {academic('gpa')} · SAT {academic('sat')}</span>
+    </div>
+    <div className="exl-compare-summary">
+      {incomeChanged && <span className="exl-income-change">{t.zipIncome} ${format(original.zipIncome)} → ${format(edited.zipIncome)}</span>}
+      {[original, edited].map((profile, index) => {
+        const score = scoreStudent(profile, policy);
+        const admitted = getDecision(profile, policy);
+        return <div key={index} className="exl-score-row" data-lens-state={index ? 'edited' : 'original'}>
+          <span>{index ? t.edited : t.original}</span>
+          <strong><span className="sr-only">{t.score} </span>{formatScore(score)}</strong>
+          <span style={{ color: admitted ? colors.admitted : colors.rejected }}>{admitted ? t.admitted : t.rejected}</span>
+        </div>;
+      })}
+    </div>
+  </>;
+});
+
 // Hover updates only this component, leaving the original SVG marks untouched.
 export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], width, height = 220,
   margin = { left: 43, right: 16, top: 22, bottom: 42 }, domains, boundary,
-  selectedStudentId, policy, colors, isLight, lang = 'en', onSelect, disabled = false }) {
+  selectedStudent, draftStudent, draftHere, policy, colors, isLight, lang = 'en', onSelect, disabled = false }) {
+  const selectedStudentId = selectedStudent?.id;
   const t = COPY[lang] || COPY.en;
   const clipId = useId().replace(/:/g, '');
   const portalRef = useRef(null);
   const sourceElement = useRef(null);
   const suppressFocus = useRef(false);
-  const openTimer = useRef(null);
   const leaveTimer = useRef(null);
   const focusFrame = useRef(null);
   const pointerFrame = useRef(null);
   const pendingPointer = useRef(null);
-  const latestAnchor = useRef(null);
   const sessionRef = useRef(null);
   const measuredGeometry = useRef(null);
   const removeGlobalListeners = useRef(null);
   const [session, setSession] = useState(null);
-  const [inspectedId, setInspectedId] = useState(null);
+  const [inspectedPoint, setInspectedPoint] = useState(null);
   const { left, right, top, bottom } = margin;
   const [gpaMin, gpaMax] = domains.gpa;
   const [satMin, satMax] = domains.sat;
-  const points = useMemo(() => records.filter(record => Number.isFinite(record.gpa) && Number.isFinite(record.sat)).map(record => ({
+  const points = useMemo(() => (draftHere && draftStudent ? [...records, draftStudent] : records)
+    .filter(record => Number.isFinite(record.gpa) && Number.isFinite(record.sat)).map(record => ({
     record,
+    edited: draftHere && record === draftStudent,
+    coordinateKey: record.gpa + ',' + record.sat,
     x: coordinate(record.gpa, [gpaMin, gpaMax], left, width - left - right),
     y: coordinate(record.sat, [satMin, satMax], height - bottom, -(height - top - bottom)),
     admitted: getDecision(record, policy),
-  })), [records, policy, gpaMin, gpaMax, satMin, satMax, left, right, top, bottom, width, height]);
+  })).sort((a, b) => a.x - b.x || String(a.record.id).localeCompare(String(b.record.id))),
+  [records, draftHere, draftStudent, policy, gpaMin, gpaMax, satMin, satMax, left, right, top, bottom, width, height]);
 
   const cancelPointerFrame = useCallback(() => {
     cancelAnimationFrame(pointerFrame.current);
@@ -54,18 +82,15 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     pendingPointer.current = null;
   }, []);
   const dismiss = useCallback(() => {
-    clearTimeout(openTimer.current);
     clearTimeout(leaveTimer.current);
     cancelAnimationFrame(focusFrame.current);
     cancelPointerFrame();
-    openTimer.current = null;
     leaveTimer.current = null;
     focusFrame.current = null;
-    latestAnchor.current = null;
     measuredGeometry.current = null;
     sessionRef.current = null;
     setSession(null);
-    setInspectedId(null);
+    setInspectedPoint(null);
     removeGlobalListeners.current?.();
     removeGlobalListeners.current = null;
     if (activeLensId === clipId) {
@@ -79,10 +104,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
   }, []);
   const scheduleLeave = useCallback(() => {
     cancelPointerFrame();
-    clearTimeout(openTimer.current);
-    openTimer.current = null;
-    clearTimeout(leaveTimer.current);
-    leaveTimer.current = setTimeout(dismiss, LEAVE_DELAY);
+    if (sessionRef.current && leaveTimer.current === null) leaveTimer.current = setTimeout(dismiss, LEAVE_DELAY);
   }, [cancelPointerFrame, dismiss]);
 
   useEffect(() => {
@@ -134,18 +156,22 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         top: Math.max(rect.top, clip.top + scrollport.clientTop),
         bottom: Math.min(rect.bottom, clip.top + scrollport.clientTop + scrollport.clientHeight),
       } : rect;
-      const popup = getExplorerLensGeometry(visible, { width: window.innerWidth, height: window.innerHeight });
-      if (popup.diameter < 24) return null;
-      const chartSize = popup.diameter - 2;
-      return { rect, popup, chartSize, radius: (chartSize / 2 - 1) / ZOOM };
+      return { rect, visible, viewport: { width: window.innerWidth, height: window.innerHeight } };
     };
-    const commit = anchor => {
-      sessionRef.current = anchor;
-      setSession(anchor);
-      setInspectedId(null);
-    };
-    const prepare = (point, geometry, immediate = false) => {
-      if (!points.some(candidate => distanceSquared(candidate, point) <= geometry.radius ** 2)) {
+    const prepare = (point, geometry, targetId) => {
+      if (sessionRef.current && distanceSquared(sessionRef.current.point, point) < .25) {
+        keepOpen();
+        return;
+      }
+      const { rect, visible, viewport } = geometry;
+      const focus = { x: rect.left + point.x * rect.width / width, y: rect.top + point.y * rect.height / height };
+      if (focus.x < Math.max(visible.left, 0) || focus.x > Math.min(visible.right, viewport.width)
+        || focus.y < Math.max(visible.top, 0) || focus.y > Math.min(visible.bottom, viewport.height)) return;
+      const scale = Math.max(rect.width / width, rect.height / height);
+      const popup = getExplorerLensGeometry(focus, viewport, ZOOM, scale, sessionRef.current?.popup.side, draftStudent ? 220 : 196);
+      if (popup.diameter < 24) return;
+      const nearby = getExplorerLensNeighbors(points, point, popup.radius);
+      if (!nearby.length) {
         // Briefly retain the last neighborhood across the gap to the lens.
         scheduleLeave();
         return;
@@ -154,25 +180,32 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       activate();
       // Cache only after activation installs scroll/resize invalidation.
       measuredGeometry.current = geometry;
-      const anchor = { point, ...geometry };
-      latestAnchor.current = anchor;
-      if (immediate || sessionRef.current) {
-        clearTimeout(openTimer.current);
-        openTimer.current = null;
-        if (!sessionRef.current || distanceSquared(sessionRef.current.point, point) >= .25) commit(anchor);
-      } else if (openTimer.current === null) {
-        // Pending movement changes refs, without rerendering the plot.
-        openTimer.current = setTimeout(() => {
-          openTimer.current = null;
-          if (latestAnchor.current && activeLensId === clipId) commit(latestAnchor.current);
-        }, OPEN_DELAY);
+      let nearest = null;
+      let nearestDistance = 12 ** 2;
+      for (const candidate of nearby) {
+        const distance = distanceSquared(candidate, point);
+        if (distance < nearestDistance || (distance === nearestDistance && (!nearest || candidate.record.id === targetId))) {
+          nearest = candidate;
+          nearestDistance = distance;
+        }
       }
+      const anchor = { point, focus, popup, radius: popup.radius, chartSize: popup.diameter - 2, scale, nearby, points, nearest };
+      sessionRef.current = anchor;
+      setSession(anchor);
     };
     const processPointer = () => {
       pointerFrame.current = null;
       const pointer = pendingPointer.current;
       pendingPointer.current = null;
       if (!pointer || !svg.isConnected) return;
+      const open = sessionRef.current;
+      // A new visible mark is an explicit target, even when it lies along
+      // the approach to the lens. Ignore transparent hit halos on that path.
+      const newTarget = pointer.element && !pointer.halo && pointer.element !== sourceElement.current;
+      if (open && !newTarget && approachesExplorerLens(pointer, open.focus, open.popup)) {
+        keepOpen();
+        return;
+      }
       const geometry = measure();
       if (!geometry) return;
       const point = {
@@ -184,7 +217,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         return;
       }
       if (pointer.element) sourceElement.current = pointer.element;
-      prepare(point, geometry);
+      prepare(point, geometry, pointer.element?.dataset.explorerStudent ?? pointer.element?.dataset.draftStudent);
     };
     const pointerMove = event => {
       if (event.pointerType === 'touch' || event.buttons) return;
@@ -192,7 +225,8 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       focusFrame.current = null;
       pendingPointer.current = {
         x: event.clientX, y: event.clientY,
-        element: event.target.closest?.('[data-explorer-student]'),
+        element: event.target.closest?.('[data-explorer-student], [data-draft-student]'),
+        halo: event.target.matches?.('.fex-hit, .fex-draft-hit'),
       };
       // Coalesce events to the latest location once per animation frame.
       if (pointerFrame.current === null) pointerFrame.current = requestAnimationFrame(processPointer);
@@ -202,8 +236,11 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         suppressFocus.current = false;
         return;
       }
-      const element = event.target.closest?.('[data-explorer-student]');
-      const point = points.find(candidate => candidate.record.id === element?.dataset.explorerStudent);
+      const element = event.target.closest?.('[data-explorer-student], [data-draft-student]');
+      if (!element) return;
+      const edited = element.hasAttribute('data-draft-student');
+      const point = points.find(candidate => Boolean(candidate.edited) === edited
+        && candidate.record.id === (edited ? element.dataset.draftStudent : element.dataset.explorerStudent));
       if (!point) return;
       dismiss();
       if (dismissActiveLens) dismissActiveLens();
@@ -212,11 +249,17 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         focusFrame.current = null;
         if (!svg.isConnected || !element.isConnected || document.activeElement !== element) return;
         const geometry = measure();
-        if (geometry) prepare({ x: point.x, y: point.y }, geometry, true);
+        if (geometry) prepare({ x: point.x, y: point.y }, geometry, point.record.id);
       });
     };
     const blur = event => {
       if (!svg.contains(event.relatedTarget) && !portalRef.current?.contains(event.relatedTarget)) scheduleLeave();
+    };
+    const leaveSource = event => {
+      if (portalRef.current?.contains(event.relatedTarget)) {
+        cancelPointerFrame();
+        keepOpen();
+      } else scheduleLeave();
     };
     const blankClick = event => {
       if (!event.target.closest?.('[data-explorer-student], [data-draft-student]')) dismiss();
@@ -224,7 +267,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     svg.addEventListener('pointerdown', dismiss, true);
     svg.addEventListener('pointermove', pointerMove, { passive: true });
     svg.addEventListener('pointerenter', keepOpen);
-    svg.addEventListener('pointerleave', scheduleLeave);
+    svg.addEventListener('pointerleave', leaveSource);
     svg.addEventListener('focusin', focus);
     svg.addEventListener('focusout', blur);
     svg.addEventListener('click', blankClick);
@@ -232,43 +275,51 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
       svg.removeEventListener('pointerdown', dismiss, true);
       svg.removeEventListener('pointermove', pointerMove);
       svg.removeEventListener('pointerenter', keepOpen);
-      svg.removeEventListener('pointerleave', scheduleLeave);
+      svg.removeEventListener('pointerleave', leaveSource);
       svg.removeEventListener('focusin', focus);
       svg.removeEventListener('focusout', blur);
       svg.removeEventListener('click', blankClick);
       dismiss();
     };
-  }, [svgRef, panelId, points, policy, boundary, width, height, left, right, top, bottom, clipId, dismiss, keepOpen, scheduleLeave, disabled]);
+  }, [svgRef, panelId, points, draftStudent, policy, boundary, width, height, left, right, top, bottom, clipId, cancelPointerFrame, dismiss, keepOpen, scheduleLeave, disabled]);
 
-  const nearby = useMemo(() => session ? points
-    .map(point => ({ ...point, distance: distanceSquared(point, session.point) }))
-    .filter(point => point.distance <= session.radius ** 2)
-    .sort((a, b) => a.distance - b.distance || String(a.record.id).localeCompare(String(b.record.id))) : [], [session, points]);
+  const nearby = session?.points === points ? session.nearby : [];
   const coincident = useMemo(() => {
     const result = new Map();
-    for (const point of nearby) {
-      const key = JSON.stringify([point.record.gpa, point.record.sat]);
+    for (const point of points) {
+      if (point.edited) continue;
+      const key = point.coordinateKey;
       if (!result.has(key)) result.set(key, []);
       result.get(key).push(point);
     }
     return result;
-  }, [nearby]);
-  const inspected = nearby.find(point => point.record.id === inspectedId)
-    || (nearby[0]?.distance <= 12 ** 2 ? nearby[0] : null);
+  }, [points]);
   const pick = (event, record) => {
     event.stopPropagation();
-    onSelect(record.id);
+    if (record.id !== selectedStudentId || !draftStudent) onSelect(record.id);
   };
   const pickPointer = (event, point) => {
-    const members = coincident.get(JSON.stringify([point.record.gpa, point.record.sat]));
+    const members = coincident.get(point.coordinateKey);
     const selected = members.findIndex(item => item.record.id === selectedStudentId);
     pick(event, members[(selected + 1) % members.length].record);
   };
   const describe = point => point.record.id + ' · GPA ' + point.record.gpa + ' · SAT ' + point.record.sat
     + ' · ' + (point.admitted ? t.admitted : t.rejected);
   if (disabled || !session || !nearby.length) return null;
+  const inspected = inspectedPoint?.session === session ? inspectedPoint.point : session.nearest;
+  const inspect = point => setInspectedPoint({ session, point });
   const { popup, chartSize, radius } = session;
   const center = chartSize / 2;
+  const originalPoint = nearby.find(point => !point.edited && point.record.id === selectedStudentId);
+  const editedPoint = nearby.find(point => point.edited);
+  const samePosition = originalPoint && editedPoint && distanceSquared(originalPoint, editedPoint) === 0;
+  const lensX = point => center + (point.x - session.point.x) * ZOOM;
+  const lensY = point => center + (point.y - session.point.y) * ZOOM;
+  const lensDx = popup.left + popup.diameter / 2 - session.focus.x;
+  const lensDy = popup.top + popup.diameter / 2 - session.focus.y;
+  const lensDistance = Math.hypot(lensDx, lensDy);
+  const sourceEdge = radius * session.scale / lensDistance;
+  const lensEdge = 1 - popup.diameter / (2 * lensDistance);
   const projectedBoundary = boundary?.points?.length > 1 ? boundary.points.slice(0, 2).map(point => ({
     x: center + (coordinate(point.x, [gpaMin, gpaMax], left, width - left - right) - session.point.x) * ZOOM,
     y: center + (coordinate(point.y, [satMin, satMax], height - bottom, -(height - top - bottom)) - session.point.y) * ZOOM,
@@ -278,7 +329,12 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
     <svg className="exl-source-overlay" width={width} height={height} viewBox={'0 0 ' + width + ' ' + height} aria-hidden="true">
       <circle className="fex-lens-source" cx={session.point.x} cy={session.point.y} r={radius} />
     </svg>
-    {createPortal(<div ref={portalRef}
+    {createPortal(<>
+      <svg className="exl-focus-link" aria-hidden="true" width="1" height="1"
+        style={{ left: session.focus.x, top: session.focus.y }}>
+        <line x1={lensDx * sourceEdge} y1={lensDy * sourceEdge} x2={lensDx * lensEdge} y2={lensDy * lensEdge} />
+      </svg>
+      <div ref={portalRef}
       className={'explorer-point-lens' + (isLight ? ' is-light' : '')} data-explorer-lens={panelId} data-lens-side={popup.side}
       role="dialog" aria-label={'4× ' + t.detail + ': ' + panelLabel} aria-modal="false"
       style={{ left: popup.left, top: popup.top, width: popup.diameter, height: popup.diameter }}
@@ -290,30 +346,43 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, records = [], w
         <defs><clipPath id={clipId}><circle cx={center} cy={center} r={radius * ZOOM} /></clipPath></defs>
         <g clipPath={'url(#' + clipId + ')'}>
           {projectedBoundary && projectedBoundary.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))
-            && <line className="exl-cutoff" aria-label={t.cutoff} x1={projectedBoundary[0].x} y1={projectedBoundary[0].y} x2={projectedBoundary[1].x} y2={projectedBoundary[1].y} />}
-          {nearby.map(point => {
-            const cx = center + (point.x - session.point.x) * ZOOM;
-            const cy = center + (point.y - session.point.y) * ZOOM;
-            const overlap = coincident.get(JSON.stringify([point.record.gpa, point.record.sat])).length;
+            && <line className="exl-cutoff" aria-label={t.threshold} x1={projectedBoundary[0].x} y1={projectedBoundary[0].y} x2={projectedBoundary[1].x} y2={projectedBoundary[1].y} />}
+          {originalPoint && editedPoint && !samePosition && <line className="exl-compare-connector"
+            x1={lensX(originalPoint)} y1={lensY(originalPoint)} x2={lensX(editedPoint)} y2={lensY(editedPoint)} />}
+          {nearby.filter(point => !point.edited).map(point => {
+            const cx = lensX(point);
+            const cy = lensY(point);
+            const overlap = coincident.get(point.coordinateKey).length;
             return <g key={point.record.id} role="button" tabIndex={0} data-lens-student={point.record.id} data-lens-overlap={overlap}
-              aria-label={describe(point)} aria-pressed={point.record.id === selectedStudentId}
-              onPointerEnter={() => setInspectedId(point.record.id)} onFocus={() => setInspectedId(point.record.id)}
+              aria-label={point.record.id === selectedStudentId ? t.original + ' · ' + describe(point) : describe(point)} aria-pressed={point.record.id === selectedStudentId}
+              onPointerEnter={() => inspect(point)} onFocus={() => inspect(point)}
               onClick={event => pickPointer(event, point)}
               onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); pick(event, point.record); } }}>
-              <title>{describe(point)}</title>
               <circle className="exl-hit" cx={cx} cy={cy} r={9} />
               {point.record.id === selectedStudentId && <circle className="exl-selected" cx={cx} cy={cy} r={7.5} />}
               {point.admitted ? <circle cx={cx} cy={cy} r={4.5} fill={colors.admitted} />
                 : <path d={'M' + cx + ',' + (cy - 5.5) + ' L' + (cx + 5.5) + ',' + cy + ' L' + cx + ',' + (cy + 5.5) + ' L' + (cx - 5.5) + ',' + cy + ' Z'} fill={colors.rejected} />}
             </g>;
           })}
+          {editedPoint && <g className="exl-draft" data-lens-draft={draftStudent.id} data-coincident={Boolean(samePosition)}
+            transform={`translate(${lensX(editedPoint)} ${lensY(editedPoint)})`} role="img"
+            aria-label={t.edited + ' · ' + describe(editedPoint)} tabIndex={samePosition ? undefined : 0}
+            onPointerEnter={() => inspect(editedPoint)} onFocus={() => inspect(editedPoint)}
+            style={{ pointerEvents: samePosition ? 'none' : undefined }}>
+            <circle className="exl-edited-ring" r={samePosition ? 14 : 10} />
+            {editedPoint.admitted
+              ? <circle r={samePosition ? 10 : 4.5} fill={samePosition ? 'none' : colors.admitted} stroke={colors.admitted} strokeWidth={2} />
+              : <path d={samePosition ? 'M0 -11 L11 0 0 11 -11 0Z' : 'M0 -5 L5 0 0 5 -5 0Z'} fill={samePosition ? 'none' : colors.rejected} stroke={colors.rejected} strokeWidth={2} />}
+          </g>}
         </g>
         <path transform={'translate(' + center + ' ' + center + ')'} d="M 0 -12 V -4 M 0 4 V 12 M -12 0 H -4 M 4 0 H 12" className="exl-crosshair" aria-hidden="true" />
       </svg>
-      {inspected && <div className="exl-info" data-lens-detail={inspected.record.id}>
-        <span><strong>{inspected.record.id}</strong> · <span style={{ color: inspected.admitted ? colors.admitted : colors.rejected }}>{inspected.admitted ? t.admitted : t.rejected}</span></span>
-        <span>GPA {inspected.record.gpa} · SAT {inspected.record.sat}</span>
-      </div>}
-    </div>, document.body)}
+      {inspected && (draftStudent && inspected.record.id === selectedStudentId
+        ? <LensComparison original={selectedStudent} edited={draftStudent} policy={policy} colors={colors} lang={lang} t={t} />
+        : <div className="exl-info" data-lens-detail={inspected.record.id}>
+          <span><strong>{inspected.record.id}</strong> · <span style={{ color: inspected.admitted ? colors.admitted : colors.rejected }}>{inspected.admitted ? t.admitted : t.rejected}</span></span>
+          <span>GPA {inspected.record.gpa} · SAT {inspected.record.sat}</span>
+        </div>)}
+    </div></>, document.body)}
   </>;
 }

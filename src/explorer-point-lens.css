@@ -1,17 +1,37 @@
 .explorer-point-lens {
-  --exl-surface: #1b1f27; --exl-info-surface: #1b1f27; --exl-border: #66748a; --exl-text: #e2e8f0; --exl-muted: #d5dce8; --exl-accent: #8ea7ff;
+  --exl-surface: #1b1f27; --exl-border: #66748a; --exl-text: #e2e8f0; --exl-accent: #8ea7ff;
   position: fixed; z-index: 1000; box-sizing: border-box; display: block;
   padding: 0; border: 1px solid var(--exl-border); border-radius: 50%; background: var(--exl-surface); color: var(--exl-text);
   font: 11px/1.35 system-ui, sans-serif; overflow: hidden; box-shadow: 0 5px 18px #0f172a24;
 }
-.explorer-point-lens.is-light { --exl-surface: #fff; --exl-info-surface: #fff; --exl-border: #94a3b8; --exl-text: #334155; --exl-muted: #475569; --exl-accent: #2563eb; }
+.explorer-point-lens.is-light { --exl-surface: #fff; --exl-border: #94a3b8; --exl-text: #334155; --exl-accent: #2563eb; }
 .exl-source-overlay { position: absolute; inset: 0; pointer-events: none; }
+.exl-focus-link { position: fixed; z-index: 999; overflow: visible; pointer-events: none; stroke: #3b82f6; stroke-width: 1.5; }
 .exl-chart { display: block; }
 .exl-crosshair { fill: none; stroke: currentColor; stroke-width: 1; opacity: .5; pointer-events: none; }
-.exl-info { position: absolute; left: 8%; right: 8%; bottom: 11%; display: grid; justify-items: center; border-radius: 8px; font-size: 10px; line-height: 12px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; background: var(--exl-info-surface); }
 .exl-cutoff { stroke: var(--exl-accent); stroke-width: 1.5; }
 .exl-hit { fill: transparent; stroke: transparent; }
 .exl-selected { fill: var(--exl-surface); stroke: var(--exl-accent); stroke-width: 2; }
 .exl-chart [role="button"] { cursor: pointer; }
-.exl-chart [role="button"]:focus-visible { outline: none; }
+.exl-chart [role="button"]:focus { outline: none; }
 .exl-chart [role="button"]:focus-visible .exl-hit, .exl-chart [role="button"]:hover .exl-hit { stroke: var(--exl-accent); stroke-width: 1; }
+.explorer-point-lens { --exl-edit: #d3a5ff; }
+.explorer-point-lens.is-light { --exl-edit: #7e22ce; }
+.exl-compare-connector, .exl-edited-ring { fill: none; stroke: var(--exl-edit); stroke-dasharray: 3 2; }
+.exl-edited-ring { stroke-width: 2; }
+.exl-draft:focus { outline: none; }
+.exl-draft:focus-visible .exl-edited-ring { stroke-width: 3; }
+.exl-info, .exl-compare-heading, .exl-compare-summary {
+  position: absolute; left: 50%; transform: translateX(-50%); width: max-content; max-width: 88%;
+  padding: 2px 4px; border-radius: 5px; background: var(--exl-surface); text-align: center;
+  font-size: 10px; line-height: 13px; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.exl-info, .exl-compare-heading { display: grid; }
+.exl-info, .exl-compare-summary { bottom: 11%; }
+.exl-compare-heading { top: 9%; }
+.exl-compare-summary { display: grid; grid-template-columns: auto auto auto; column-gap: 5px; }
+.exl-income-change { grid-column: 1 / -1; margin-bottom: 2px; }
+.exl-score-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; text-align: left; }
+.exl-score-row strong { text-align: right; }
+.exl-score-row[data-lens-state="original"] > :first-child { color: var(--exl-accent); }
+.exl-score-row[data-lens-state="edited"] > :first-child { color: var(--exl-edit); }

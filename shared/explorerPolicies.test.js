@@ -121,7 +121,7 @@ test('Coalescing equally weighted ethnicity categories preserves current scores,
     assert.deepEqual(confusionMatrix(records, policy, 'referenceOutcome'), confusionMatrix(previousRecords, previousPolicy, 'referenceOutcome'));
     counts.push(records.filter(record => getDecision(record, policy)).length);
   }
-  assert.deepEqual(counts, [45, 39, 47]);
+  assert.deepEqual(counts, [45, 47, 53]);
 });
 
 test('Explicit None and Not Specified remain separate from missing values despite equal zero contributions', () => {
@@ -306,7 +306,7 @@ test('Conditional cutoff ranges bound all category combinations and continuous i
 });
 
 test('Income-sensitive policies retain within-bin variation while exact income and academic-only rules have one cutoff', () => {
-  const profile = records[46];
+  const profile = records.find(record => record.zipIncome >= 100000);
   for (const policy of policies) {
     const exact = Object.fromEntries(keys.map(key => [key, profile[key]]));
     const score = expectedBackground(profile, policy);

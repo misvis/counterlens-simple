@@ -1533,7 +1533,7 @@
   .workspace-controls .simplified-rate-table { flex: 1; grid-template-rows: repeat(3, minmax(48px, 1fr)); }
 }
 
-/* Keep the Explorer editor compact; helper messages expand only when needed. */
+/* Keep the Explorer editor compact around its fixed helper rows. */
 .workspace-controls > .workspace-counterfactual.has-explorer-editor { padding-top: 10px; padding-bottom: 8px; }
 .has-explorer-editor > :first-child { margin-bottom: 4px; }
 .has-explorer-editor .workspace-draft-controls { flex: none; justify-content: flex-start; gap: 6px; }

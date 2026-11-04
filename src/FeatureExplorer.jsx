@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
-import { EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
+import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
 import { ExplorerDropdown } from './ExplorerDropdown.jsx';
+import ZipIncomeInfo from './ZipIncomeInfo.jsx';
 import { cutoffMatchesContext, getExplorerCutoff } from './explorerCutoff.js';
 import useExplorerDrag from './useExplorerDrag.js';
 import './feature-explorer-matrix.css';
@@ -12,9 +13,9 @@ const ROW_LABEL_MAX_WIDTH = 102;
 const MATRIX_COLUMN_GAP = 6;
 
 const COPY = {
-  en: { columns: 'Columns', rows: 'Rows', sections: 'Sections', add: 'Add sections', none: 'None', all: 'All', clear: 'Clear', search: 'Search values', values: 'values', bins: 'Income bins', fixed: 'Fixed intervals', quantile: 'Quantiles', custom: 'Custom', count: 'Bins', cutPoints: 'Cut points ($)', apply: 'Apply', invalid: 'Enter increasing, positive amounts separated by commas.', student: 'Student', choose: 'Choose a student', profile: 'Background', empty: 'No students', missingCoordinates: 'Missing coordinates', noValues: 'Select at least one value.', original: 'Original', hypothetical: 'Hypothetical', admitted: 'Admitted', rejected: 'Not admitted', currentCutoff: 'Current cutoff', plots: 'plots', missing: 'Unknown', allStudents: 'All students', closest: 'Closest to cutoff' },
-  zh: { columns: '列', rows: '行', sections: '分区', add: '添加分区', none: '无', all: '全部', clear: '清空', search: '搜索类别', values: '类', bins: '收入分箱', fixed: '固定区间', quantile: '分位数', custom: '自定义', count: '区间数', cutPoints: '分界值（美元）', apply: '应用', invalid: '请输入递增的正数金额，用逗号分隔。', student: '学生', choose: '选择学生', profile: '背景', empty: '无学生', missingCoordinates: '缺少坐标数据', noValues: '请至少选择一个类别。', original: '原始', hypothetical: '假设', admitted: '录取', rejected: '未录取', currentCutoff: '当前录取线', plots: '张图', missing: '未知', allStudents: '全部学生', closest: '最接近录取线' },
-  es: { columns: 'Columnas', rows: 'Filas', sections: 'Secciones', add: 'Añadir secciones', none: 'Ninguno', all: 'Todos', clear: 'Vaciar', search: 'Buscar categorías', values: 'valores', bins: 'Intervalos de ingresos', fixed: 'Intervalos fijos', quantile: 'Cuantiles', custom: 'Personalizados', count: 'Intervalos', cutPoints: 'Límites ($)', apply: 'Aplicar', invalid: 'Introduce importes positivos en orden creciente, separados por comas.', student: 'Estudiante', choose: 'Elige un estudiante', profile: 'Contexto', empty: 'Sin estudiantes', missingCoordinates: 'Sin coordenadas', noValues: 'Selecciona al menos un valor.', original: 'Original', hypothetical: 'Hipotético', admitted: 'Admitido', rejected: 'No admitido', currentCutoff: 'Corte actual', plots: 'gráficos', missing: 'Desconocido', allStudents: 'Todos los estudiantes', closest: 'Más cerca del corte' },
+  en: { columns: 'Columns', rows: 'Rows', sections: 'Sections', add: 'Add sections', none: 'None', all: 'All', clear: 'Clear', search: 'Search values', values: 'values', bins: 'Income bins', hcup2014: '2014 HCUP intervals', mergeMiddle: 'The middle two quartiles are combined.', quantile: 'Cohort quantiles', custom: 'Custom', count: 'Bins', cutPoints: 'Cut points ($)', apply: 'Apply', invalid: 'Enter increasing, positive amounts separated by commas.', student: 'Student', choose: 'Choose a student', profile: 'Background', empty: 'No students', missingCoordinates: 'Missing coordinates', noValues: 'Select at least one value.', original: 'Original', hypothetical: 'Hypothetical', admitted: 'Admitted', rejected: 'Not admitted', currentCutoff: 'Threshold line', plots: 'plots', missing: 'Unknown', allStudents: 'All students', closest: 'Closest to threshold' },
+  zh: { columns: '列', rows: '行', sections: '分区', add: '添加分区', none: '无', all: '全部', clear: '清空', search: '搜索类别', values: '类', bins: '收入分箱', hcup2014: '2014 年 HCUP 区间', mergeMiddle: '中间两档已合并。', quantile: '样本分位数', custom: '自定义', count: '区间数', cutPoints: '分界值（美元）', apply: '应用', invalid: '请输入递增的正数金额，用逗号分隔。', student: '学生', choose: '选择学生', profile: '背景', empty: '无学生', missingCoordinates: '缺少坐标数据', noValues: '请至少选择一个类别。', original: '原始', hypothetical: '假设', admitted: '录取', rejected: '未录取', currentCutoff: '阈值线', plots: '张图', missing: '未知', allStudents: '全部学生', closest: '最接近阈值' },
+  es: { columns: 'Columnas', rows: 'Filas', sections: 'Secciones', add: 'Añadir secciones', none: 'Ninguno', all: 'Todos', clear: 'Vaciar', search: 'Buscar categorías', values: 'valores', bins: 'Intervalos de ingresos', hcup2014: 'Intervalos HCUP de 2014', mergeMiddle: 'Se combinan los dos cuartiles centrales.', quantile: 'Cuantiles de la cohorte', custom: 'Personalizados', count: 'Intervalos', cutPoints: 'Límites ($)', apply: 'Aplicar', invalid: 'Introduce importes positivos en orden creciente, separados por comas.', student: 'Estudiante', choose: 'Elige un estudiante', profile: 'Contexto', empty: 'Sin estudiantes', missingCoordinates: 'Sin coordenadas', noValues: 'Selecciona al menos un valor.', original: 'Original', hypothetical: 'Hipotético', admitted: 'Admitido', rejected: 'No admitido', currentCutoff: 'Línea del umbral', plots: 'gráficos', missing: 'Desconocido', allStudents: 'Todos los estudiantes', closest: 'Más cerca del umbral' },
 };
 const PAIR_COPY = {
   en: { original: 'Show original', draft: 'Show hypothetical', hidden: 'Other group is filtered out' },
@@ -27,9 +28,9 @@ const RESET_COPY = {
   es: { label: 'Restablecer', accessible: 'Restablecer visualizador' },
 };
 const SHARED_CUTOFF_COPY = {
-  en: 'Shared cutoff · Applies to all students (GPA and SAT only)',
-  zh: '统一录取边界 · 适用于所有学生（仅考虑 GPA 和 SAT）',
-  es: 'Corte común · Se aplica a todos los estudiantes (solo GPA y SAT)',
+  en: 'Shared threshold line (GPA and SAT only)',
+  zh: '共用阈值线（仅考虑 GPA 和 SAT）',
+  es: 'Línea del umbral común (solo GPA y SAT)',
 };
 const DRAG_COPY = {
   en: { cutoff: 'Drag to adjust the admission threshold. Arrow keys also adjust it; Escape cancels a drag.', student: 'Drag to edit GPA and SAT. Escape cancels a drag.' },
@@ -59,7 +60,7 @@ const profileValueLabel = (student, key, options, lang, t) => {
 
 function ValuePicker({ feature, options, selected, onChange, binning, onBinningChange, lang, t }) {
   const [search, setSearch] = useState('');
-  const [customInput, setCustomInput] = useState(() => (binning.thresholds || [50000, 75000, 100000]).join(', '));
+  const [customInput, setCustomInput] = useState(() => binning.thresholds.join(', '));
   const [invalid, setInvalid] = useState(false);
   const chosen = selected ?? options.map(option => option.value);
   const all = options.length > 0 && options.every(option => chosen.includes(option.value));
@@ -75,22 +76,24 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
     setCustomInput(thresholds.join(', '));
     onBinningChange({ ...binning, method: 'custom', thresholds });
   };
-  return <ExplorerDropdown featureKey={feature.key} label={<>{label(feature.label, lang)}<span className="fex-picker-selection">{all ? t.all : `${chosen.length} ${t.values}`}</span></>}>
+  const picker = <ExplorerDropdown featureKey={feature.key} label={<>{label(feature.label, lang)}<span className="fex-picker-selection">{all ? t.all : `${chosen.length} ${t.values}`}</span></>}>
       {feature.key === 'zipIncome' && <div className="fex-binning">
         <label>{t.bins}<select aria-label={t.bins} value={binning.method} onChange={event => {
           setInvalid(false);
-          if (event.target.value === 'custom') {
-            onBinningChange({ ...binning, method: 'custom', thresholds: binning.thresholds || [50000, 75000, 100000] });
-          } else onBinningChange({ ...binning, method: event.target.value });
+          const method = event.target.value;
+          if (method === 'custom') setCustomInput(binning.thresholds.join(', '));
+          const count = method === 'hcup2014' && binning.count > 4 ? 4 : binning.count;
+          onBinningChange({ ...binning, method, count });
         }}>
-          <option value="fixed">{t.fixed}</option><option value="quantile">{t.quantile}</option><option value="custom">{t.custom}</option>
+          <option value="hcup2014">{t.hcup2014}</option><option value="quantile">{t.quantile}</option><option value="custom">{t.custom}</option>
         </select></label>
         {binning.method !== 'custom' ? <label>{t.count}<select aria-label={t.count} value={binning.count} onChange={event => onBinningChange({ ...binning, count: Number(event.target.value) })}>
-          {[3, 4, 5, 6].map(count => <option key={count} value={count}>{count}</option>)}
+          {(binning.method === 'hcup2014' ? [4, 3] : [3, 4, 5, 6]).map(count => <option key={count} value={count}>{count}</option>)}
         </select></label> : <div className="fex-custom-bins">
           <label>{t.cutPoints}<input aria-label={t.cutPoints} value={customInput} onChange={event => { setCustomInput(event.target.value); setInvalid(false); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyCuts(); } }} /></label>
           <button type="button" onClick={applyCuts}>{t.apply}</button>
         </div>}
+        {binning.method === 'hcup2014' && binning.count === 3 && <small className="fex-bin-note">{t.mergeMiddle}</small>}
         {invalid && <span className="fex-error" role="alert">{t.invalid}</span>}
       </div>}
       {options.length > 4 && <input type="search" className="fex-value-search" aria-label={`${t.search}: ${label(feature.label, lang)}`} placeholder={t.search} value={search} onChange={event => setSearch(event.target.value)} />}
@@ -100,6 +103,9 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
         <span>{label(option.label, lang)}</span>
       </label>)}</div>
   </ExplorerDropdown>;
+  return feature.key === 'zipIncome'
+    ? <div className="fex-income-picker-with-help">{picker}<ZipIncomeInfo lang={lang} binning={binning} /></div>
+    : picker;
 }
 
 function OutcomeMark({ admitted, cx, cy, color, size = 4 }) {
@@ -149,7 +155,6 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
   const pairTitle = pairRole ? `${pairRole === 'original' ? t.original : t.hypothetical}: ${selectedStudent.id} · ${peerPanel ? `${pairCopy[peerRole]} · ${contextLabel(peerPanel.context, lang)}` : pairCopy.hidden}` : '';
   return <div ref={plotElement} className="fex-plot" data-explorer-panel={panel.id} data-original-group={Boolean(originalHere)} data-pair-role={pairRole || undefined} data-dragging={dragKind || undefined} {...dragHandlers}>
     <svg ref={svgElement} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label={title}>
-      <title>{title}</title>
       <rect className="fex-frame" x={margin.left} y={margin.top} width={width - margin.left - margin.right} height={height - margin.top - margin.bottom} />
       {ticks(domains.gpa).map((value, index) => <g key={`x-${index}`}><line className="fex-gridline" x1={x(value)} x2={x(value)} y1={margin.top} y2={height - margin.bottom} /><text x={x(value)} y={height - margin.bottom + 16} textAnchor="middle">{formatValue(value, 'gpa')}</text></g>)}
       {ticks(domains.sat).map((value, index) => <g key={`y-${index}`}><line className="fex-gridline" x1={margin.left} x2={width - margin.right} y1={y(value)} y2={y(value)} /><text x={margin.left - 6} y={y(value) + 4} textAnchor="end">{formatValue(value, 'sat')}</text></g>)}
@@ -158,9 +163,7 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
         data-policy-cutoff={currentCutoff.scope === 'all' ? 'academic' : undefined} aria-label={currentCutoff.description}
         data-cutoff-income={currentCutoff.scope === 'profile' ? (Number.isFinite(currentCutoff.profile.zipIncome) ? currentCutoff.profile.zipIncome : 'missing') : undefined}
         data-cutoff-background-score={currentCutoff.score}
-        x1={x(boundary.points[0].x)} y1={y(boundary.points[0].y)} x2={x(boundary.points[1].x)} y2={y(boundary.points[1].y)}>
-        <title>{currentCutoff.description}</title>
-      </line>}
+        x1={x(boundary.points[0].x)} y1={y(boundary.points[0].y)} x2={x(boundary.points[1].x)} y2={y(boundary.points[1].y)} />}
       {boundary?.points.length > 1 && onThresholdChange && <g className="fex-cutoff-control" data-cutoff-drag role="slider" tabIndex={0}
         aria-label={`${currentCutoff.description}. ${dragCopy.cutoff}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={policy.threshold}
         onClick={event => event.stopPropagation()} onKeyDown={event => {
@@ -171,7 +174,6 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
           event.preventDefault(); event.stopPropagation();
           onThresholdChange(Math.max(0, Math.min(100, next)));
         }}>
-        <title>{`${currentCutoff.description}. ${dragCopy.cutoff}`}</title>
         <line className="fex-cutoff-hit" x1={x(boundary.points[0].x)} y1={y(boundary.points[0].y)} x2={x(boundary.points[1].x)} y2={y(boundary.points[1].y)} />
       </g>}
       <text className="fex-axis" x={(margin.left + width - margin.right) / 2} y={height - 5} textAnchor="middle">GPA</text>
@@ -181,16 +183,16 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
       {visibleMembers.map(student => {
         const admitted = getDecision(student, policy), cx = x(student.gpa), cy = y(student.sat);
         return <g key={student.id} role="button" tabIndex={0} className="fex-student" data-explorer-student={student.id} aria-pressed={student.id === selectedStudent?.id}
-          aria-label={`${student.id === selectedStudent?.id ? `${t.original}: ` : ''}${descriptions.get(student.id)}`} opacity={isMining && !edgeIds.has(student.id) && student.id !== selectedStudent?.id ? .3 : 1}>
-          <title>{`${descriptions.get(student.id)}. ${dragCopy.student}`}</title>
+          aria-label={`${student.id === selectedStudent?.id ? `${t.original}: ` : ''}${descriptions.get(student.id)}`} aria-description={dragCopy.student}
+          opacity={isMining && !edgeIds.has(student.id) && student.id !== selectedStudent?.id ? .3 : 1}>
           <circle className="fex-hit" cx={cx} cy={cy} r={11} />
           {isMining && edgeIds.has(student.id) && <circle className="fex-edge-case" cx={cx} cy={cy} r={8} />}
           {student.id === selectedStudent?.id && <circle className="fex-original-ring" cx={cx} cy={cy} r={8} />}
           <OutcomeMark admitted={admitted} cx={cx} cy={cy} color={admitted ? colors.admitted : colors.rejected} />
         </g>;
       })}
-      {showDraft && <g className="fex-draft" data-draft-student={draftStudent.id} role="img" aria-label={`${t.hypothetical}: ${draftStudent.id}, GPA ${draftStudent.gpa}, SAT Percentile ${draftStudent.sat}`}>
-        <title>{`${t.hypothetical}: ${draftStudent.id}. ${dragCopy.student}`}</title>
+      {showDraft && <g className="fex-draft" data-draft-student={draftStudent.id} role="img" tabIndex={0}
+        aria-label={`${t.hypothetical}: ${draftStudent.id}, GPA ${draftStudent.gpa}, SAT Percentile ${draftStudent.sat}`} aria-description={dragCopy.student}>
         <circle className="fex-draft-hit" cx={draftX} cy={draftY} r={12} />
         <circle className="fex-draft-ring" cx={draftX} cy={draftY} r={11} />
         <OutcomeMark admitted={draftAdmitted} cx={draftX} cy={draftY} color={draftAdmitted ? colors.admitted : colors.rejected} size={4.5} />
@@ -199,14 +201,15 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
       {!!panel.members.length && !visibleMembers.length && <text className="fex-empty-panel" x={(margin.left + width - margin.right) / 2} y={(margin.top + height - margin.bottom) / 2} textAnchor="middle">{t.missingCoordinates}</text>}
     </svg>
     {pairRole && <button type="button" className={`fex-pair-link fex-pair-${pairRole}`} data-profile-pair={pairRole}
-      ref={element => registerPair(pairRole, element)} disabled={!peerPanel} aria-label={pairTitle} title={pairTitle}
+      ref={element => registerPair(pairRole, element)} disabled={!peerPanel} aria-label={pairTitle}
       onClick={event => { event.stopPropagation(); navigatePair(peerRole); }}>
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4" /></svg>
       <span>{selectedStudent.id}</span>{peerPanel && <span className="fex-pair-arrow" aria-hidden="true">↔</span>}
     </button>}
-    <ExplorerPointLens svgRef={svgElement} panelId={panel.id} panelLabel={title} records={panel.members}
+    {(visibleMembers.length > 0 || showDraft) && <ExplorerPointLens svgRef={svgElement} panelId={panel.id} panelLabel={title} records={panel.members}
       width={width} height={height} margin={margin} domains={domains} boundary={boundary}
-      selectedStudentId={selectedStudent?.id} policy={policy} colors={colors} isLight={isLight} lang={lang} onSelect={onSelect} disabled={Boolean(dragKind)} />
+      selectedStudent={selectedStudent} draftStudent={draftChanged && (originalHere || showDraft) ? draftStudent : null} draftHere={showDraft}
+      policy={policy} colors={colors} isLight={isLight} lang={lang} onSelect={onSelect} disabled={Boolean(dragKind)} />}
   </div>;
 }
 
@@ -268,9 +271,9 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     return {
       ...cutoff,
       description: cutoff.scope === 'all' ? (SHARED_CUTOFF_COPY[lang] || SHARED_CUTOFF_COPY.en)
-        : `${t.currentCutoff} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(profile, feature.key, options[feature.key], lang, t)}`).join(' · ')}`,
+        : `${t.currentCutoff} · ${profile.id}`,
     };
-  }, [profile, policy, lang, options, t]);
+  }, [profile, policy, lang, t]);
   const descriptions = useMemo(() => new Map(students.map(student => [student.id, `${student.id} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(student, feature.key, options[feature.key], lang, t)}`).join(' · ')} · ${getDecision(student, policy) ? t.admitted : t.rejected}`])), [students, options, lang, policy, t]);
   const changeLayout = patch => setLayout(current => normalizeExplorerLayout({ ...current, ...patch }));
   const changeBinning = next => { onBinningChange(next); setSelectedValues(current => { const nextValues = { ...current }; delete nextValues.zipIncome; return nextValues; }); };
@@ -278,7 +281,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     event.stopPropagation();
     setLayout({ columns: '', rows: '', sections: [] });
     setSelectedValues({});
-    onBinningChange({ method: 'fixed', count: 3, thresholds: [50000, 75000, 100000] });
+    onBinningChange(DEFAULT_INCOME_BINNING);
     setResetVersion(current => current + 1);
     viewport.current?.scrollTo({ left: 0, top: 0, behavior: 'instant' });
   };

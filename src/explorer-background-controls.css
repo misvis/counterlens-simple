@@ -30,9 +30,8 @@
 .exb-field > input:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 .exb-field[data-edited="true"] > select,
 .exb-field[data-edited="true"] > input { border-color: var(--workspace-edit); background: var(--workspace-edit-surface); }
+/* Reserve one line for an original value or validation message. */
 .exb-helper { display: block; height: 14px; margin-top: 2px; min-width: 0; }
-/* Show original values and errors only when there is something to explain. */
-.exb-helper:empty { display: none; }
 .exb-original { display: block; color: var(--workspace-edit); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .exb-field > input[aria-invalid="true"] { border-color: var(--workspace-down); }
 .exb-error { display: block; color: var(--workspace-down); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

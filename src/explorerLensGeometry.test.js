@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getExplorerLensGeometry } from './explorerLensGeometry.js';
+import { approachesExplorerLens, getExplorerLensGeometry, getExplorerLensNeighbors } from './explorerLensGeometry.js';
 
-const rect = (left, top, right, bottom) => ({ left, top, right, bottom });
-const viewport = (width, height) => ({ width, height });
+const desktop = { width: 1280, height: 800 };
+const phone = { width: 390, height: 844 };
+
+test('the neighborhood preserves coincident marks and includes all sides of the source circle', () => {
+  const points = [[-6, 0], [-5, 0], [-3, 4], [0, 0], [0, 0], [0, 6], [5, 0], [6, 0]]
+    .map(([x, y]) => ({ x, y }));
+  const nearby = getExplorerLensNeighbors(points, { x: 0, y: 0 }, 5);
+  assert.deepEqual(nearby, [points[1], points[2], points[3], points[4], points[6]]);
+  assert.deepEqual(getExplorerLensNeighbors(points, { x: 100, y: 100 }, 5), []);
+});
 const assertInside = (lens, view) => {
   assert.ok(Number.isFinite(lens.left) && Number.isFinite(lens.top));
   assert.ok(Number.isFinite(lens.diameter) && lens.diameter > 0);
@@ -11,97 +19,78 @@ const assertInside = (lens, view) => {
   assert.ok(lens.left + lens.diameter <= view.width + 1e-8);
   assert.ok(lens.top + lens.diameter <= view.height + 1e-8);
 };
-const assertOutside = (lens, source) => {
-  assert.ok(lens.left >= source.right + 8 || lens.left + lens.diameter <= source.left - 8
-    || lens.top >= source.bottom + 8 || lens.top + lens.diameter <= source.top - 8);
-};
 
-test('prefers the right side and aligns to the plot top, independent of its points', () => {
-  const source = rect(40, 150, 440, 370);
-  const view = viewport(1280, 800);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 448, top: 172, diameter: 196, side: 'right' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('uses the left side when a full lens cannot fit to the right', () => {
-  const source = rect(800, 160, 1230, 380);
-  const view = viewport(1280, 800);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 596, top: 182, diameter: 196, side: 'left' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('uses space below a full-width plot on a 390px viewport', () => {
-  const source = rect(20, 150, 370, 430);
-  const view = viewport(390, 844);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 174, top: 438, diameter: 196, side: 'below' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('uses space above when the bottom and sides are blocked', () => {
-  const source = rect(20, 420, 370, 830);
-  const view = viewport(390, 844);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 174, top: 216, diameter: 196, side: 'above' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('shrinks toward 144px to preserve external placement in a compact strip', () => {
-  const source = rect(8, 8, 342, 392);
-  const view = viewport(510, 400);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 350, top: 30, diameter: 152, side: 'right' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('partially scrolled source bounds cannot push the lens outside the viewport', () => {
-  const source = rect(-180, -120, 240, 240);
-  const view = viewport(800, 600);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 248, top: 8, diameter: 196, side: 'right' });
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('keeps right-side placement vertically bounded near the viewport bottom', () => {
-  const source = rect(40, 680, 450, 940);
-  const view = viewport(1280, 800);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.equal(lens.top, 596);
+test('positions the lens beside the sampled focus and centers it vertically', () => {
+  const lens = getExplorerLensGeometry({ x: 320, y: 300 }, desktop);
   assert.equal(lens.side, 'right');
-  assertOutside(lens, source);
-  assertInside(lens, view);
+  assert.equal(lens.diameter, 196);
+  assert.equal(lens.left - 320 - lens.radius, 9);
+  assert.equal(lens.top + lens.diameter / 2, 300);
+  const moved = getExplorerLensGeometry({ x: 340, y: 330 }, desktop);
+  assert.equal(moved.left, lens.left + 20);
+  assert.equal(moved.top, lens.top + 30);
 });
 
-test('uses a bounded fallback only when the visible source leaves no external strip', () => {
-  const source = rect(-50, -20, 450, 870);
-  const view = viewport(390, 844);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.deepEqual(lens, { left: 186, top: 8, diameter: 196, side: 'fallback' });
-  assertInside(lens, view);
+test('uses the left side near the right edge', () => {
+  const lens = getExplorerLensGeometry({ x: 1250, y: 300 }, desktop);
+  assert.equal(lens.side, 'left');
+  assert.equal(1250 - lens.radius - (lens.left + lens.diameter), 9);
+  assertInside(lens, desktop);
 });
 
-test('even a small external strip is used before covering the source', () => {
-  const source = rect(8, 8, 382, 720);
-  const view = viewport(390, 844);
-  const lens = getExplorerLensGeometry(source, view);
-  assert.equal(lens.side, 'below');
-  assert.equal(lens.diameter, 108);
-  assertOutside(lens, source);
-  assertInside(lens, view);
-});
-
-test('extreme viewport sizes always produce finite, positive, contained geometry', () => {
-  for (const view of [viewport(390, 120), viewport(90, 90), viewport(15, 12), viewport(1, 1)]) {
-    const lens = getExplorerLensGeometry(rect(-100, -100, 1000, 1000), view);
-    assertInside(lens, view);
-    assert.ok(lens.diameter <= 196);
+test('fits a full-size lens below and above a central mobile focus', () => {
+  for (const [y, expected] of [[180, 'below'], [700, 'above']]) {
+    const lens = getExplorerLensGeometry({ x: 195, y }, phone);
+    assert.equal(lens.side, expected);
+    assert.equal(lens.diameter, 196);
+    assert.equal(lens.left + lens.diameter / 2, 195);
+    const nearestY = expected === 'below' ? lens.top : lens.top + lens.diameter;
+    assert.equal(Math.abs(nearestY - y) - lens.radius, 9);
+    assertInside(lens, phone);
   }
+});
+
+test('retains the current side while the full lens still fits there', () => {
+  const focus = { x: 600, y: 400 };
+  assert.equal(getExplorerLensGeometry(focus, desktop, 4, 1, 'left').side, 'left');
+  assert.equal(getExplorerLensGeometry({ x: 20, y: 400 }, desktop, 4, 1, 'left').side, 'right');
+});
+
+test('reserves the screen-space source radius on scaled plots and for larger comparisons', () => {
+  const lens = getExplorerLensGeometry({ x: 320, y: 300 }, desktop, 4, 1.5, 'right', 220);
+  assert.equal(lens.diameter, 220);
+  assert.equal(lens.left - 320 - lens.radius * 1.5, 9);
+});
+
+test('shrinks a lens only when it cannot fit beside the source at full size', () => {
+  const view = { width: 300, height: 300 };
+  const lens = getExplorerLensGeometry({ x: 150, y: 150 }, view);
+  assert.ok(lens.diameter < 196 && lens.diameter > 100);
+  assert.equal(lens.left - 150 - lens.radius, 9);
+  assertInside(lens, view);
+});
+
+test('bounds the popup even when an edge focus needs an off-axis connector', () => {
+  for (const y of [2, 798]) {
+    const lens = getExplorerLensGeometry({ x: 150, y }, desktop);
+    assert.equal(lens.side, 'right');
+    assertInside(lens, desktop);
+  }
+});
+
+test('a viewport too small to use still returns contained finite geometry', () => {
+  for (const view of [{ width: 90, height: 90 }, { width: 1, height: 1 }]) {
+    assertInside(getExplorerLensGeometry({ x: view.width / 2, y: view.height / 2 }, view), view);
+  }
+});
+
+test('holds the camera steady when approaching an off-center point in the popup', () => {
+  const focus = { x: 200, y: 300 };
+  const lens = getExplorerLensGeometry(focus, desktop);
+  const dx = lens.left + lens.diameter / 2 - focus.x;
+  for (const fraction of [0.05, 0.15, 0.25, 0.5]) {
+    assert.equal(approachesExplorerLens({ x: focus.x + dx * fraction, y: focus.y - 35 * fraction }, focus, lens), true);
+  }
+  assert.equal(approachesExplorerLens({ x: focus.x - 2, y: focus.y }, focus, lens), false);
+  assert.equal(approachesExplorerLens({ x: focus.x + 3, y: focus.y + 35 }, focus, lens), false);
 });

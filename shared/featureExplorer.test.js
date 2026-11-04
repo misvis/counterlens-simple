@@ -190,7 +190,7 @@ test('Synthetic residency generates only in-state and out-of-state while supplie
   assert.deepEqual([...new Set(records.map(record => record.residency))].sort(), ['instate', 'outofstate']);
   assert.ok(records.filter(record => record.resident === false).every(record => record.residency === 'outofstate'));
   const s47 = records.find(record => record.id === 'S47');
-  assert.equal(s47.zipIncome, 102280);
+  assert.equal(s47.zipIncome, 54408);
   assert.equal(s47.transfer, 'yes');
   const provided = [
     { id: 'known', resident: false, ethnicity: 'Black/African American', residency: 'outofstate', major: 'Biochem', mathStatus: 'None', zipIncome: 82000, transfer: 'no' },
@@ -220,6 +220,20 @@ test('Literal None math status is an explicit category distinct from null, undef
   const groups = buildExplorerGroups({ records: cohort, layout: { columns: 'mathStatus' } });
   assert.deepEqual(allPanels(groups).find(panel => panel.columnValue === 'None').members.map(item => item.id), ['none']);
   assert.deepEqual(allPanels(groups).find(panel => panel.columnValue === '__missing__').members.map(item => item.id), ['null', 'undefined', 'blank']);
+});
+
+test('Default 2014 HCUP quartiles and the merged middle groups use the published dollar boundaries', () => {
+  const records = [null, -1, 0, 1, 39999, 40000, 50999, 51000, 65999, 66000, 200000]
+    .map((zipIncome, id) => ({ id, zipIncome }));
+  const quartiles = buildIncomeBins(records);
+  assert.deepEqual(quartiles, buildIncomeBins(records, { method: 'hcup2014', count: 4 }));
+  assert.deepEqual(quartiles.filter(bin => !bin.missing).map(bin => bin.min), [1, 40000, 51000, 66000]);
+  assert.deepEqual(getExplorerOptions('zipIncome', records, quartiles), quartiles);
+  const quartileFor = zipIncome => quartiles.findIndex(option => recordMatchesExplorerContext({ zipIncome }, [{ key: 'zipIncome', option }]));
+  assert.deepEqual(records.map(record => quartileFor(record.zipIncome)), [4, 4, 4, 0, 0, 1, 1, 2, 2, 3, 3]);
+  const merged = buildIncomeBins(records, { method: 'hcup2014', count: 3 });
+  assert.deepEqual(merged.filter(bin => !bin.missing).map(bin => bin.min), [1, 40000, 66000]);
+  assert.deepEqual(buildIncomeBins([], { method: 'hcup2014', count: 6 }).map(bin => bin.min), [1, 40000, 51000, 66000]);
 });
 
 test('Fixed and custom income intervals partition finite values at exact half-open boundaries', () => {
@@ -342,13 +356,13 @@ test('Explicit category selections affect displayed membership only, including t
 
 test('Income group predicates never assign a bin or a representative income to a hypothetical profile', () => {
   const incomeBins = buildIncomeBins(records);
-  const original = Object.freeze({ ...records[0], zipIncome: 75000 });
+  const original = Object.freeze({ ...records[0], zipIncome: 55000 });
   const draft = Object.freeze({ ...original, gpa: 3.99, zipIncome: 125000 });
   const result = buildExplorerGroups({ records: [original], layout: { columns: 'zipIncome' }, incomeBins });
   const originalPanel = allPanels(result).find(panel => recordMatchesExplorerContext(original, panel.context));
   const draftPanel = allPanels(result).find(panel => recordMatchesExplorerContext(draft, panel.context));
   assert.notEqual(originalPanel.id, draftPanel.id);
-  assert.equal(original.zipIncome, 75000);
+  assert.equal(original.zipIncome, 55000);
   assert.equal(draft.zipIncome, 125000);
   assert.equal(originalPanel.members[0], original);
   assert.deepEqual(draftPanel.members, []);
@@ -358,7 +372,7 @@ test('Income group predicates never assign a bin or a representative income to a
 test('All-missing and empty cohorts keep explicitly declared combinations without invented members', () => {
   const missing = [{ id: 'a' }, { id: 'b', ethnicity: null, zipIncome: null }];
   const result = buildExplorerGroups({ records: missing, layout: { columns: 'zipIncome', rows: 'ethnicity' } });
-  assert.equal(result.panelCount, 4 * 9);
+  assert.equal(result.panelCount, 5 * 9);
   assert.ok([...countMemberships(result).values()].every(value => value === 1));
   const empty = buildExplorerGroups({ records: [], layout: { columns: 'residency', rows: 'major', sections: ['transfer'] } });
   assert.equal(empty.panelCount, 32);

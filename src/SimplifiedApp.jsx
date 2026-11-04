@@ -43,7 +43,7 @@ import { EXPLORER_POLICY_COPY } from './explorerPolicyCopy.js';
 import { EXPLORER_SIMULATION_POLICIES, isExplorerPolicy } from '../shared/explorerPolicies.js';
 import { buildExplorerDemoView, samePublishedValue } from '../shared/explorerDemoDataset.js';
 import { ExplorerBackgroundEditor, ExplorerGroupOutcomes } from './ExplorerBackgroundControls.jsx';
-import { EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
+import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
 import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
@@ -145,27 +145,27 @@ const TRANSLATIONS = {
     switchTheme: 'Switch theme',
     languageLabel: 'Language',
     mineEdgeCases: 'Mine Edge Cases',
-    edgeCasesFound: 'closest to cutoff',
-    fromCutoff: 'from cutoff',
+    edgeCasesFound: 'closest to the threshold',
+    fromCutoff: 'from the threshold',
     visualizer: 'Counterfactual Visualizer',
-    visualizerSubtitle: 'Drag a student or the cutoff to explore outcomes.',
+    visualizerSubtitle: 'Drag a student or the threshold line to explore outcomes.',
     studentDragHelp: 'Drag to change GPA and SAT Percentile. Press Esc to undo this drag.',
     boundaryHelpTitle: 'How to read the admission boundary',
-    boundaryShared: 'Shared admission boundary',
+    boundaryShared: 'Shared threshold line',
     boundaryBand: 'Background-dependent band',
-    boundarySelected: 'Cutoff for this student’s background',
-    boundaryEdited: 'Cutoff for the edited background',
+    boundarySelected: 'Threshold line for this student',
+    boundaryEdited: 'Threshold line for the edited profile',
     boundaryAll: 'All plotted scores qualify for this background',
     boundaryNone: 'No plotted scores qualify for this background',
-    boundaryEdge: 'Cutoff at chart edge',
-    boundaryAcademicHelp: 'The line marks the admission cutoff for GPA and SAT Percentile. Students on the line qualify. Academic Focus uses the same line for everyone.',
+    boundaryEdge: 'Threshold line at chart edge',
+    boundaryAcademicHelp: 'The line shows which GPA and SAT Percentile combinations meet the threshold. Academic Focus uses one line for everyone.',
     boundaryContextHelp: 'These policies also award points for first-generation, athlete, and in-state status. The shaded band shows where background points can change a decision for the same GPA and SAT Percentile.',
     boundarySelectedHelp: 'Select a student to see their admission line. Changing their background can move the line. The band shows the range for all backgrounds. Other students keep their own results.',
     boundaryFormula: 'GPA points + SAT Percentile points + background points = threshold',
     boundaryDragHint: 'Drag to adjust',
-    boundaryDragging: 'Adjusting cutoff',
+    boundaryDragging: 'Adjusting threshold',
     boundaryUseSlider: 'Use slider below',
-    boundaryDragHelp: 'Drag the line or band up or right to raise the cutoff; down or left to lower it. Press Esc to undo the drag.',
+    boundaryDragHelp: 'Drag up or right to raise the threshold, down or left to lower it. Press Esc to undo.',
     whatIfStudent: 'What-if student',
     originalProfile: 'Original profile · no changes yet',
     controlsLabel: 'Exploration controls',
@@ -217,12 +217,12 @@ const TRANSLATIONS = {
     whatIfTitle: 'Counterfactual Editor',
     whatIfDesc: 'Adjust a profile to compare outcomes.',
     thresholdTitle: 'Admission Threshold',
-    thresholdRule: 'Score ≥ cutoff → admitted',
+    thresholdRule: 'Score ≥ threshold → admitted',
     thresholdHelpTitle: 'About the admission threshold',
-    thresholdHelp: 'Students are admitted when their score reaches the threshold. A higher threshold makes admission harder; a lower one makes it easier.',
-    thresholdPreset: 'Each policy starts with its own cutoff. Reset returns to that value. Changing the cutoff keeps the scoring rules the same.',
+    thresholdHelp: 'Raise the threshold to require a higher score.',
+    thresholdPreset: 'Reset restores the policy’s default threshold.',
     thresholdDefault: 'Default: {value}',
-    thresholdReset: 'Reset cutoff',
+    thresholdReset: 'Reset threshold',
     outcomeFlipped: 'Outcome flipped',
     outcomeComparison: 'Original: {original} → Edited: {edited}. Compared at the same policy and threshold.',
     adjustedPosition: 'Adjusted position',
@@ -236,7 +236,7 @@ const TRANSLATIONS = {
     scoreHelpDescription: 'The policy adds up points for GPA, SAT Percentile, and the background factors it includes.',
     scoreHelpRule: 'A score of {cutoff} or more means admitted. Below {cutoff} means not admitted.',
     scoreHelpCaution: 'A score of 70 does not mean a 70% chance of admission.',
-    cutoff: 'Cutoff',
+    cutoff: 'Threshold',
     datasetSynthetic: 'Synthetic classroom dataset · {count} simulated applicants · No real student data',
     datasetApproved: 'Approved de-identified dataset · {count} records · Public classroom view',
     datasetLoading: 'Loading the classroom dataset…',
@@ -258,8 +258,8 @@ const TRANSLATIONS = {
     policies: {
       academic: {
         name: 'Academic Focus',
-        shortName: 'Strict academic cutoff',
-        description: 'GPA and SAT Percentile only, with a strict admission cutoff.',
+        shortName: 'Strict academic threshold',
+        description: 'GPA and SAT Percentile only, with a strict admission threshold.',
       },
       holistic: {
         name: 'Whole Person Review',
@@ -272,7 +272,7 @@ const TRANSLATIONS = {
         description: 'Gives more points for first-generation status and less weight to GPA and SAT Percentile than Whole Person Review. Also adds points for athletes and in-state residents.',
         details: [
           'First-generation students receive {firstGen} extra points here and {comparisonFirstGen} under Whole Person Review.',
-          'The default cutoff is {cutoff}; Whole Person Review starts at {comparisonCutoff}. Use the slider to try another cutoff.',
+          'Default threshold: {cutoff} (Whole Person Review: {comparisonCutoff}).',
         ],
         caution: 'Family income and school resources are not included in this simulation.',
       },
@@ -306,22 +306,22 @@ const TRANSLATIONS = {
     switchTheme: '切换主题',
     languageLabel: '语言',
     mineEdgeCases: '挖掘临界案例',
-    edgeCasesFound: '名最接近录取线',
-    fromCutoff: '距录取线',
+    edgeCasesFound: '名最接近阈值',
+    fromCutoff: '距阈值',
     visualizer: '反事实可视化',
-    visualizerSubtitle: '拖动学生点或录取线，观察结果如何变化。',
+    visualizerSubtitle: '拖动学生点或阈值线，观察结果如何变化。',
     studentDragHelp: '拖动调整 GPA 和 SAT Percentile；按 Esc 撤销本次拖动。',
     boundaryHelpTitle: '如何理解录取边界',
-    boundaryShared: '所有学生共用的录取线',
+    boundaryShared: '所有学生共用的阈值线',
     boundaryBand: '背景可能影响结果的区域',
-    boundarySelected: '当前学生背景对应的录取线',
-    boundaryEdited: '修改后背景对应的录取线',
+    boundarySelected: '当前学生背景对应的阈值线',
+    boundaryEdited: '修改后背景对应的阈值线',
     boundaryAll: '这一背景下，图内所有分数均符合条件',
     boundaryNone: '这一背景下，图内没有符合条件的分数',
-    boundaryEdge: '录取线位于图表边缘',
-    boundaryAcademicHelp: '这条线是 GPA 和 SAT Percentile 对应的录取线，恰好在线上的学生也会被录取。“学业优先”政策对所有学生使用同一条线。',
+    boundaryEdge: '阈值线位于图表边缘',
+    boundaryAcademicHelp: '这条线是 GPA 和 SAT Percentile 对应的阈值线，恰好在线上的学生也会被录取。“学业优先”政策对所有学生使用同一条线。',
     boundaryContextHelp: '这两项政策还为第一代大学生、运动员和州内居民加分。阴影带表示：在 GPA 和 SAT Percentile 相同的情况下，背景加分可能改变录取结果的区域。',
-    boundarySelectedHelp: '选中学生可查看其录取线。修改背景可能移动这条线，阴影带则显示所有背景对应的范围。其他学生的结果保持不变。',
+    boundarySelectedHelp: '选中学生可查看其阈值线。修改背景可能移动这条线，阴影带则显示所有背景对应的范围。其他学生的结果保持不变。',
     boundaryFormula: 'GPA 得分 + SAT Percentile 得分 + 背景得分 = 阈值',
     boundaryDragHint: '拖动调整阈值',
     boundaryDragging: '正在调整阈值',
@@ -380,8 +380,8 @@ const TRANSLATIONS = {
     thresholdTitle: '录取阈值',
     thresholdRule: '分数 ≥ 阈值 → 录取',
     thresholdHelpTitle: '录取阈值说明',
-    thresholdHelp: '分数达到阈值就会被录取。阈值越高，录取越严格；阈值越低，录取越容易。',
-    thresholdPreset: '每项政策都有默认录取线，点击重置即可恢复。调整录取线时，计分规则保持不变。',
+    thresholdHelp: '提高阈值会提高录取所需的分数。',
+    thresholdPreset: '点击重置即可恢复政策的默认阈值。',
     thresholdDefault: '默认值：{value}',
     thresholdReset: '重置阈值',
     outcomeFlipped: '结果已反转',
@@ -397,7 +397,7 @@ const TRANSLATIONS = {
     scoreHelpDescription: '将政策中的 GPA 得分、SAT Percentile 得分和背景加分相加，就是决策分数。',
     scoreHelpRule: '分数达到 {cutoff} 就会被录取，低于 {cutoff} 则不被录取。',
     scoreHelpCaution: '70 分不表示有 70% 的录取概率。',
-    cutoff: '录取线',
+    cutoff: '阈值',
     datasetSynthetic: '合成课堂数据 · {count} 名模拟申请者 · 不含真实学生数据',
     datasetApproved: '已授权的去标识化数据 · {count} 条记录 · 公开课堂视图',
     datasetLoading: '正在载入课堂数据…',
@@ -419,8 +419,8 @@ const TRANSLATIONS = {
     policies: {
       academic: {
         name: '学业优先',
-        shortName: '严格学业录取线',
-        description: '只看 GPA 与 SAT Percentile，并采用严格录取线。',
+        shortName: '严格学业阈值',
+        description: '只看 GPA 与 SAT Percentile，采用较高的录取阈值。',
       },
       holistic: {
         name: '综合评估',
@@ -433,7 +433,7 @@ const TRANSLATIONS = {
         description: '相比“综合评估”，这项政策给第一代大学生更多加分，GPA 和 SAT Percentile 的权重更低。运动员和州内居民也有加分。',
         details: [
           '第一代大学生在这里加 {firstGen} 分，在“综合评估”中加 {comparisonFirstGen} 分。',
-          '默认录取线是 {cutoff}，“综合评估”是 {comparisonCutoff}。可以用滑块尝试其他录取线。',
+          '默认阈值为 {cutoff}（综合评估为 {comparisonCutoff}）。',
         ],
         caution: '这个模拟尚未纳入家庭收入和学校资源等因素。',
       },
@@ -467,27 +467,27 @@ const TRANSLATIONS = {
     switchTheme: 'Cambiar tema',
     languageLabel: 'Idioma',
     mineEdgeCases: 'Buscar casos límite',
-    edgeCasesFound: 'más cerca del corte',
-    fromCutoff: 'del corte',
+    edgeCasesFound: 'más cerca del umbral',
+    fromCutoff: 'del umbral',
     visualizer: 'Visualizador contrafactual',
-    visualizerSubtitle: 'Arrastra un estudiante o el umbral para explorar los resultados.',
+    visualizerSubtitle: 'Arrastra un estudiante o la línea del umbral para explorar los resultados.',
     studentDragHelp: 'Arrastra para cambiar GPA y SAT Percentile. Pulsa Esc para deshacer este movimiento.',
     boundaryHelpTitle: 'Cómo leer el límite de admisión',
-    boundaryShared: 'Límite de admisión común',
+    boundaryShared: 'Línea del umbral común',
     boundaryBand: 'Zona dependiente del contexto',
-    boundarySelected: 'Corte para el contexto de este estudiante',
-    boundaryEdited: 'Corte para el contexto editado',
+    boundarySelected: 'Línea del umbral para este estudiante',
+    boundaryEdited: 'Línea del umbral para el perfil editado',
     boundaryAll: 'Todos los puntajes del gráfico califican con este contexto',
     boundaryNone: 'Ningún puntaje del gráfico califica con este contexto',
-    boundaryEdge: 'Corte en el borde del gráfico',
-    boundaryAcademicHelp: 'La línea marca el corte de admisión para GPA y SAT Percentile. Los estudiantes sobre la línea se admiten. Enfoque académico usa la misma línea para todos.',
+    boundaryEdge: 'Línea del umbral en el borde del gráfico',
+    boundaryAcademicHelp: 'La línea marca el umbral de admisión para GPA y SAT Percentile. Los estudiantes sobre la línea se admiten. Enfoque académico usa la misma línea para todos.',
     boundaryContextHelp: 'Estas políticas también dan puntos por primera generación, deporte y residencia en el estado. La banda muestra dónde esos puntos pueden cambiar la decisión con el mismo GPA y SAT Percentile.',
     boundarySelectedHelp: 'Selecciona un estudiante para ver su línea de admisión. Cambiar su contexto puede moverla. La banda muestra el rango para todos los contextos. Los demás estudiantes conservan sus resultados.',
     boundaryFormula: 'Puntos GPA + puntos SAT Percentile + puntos de contexto = umbral',
     boundaryDragHint: 'Arrastra para ajustar',
     boundaryDragging: 'Ajustando el umbral',
     boundaryUseSlider: 'Usa el control inferior',
-    boundaryDragHelp: 'Arrastra la línea o la banda hacia arriba o a la derecha para subir el corte; hacia abajo o a la izquierda para bajarlo. Pulsa Esc para deshacer el movimiento.',
+    boundaryDragHelp: 'Arrastra la línea o la banda hacia arriba o a la derecha para subir el umbral; hacia abajo o a la izquierda para bajarlo. Pulsa Esc para deshacer el movimiento.',
     whatIfStudent: 'Estudiante hipotético',
     originalProfile: 'Perfil original · sin cambios',
     controlsLabel: 'Controles de exploración',
@@ -541,8 +541,8 @@ const TRANSLATIONS = {
     thresholdTitle: 'Umbral de admisión',
     thresholdRule: 'Puntuación ≥ umbral → admisión',
     thresholdHelpTitle: 'Acerca del umbral de admisión',
-    thresholdHelp: 'Un estudiante se admite cuando su puntuación alcanza el umbral. Un umbral más alto hace la admisión más difícil; uno más bajo la hace más fácil.',
-    thresholdPreset: 'Cada política tiene un corte inicial. Restablecer recupera ese valor. Cambiar el corte conserva las reglas de puntuación.',
+    thresholdHelp: 'Aumenta el umbral para exigir una puntuación más alta.',
+    thresholdPreset: 'Restablecer recupera el umbral predeterminado de la política.',
     thresholdDefault: 'Inicial: {value}',
     thresholdReset: 'Restablecer umbral',
     outcomeFlipped: 'Resultado cambiado',
@@ -558,7 +558,7 @@ const TRANSLATIONS = {
     scoreHelpDescription: 'La política suma los puntos de GPA, SAT Percentile y los factores de contexto que incluye.',
     scoreHelpRule: 'Una puntuación de {cutoff} o más significa admisión. Por debajo de {cutoff} significa no admisión.',
     scoreHelpCaution: 'Una puntuación de 70 no significa un 70% de probabilidad de admisión.',
-    cutoff: 'Corte',
+    cutoff: 'Umbral',
     datasetSynthetic: 'Datos sintéticos para clase · {count} solicitantes simulados · Sin datos reales',
     datasetApproved: 'Datos desidentificados autorizados · {count} registros · Vista pública',
     datasetLoading: 'Cargando los datos para clase…',
@@ -580,8 +580,8 @@ const TRANSLATIONS = {
     policies: {
       academic: {
         name: 'Enfoque académico',
-        shortName: 'Corte académico estricto',
-        description: 'Solo GPA y SAT Percentile, con un corte de admisión estricto.',
+        shortName: 'Umbral académico estricto',
+        description: 'Solo GPA y SAT Percentile, con un umbral de admisión estricto.',
       },
       holistic: {
         name: 'Evaluación integral',
@@ -594,7 +594,7 @@ const TRANSLATIONS = {
         description: 'Da más puntos por primera generación y menos peso al GPA y al SAT Percentile que Evaluación integral. También añade puntos por deporte y residencia en el estado.',
         details: [
           'Los estudiantes de primera generación reciben {firstGen} puntos extra aquí y {comparisonFirstGen} en Evaluación integral.',
-          'El corte inicial es {cutoff}; Evaluación integral empieza en {comparisonCutoff}. Usa el control para probar otro corte.',
+          'Umbral inicial: {cutoff} (Evaluación integral: {comparisonCutoff}).',
         ],
         caution: 'Los ingresos familiares y los recursos escolares no se incluyen en esta simulación.',
       },
@@ -875,7 +875,7 @@ const SimplifiedApp = () => {
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [draftStudent, setDraftStudent] = useState(null);
-  const [explorerBinning, setExplorerBinning] = useState({ method: 'fixed', count: 3, thresholds: [50000, 75000, 100000] });
+  const [explorerBinning, setExplorerBinning] = useState(DEFAULT_INCOME_BINNING);
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
   const [classroomView, setClassroomView] = useState(initialWorkspace.view);
@@ -901,7 +901,7 @@ const SimplifiedApp = () => {
       }
     };
     const dismissOnEscape = (event) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !document.querySelector('.zip-income-help :popover-open')) {
         setExplainedPolicyId(null);
         policyHelpTrigger.current?.focus();
       }
@@ -1318,7 +1318,7 @@ const SimplifiedApp = () => {
               if (isFeatureView) {
                 // Guard actual controls and marks, not their full-width rows:
                 // the unused space beside the picker is still canvas background.
-                if (!event.target.closest?.('button, select, input, textarea, label, a, summary, [role="button"], [data-explorer-student], [data-draft-student], [data-profile-pair], [data-explorer-lens], [data-policy-help], .workspace-analysis-bar')) {
+                if (!event.target.closest?.('button, select, input, textarea, label, a, summary, [role="button"], [data-explorer-student], [data-draft-student], [data-profile-pair], [data-explorer-lens], [data-policy-help], .workspace-analysis-bar, .zip-income-help')) {
                   selectStudent(null);
                 }
                 return;
@@ -1834,7 +1834,7 @@ const SimplifiedApp = () => {
                   </div>
                 </div>
 
-                {isFeatureView ? <ExplorerGroupOutcomes groups={explorerOutcomeGroups} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
+                {isFeatureView ? <ExplorerGroupOutcomes groups={explorerOutcomeGroups} binning={explorerBinning} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}

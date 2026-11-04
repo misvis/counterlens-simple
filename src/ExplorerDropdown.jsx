@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 
 // The native top layer avoids clipping by the visualizer's scroll containers,
 // while keeping theme inheritance and the normal form-control tab order.
-export function ExplorerDropdown({ label, children, className = '', featureKey, bodyClassName = '' }) {
+export function ExplorerDropdown({ label, children, className = '', featureKey, bodyClassName = '', icon, accessibleLabel }) {
   const id = useId();
   const trigger = useRef(null);
   const panel = useRef(null);
@@ -50,9 +50,9 @@ export function ExplorerDropdown({ label, children, className = '', featureKey, 
     onBlur={event => {
       if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) panel.current?.hidePopover();
     }}>
-    <button ref={trigger} type="button" className="fex-picker-trigger" id={`${id}-trigger`}
+    <button ref={trigger} type="button" className="fex-picker-trigger" id={`${id}-trigger`} aria-label={accessibleLabel}
       popoverTarget={id} aria-controls={id} aria-expanded={open}>
-      <span>{label}</span><ChevronDown size={12} aria-hidden="true" />
+      {icon || <><span>{label}</span><ChevronDown size={12} aria-hidden="true" /></>}
     </button>
     <div ref={panel} id={id} popover="auto" role="group" aria-labelledby={`${id}-trigger`}
       className={`fex-picker-body ${bodyClassName}`} onToggle={event => setOpen(event.newState === 'open')}>

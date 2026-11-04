@@ -155,8 +155,11 @@ test('All 200 records enrich and group consistently across the six background fe
       else assert(feature.values.some(option => option.value === record[feature.key]));
     });
   });
-  assert.deepEqual(EXPLORER_SIMULATION_POLICIES.map(policy => records.filter(record => getDecision(record, policy)).length), [116, 99, 116]);
-  for (const method of ['fixed', 'quantile']) {
+  const quartiles = buildIncomeBins(records);
+  assert.deepEqual(quartiles.map(({ min, max }) =>
+    records.filter(record => record.zipIncome >= min && record.zipIncome < max).length), [45, 54, 57, 44]);
+  assert.deepEqual(EXPLORER_SIMULATION_POLICIES.map(policy => records.filter(record => getDecision(record, policy)).length), [116, 119, 142]);
+  for (const method of ['hcup2014', 'fixed', 'quantile']) {
     const incomeBins = buildIncomeBins(records, { method, count: 4 });
     const grouped = buildExplorerGroups({ records, incomeBins,
       layout: { columns: 'residency', rows: 'ethnicity', sections: ['zipIncome', 'major', 'transfer', 'mathStatus'] } });

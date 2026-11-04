@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { EXPLORER_FEATURES, getExplorerOptions } from '../shared/featureExplorer.js';
+import ZipIncomeInfo from './ZipIncomeInfo.jsx';
 import './explorer-background-controls.css';
 
 const COPY = {
@@ -45,6 +46,7 @@ function IncomeField({ student, original, onChange, lang, t, feature }) {
   };
   return <div className="exb-field" data-edited={changed} data-background-field="zipIncome">
     <label htmlFor="explorer-background-zipIncome" title={t.income}>{localized(feature.label, lang)} ($)</label>
+    <ZipIncomeInfo lang={lang} />
     <input id="explorer-background-zipIncome" type="text" inputMode="decimal" value={entry.text} disabled={disabled} placeholder={disabled ? '—' : undefined}
       aria-invalid={entry.invalid || undefined} aria-describedby={entry.invalid ? 'explorer-income-error' : changed ? 'explorer-original-zipIncome' : undefined}
       onChange={event => setEntry({ source: student, text: event.target.value, invalid: false })}
@@ -91,7 +93,7 @@ export function ExplorerBackgroundEditor({ student, original, students = [], onC
   </div>;
 }
 
-export function ExplorerGroupOutcomes({ groups = [], lang = 'en' }) {
+export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en' }) {
   const t = COPY[lang] || COPY.en;
   const columns = OUTCOME_COLUMNS[lang] || OUTCOME_COLUMNS.en;
   return <div className="explorer-group-outcomes" data-explorer-group-outcomes>
@@ -100,7 +102,10 @@ export function ExplorerGroupOutcomes({ groups = [], lang = 'en' }) {
     </div>
     {groups.map(feature => <section className="exb-outcome-group" key={feature.key} data-outcome-feature={feature.key}
       aria-labelledby={`explorer-outcome-${feature.key}`}>
-      <h3 id={`explorer-outcome-${feature.key}`}>{localized(feature.label, lang)}</h3>
+      <div className={feature.key === 'zipIncome' ? 'exb-income-heading' : undefined}>
+        <h3 id={`explorer-outcome-${feature.key}`}>{localized(feature.label, lang)}</h3>
+        {feature.key === 'zipIncome' && <ZipIncomeInfo lang={lang} binning={binning} />}
+      </div>
       <div className="exb-outcome-rows">{feature.groups.map(group => {
         const name = localized(group.option.label, lang);
         const hasStudents = group.total > 0 && Number.isFinite(group.rate);
