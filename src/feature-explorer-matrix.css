@@ -100,6 +100,34 @@
 .fex-draft-connector { stroke: var(--workspace-edit); stroke-width: 1.2; stroke-dasharray: 3 3; pointer-events: none; }
 .fex-no-values { padding: 24px 4px; color: var(--threshold-muted); font-size: 12px; }
 .fex-empty-panel { opacity: .8; }
+/* Result-to-plot emphasis never changes mark positions or hit targets. */
+.fex-plot { transition: border-color 140ms ease-out, box-shadow 140ms ease-out; }
+.fex-plot[data-outcome-highlight="true"] { border-color: var(--workspace-highlight); box-shadow: inset 0 0 0 1px var(--workspace-highlight); }
+.fex-outcome-ring { fill: none; stroke: var(--workspace-highlight); stroke-width: 1.4; opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
+.fex-outcome-ring[data-highlighted="true"] { opacity: .85; }
+.fex-policy-change-ring { fill: none; stroke: var(--threshold-text); stroke-width: 1.2; pointer-events: none; animation: fex-policy-change 600ms ease-out both; }
+@keyframes fex-policy-change { 0%, 25% { opacity: .85; } 100% { opacity: 0; } }
+
+/* Snapshot only the plots for layout changes; no page or geometry animation. */
+html.explorer-layout-transition .fex-matrix-viewport { view-transition-name: explorer-plots; }
+html.explorer-layout-transition::view-transition { pointer-events: none; }
+html.explorer-layout-transition::view-transition-group(root),
+html.explorer-layout-transition::view-transition-old(root),
+html.explorer-layout-transition::view-transition-new(root),
+html.explorer-layout-transition::view-transition-group(explorer-plots) { animation: none; }
+html.explorer-layout-transition::view-transition-old(root) { display: none; }
+html.explorer-layout-transition::view-transition-new(root) { mix-blend-mode: normal; }
+html.explorer-layout-transition::view-transition-old(explorer-plots) { animation: fex-layout-out 80ms ease-out both; }
+html.explorer-layout-transition::view-transition-new(explorer-plots) { animation: fex-layout-in 140ms 50ms ease-out both; mix-blend-mode: normal; }
+@keyframes fex-layout-out { to { opacity: 0; } }
+@keyframes fex-layout-in { from { opacity: 0; } to { opacity: 1; } }
+/* Retain the requested subtle feedback, with shorter opacity-only effects. */
+@media (prefers-reduced-motion: reduce) {
+  .simplified-app .fex-plot, .simplified-app .fex-outcome-ring { transition-duration: 80ms !important; }
+  .fex-policy-change-ring { animation-duration: 350ms; }
+  html.explorer-layout-transition::view-transition-old(explorer-plots) { animation-duration: 50ms; }
+  html.explorer-layout-transition::view-transition-new(explorer-plots) { animation-duration: 90ms; animation-delay: 30ms; }
+}
 @media (min-width: 1100px) {
   /* Reserve scrollbar space so adding filters never creates another row or
      moves the plots on narrower desktops. Popovers use the native top layer. */

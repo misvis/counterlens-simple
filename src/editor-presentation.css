@@ -81,6 +81,13 @@
 .editor-surface .workspace-outcome-badge { min-width: 116px; padding-inline: 6px; }
 .editor-surface .workspace-outcome-change > svg { display: none; }
 .editor-surface .explorer-background-editor { gap: 8px 10px; }
+/* Reserve the difference line so value changes never move a slider mid-drag. */
+.editor-surface .workspace-academic-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; min-height: 28px; }
+.editor-surface .workspace-academic-header > label { white-space: nowrap; line-height: 16px; }
+.editor-surface .workspace-academic-value { display: flex; flex-direction: column; align-items: flex-end; gap: 0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.editor-surface .workspace-academic-current { line-height: 16px; }
+.editor-surface .workspace-academic-delta { height: 12px; line-height: 12px; white-space: nowrap; }
+.editor-surface .workspace-academic-delta[aria-hidden="true"] { visibility: hidden; }
 .editor-surface :is(button, select, input):focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 
 /* Reserve identical toolbar geometry for empty, selected and edited states. */

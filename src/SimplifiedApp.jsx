@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { flashExplorerReset, withExplorerViewTransition } from './explorerMotion.js';
 import {
   Cell,
   CartesianGrid,
@@ -44,7 +46,7 @@ import { EXPLORER_POLICY_COPY } from './explorerPolicyCopy.js';
 import { EXPLORER_SIMULATION_POLICIES, isExplorerPolicy } from '../shared/explorerPolicies.js';
 import { buildExplorerDemoView, samePublishedValue } from '../shared/explorerDemoDataset.js';
 import { ExplorerBackgroundEditor } from './ExplorerBackgroundControls.jsx';
-import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
+import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, getDefaultExplorerLayout, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
 import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
@@ -880,6 +882,7 @@ const SimplifiedApp = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const editorReopenRef = useRef(null);
   const [explorerBinning, setExplorerBinning] = useState(DEFAULT_INCOME_BINNING);
+  const [highlightedOutcome, setHighlightedOutcome] = useState(null);
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
   const [classroomView, setClassroomView] = useState(initialWorkspace.view);
@@ -1439,8 +1442,7 @@ const SimplifiedApp = () => {
                 {boundaryView === 'score' ? <ScoreBoundaryView students={students} policy={policy}
                   selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
-                  // Reset only view-local state on policy changes; selection and drafts stay here.
-                  : isFeatureView ? <FeatureExplorer key={policy.id} students={students} policy={policy}
+                  : isFeatureView ? <FeatureExplorer students={students} policy={policy} highlightedGroup={highlightedOutcome}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     onEdit={applyDraft} onThresholdChange={setThresholdOverride} contextKey={`${datasetId}:${datasetVersion}`}
                     onRestoreSelection={(studentId, draft) => { setSelectedId(studentId); setDraftStudent(draft); }}
@@ -1579,7 +1581,11 @@ const SimplifiedApp = () => {
                   </div>
                   <div className="workspace-threshold-setting">
                     <output htmlFor="admission-threshold" className="workspace-threshold-value">{policy.threshold}<span> / 100</span></output>
-                    <button type="button" className="workspace-reset" aria-label={t.thresholdReset} title={`${t.thresholdReset} · ${formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })}`} disabled={policy.threshold === presetPolicy.threshold} onClick={() => setThresholdOverride(null)}>
+                    <button type="button" className="workspace-reset" aria-label={t.thresholdReset} title={`${t.thresholdReset} · ${formatCopy(t.thresholdDefault, { value: presetPolicy.threshold })}`} disabled={policy.threshold === presetPolicy.threshold} onClick={event => {
+                      const section = event.currentTarget.closest('.workspace-threshold');
+                      flushSync(() => setThresholdOverride(null));
+                      flashExplorerReset([section.querySelector('input[type="range"]'), section.querySelector('output')]);
+                    }}>
                       <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
                     </button>
                   </div>
@@ -1680,10 +1686,13 @@ const SimplifiedApp = () => {
                   <select id="workspace-policy-select" aria-label={t.choosePolicy} value={policy.id}
                       onChange={event => {
                         const nextPolicyId = event.target.value;
+                        const nextPolicy = policies.find(item => item.id === nextPolicyId);
+                        withExplorerViewTransition(() => {
                         setExplainedPolicyId(null);
                         setPolicyId(nextPolicyId);
                         setIsMining(false);
                         if (nextPolicyId !== policy.id) {
+                          setHighlightedOutcome(null);
                           setThresholdOverride(null);
                           setExplorerBinning(DEFAULT_INCOME_BINNING);
                           trackAnonymousEvent('policy_selected', {
@@ -1694,6 +1703,7 @@ const SimplifiedApp = () => {
                             theme,
                           });
                         }
+                        }, getDefaultExplorerLayout(nextPolicy));
                       }}>
                     {policies.map(item => <option key={item.id} value={item.id}>{policyDisplayName(item, policyCopy, lang)}</option>)}
                   </select>
@@ -1786,7 +1796,14 @@ const SimplifiedApp = () => {
                         <button
                           type="button"
                           disabled={!draftStudent}
-                          onClick={() => setDraftStudent({ ...selectedStudent })}
+                          onClick={event => {
+                            const editor = event.currentTarget.closest('.editor-body');
+                            const targets = ['gpa', 'sat', ...EXPLORER_FEATURES.map(feature => feature.key)]
+                              .filter(key => !Object.is(draftStudent[key], selectedStudent[key]))
+                              .map(key => editor.querySelector(key === 'gpa' || key === 'sat' ? `#${key}-slider` : `[data-background-field="${key}"] > :is(select, input)`));
+                            flushSync(() => setDraftStudent({ ...selectedStudent }));
+                            flashExplorerReset(targets);
+                          }}
                           className="workspace-reset"
                         >
                           <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
@@ -1797,11 +1814,14 @@ const SimplifiedApp = () => {
 
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div>
-                        <div className="mb-1 flex justify-between text-xs">
+                        <div className="workspace-academic-header mb-1 text-xs">
                           <label htmlFor="gpa-slider" className="font-medium text-slate-300">GPA</label>
                           <span className="workspace-academic-value font-mono text-blue-300">
-                            {draftStudent && draftStudent.gpa !== selectedStudent.gpa && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) })}>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</span>}
-                            {draftStudent ? draftStudent.gpa.toFixed(2) : '—'}
+                            <span className="workspace-academic-current">{draftStudent ? draftStudent.gpa.toFixed(2) : '—'}</span>
+                            <span className="workspace-academic-delta" aria-hidden={!draftStudent || draftStudent.gpa === selectedStudent.gpa}
+                              title={selectedStudent ? formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) }) : undefined}>
+                              {draftStudent && <>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</>}
+                            </span>
                           </span>
                         </div>
                         <input
@@ -1818,11 +1838,14 @@ const SimplifiedApp = () => {
                         />
                       </div>
                       <div>
-                        <div className="mb-1 flex justify-between text-xs">
+                        <div className="workspace-academic-header mb-1 text-xs">
                           <label htmlFor="sat-slider" className="font-medium text-slate-300" title="SAT User Group percentile · College Board table, accessed 2026-10-14. Each step is one percentile point.">SAT Percentile</label>
                           <span className="workspace-academic-value font-mono text-blue-300">
-                            {draftStudent && draftStudent.sat !== selectedStudent.sat && <span className="workspace-academic-delta" title={formatCopy(t.backgroundOriginal, { value: selectedStudent.sat })}>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</span>}
-                            {draftStudent?.sat ?? '—'}
+                            <span className="workspace-academic-current">{draftStudent?.sat ?? '—'}</span>
+                            <span className="workspace-academic-delta" aria-hidden={!draftStudent || draftStudent.sat === selectedStudent.sat}
+                              title={selectedStudent ? formatCopy(t.backgroundOriginal, { value: selectedStudent.sat }) : undefined}>
+                              {draftStudent && <>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</>}
+                            </span>
                           </span>
                         </div>
                         <input
@@ -1857,7 +1880,7 @@ const SimplifiedApp = () => {
                   </div>
                 </div>}
 
-                {isFeatureView ? <ExplorerOutcomesPanel title={t.compareOutcomes} groups={explorerOutcomeGroups} binning={explorerBinning} policyId={policy.id} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
+                {isFeatureView ? <ExplorerOutcomesPanel title={t.compareOutcomes} groups={explorerOutcomeGroups} binning={explorerBinning} policyId={policy.id} lang={lang} onHighlight={setHighlightedOutcome} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { flushSync } from 'react-dom';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
 import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, getDefaultExplorerLayout, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
@@ -7,6 +8,7 @@ import { ExplorerDropdown } from './ExplorerDropdown.jsx';
 import ZipIncomeInfo from './ZipIncomeInfo.jsx';
 import { cutoffMatchesContext, getExplorerCutoff } from './explorerCutoff.js';
 import useExplorerDrag from './useExplorerDrag.js';
+import { explorerLayoutKey, flashExplorerReset, withExplorerViewTransition } from './explorerMotion.js';
 import './feature-explorer-matrix.css';
 
 const ROW_LABEL_MAX_WIDTH = 102;
@@ -114,7 +116,7 @@ function OutcomeMark({ admitted, cx, cy, color, size = 4 }) {
   return admitted ? <circle cx={cx} cy={cy} r={size} fill={color} /> : <path d={`M${cx},${cy - size - 1} L${cx + size + 1},${cy} L${cx},${cy + size + 1} L${cx - size - 1},${cy} Z`} fill={color} />;
 }
 
-function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, policy, colors, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, edgeIds, isMining, lang, t, descriptions, currentCutoff, pairRole, peerPanel, registerPair, navigatePair }) {
+function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, policy, colors, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, edgeIds, isMining, lang, t, descriptions, currentCutoff, pairRole, peerPanel, registerPair, navigatePair, highlightedGroup, changedDecisions, decisionVersion }) {
   const plotElement = useRef(null);
   const svgElement = useRef(null);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 340 });
@@ -165,7 +167,9 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
   const peerRole = pairRole === 'original' ? 'draft' : 'original';
   const pairCopy = PAIR_COPY[lang] || PAIR_COPY.en;
   const pairTitle = pairRole ? `${pairRole === 'original' ? t.original : t.hypothetical}: ${selectedStudent.id} · ${peerPanel ? `${pairCopy[peerRole]} · ${contextLabel(peerPanel.context, lang)}` : pairCopy.hidden}` : '';
-  return <div ref={plotElement} className="fex-plot" data-explorer-panel={panel.id} data-original-group={Boolean(originalHere)} data-pair-role={pairRole || undefined} data-dragging={dragKind || undefined} {...dragHandlers}>
+  const highlightedFacet = highlightedGroup && panel.context.find(item => item.key === highlightedGroup.key);
+  const panelHighlighted = Boolean(highlightedFacet && highlightedFacet.option.value === highlightedGroup.option.value);
+  return <div ref={plotElement} className="fex-plot" data-explorer-panel={panel.id} data-original-group={Boolean(originalHere)} data-pair-role={pairRole || undefined} data-outcome-highlight={panelHighlighted || undefined} data-dragging={dragKind || undefined} {...dragHandlers}>
     <svg ref={svgElement} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label={title}>
       <rect className="fex-frame" x={margin.left} y={margin.top} width={width - margin.left - margin.right} height={height - margin.top - margin.bottom} />
       {ticks(domains.gpa).map((value, index) => <g key={`x-${index}`}><line className="fex-gridline" x1={x(value)} x2={x(value)} y1={margin.top} y2={height - margin.bottom} /><text x={x(value)} y={height - margin.bottom + 16} textAnchor="middle">{formatValue(value, 'gpa')}</text></g>)}
@@ -198,6 +202,9 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
           aria-label={`${student.id === selectedStudent?.id ? `${t.original}: ` : ''}${descriptions.get(student.id)}`} aria-description={dragCopy.student}
           opacity={isMining && !edgeIds.has(student.id) && student.id !== selectedStudent?.id ? .3 : 1}>
           <circle className="fex-hit" cx={cx} cy={cy} r={11} />
+          <circle className="fex-outcome-ring" cx={cx} cy={cy} r={7}
+            data-highlighted={Boolean(highlightedGroup && !highlightedFacet && recordMatchesExplorerContext(student, [highlightedGroup]))} />
+          {changedDecisions.has(student.id) && <circle key={decisionVersion} className="fex-policy-change-ring" cx={cx} cy={cy} r={7.5} />}
           {isMining && edgeIds.has(student.id) && <circle className="fex-edge-case" cx={cx} cy={cy} r={8} />}
           {student.id === selectedStudent?.id && <circle className="fex-original-ring" cx={cx} cy={cy} r={8} />}
           <OutcomeMark admitted={admitted} cx={cx} cy={cy} color={admitted ? colors.admitted : colors.rejected} />
@@ -242,17 +249,40 @@ export function ExplorerStudentSelect({ students, selectedStudent, onSelect, isM
   </select>;
 }
 
-export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins }) {
+export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins, highlightedGroup }) {
   const t = COPY[lang] || COPY.en;
   const resetCopy = RESET_COPY[lang] || RESET_COPY.en;
   const [layout, setLayout] = useState(() => getDefaultExplorerLayout(policy));
   const [selectedValues, setSelectedValues] = useState({});
   const [resetVersion, setResetVersion] = useState(0);
+  const [policyHistory, setPolicyHistory] = useState({ policy, contextKey, changed: new Set(), version: 0 });
+  // Keep the latest cutoff for comparison, but signal only explicit policy changes.
+  // The guarded render update resets view-local state before React commits it.
+  if (policyHistory.policy !== policy || policyHistory.contextKey !== contextKey) {
+    const policyChanged = policyHistory.policy.id !== policy.id;
+    const comparable = policyChanged && policyHistory.contextKey === contextKey
+      && explorerLayoutKey(layout) === explorerLayoutKey(getDefaultExplorerLayout(policy));
+    setPolicyHistory({ policy, contextKey, version: policyHistory.version + (policyChanged ? 1 : 0),
+      changed: new Set(comparable ? students.filter(student => getDecision(student, policyHistory.policy) !== getDecision(student, policy)).map(student => student.id) : []) });
+    if (policyChanged) {
+      setLayout(getDefaultExplorerLayout(policy));
+      setSelectedValues({});
+      setResetVersion(current => current + 1);
+    }
+  }
   const viewport = useRef(null);
   const rowLabelMeasure = useRef(null);
   const pairButtons = useRef({});
   const [availableWidth, setAvailableWidth] = useState(800);
   const [rowLabelWidth, setRowLabelWidth] = useState(ROW_LABEL_MAX_WIDTH);
+  useEffect(() => {
+    if (!policyHistory.changed.size) return undefined;
+    const timer = window.setTimeout(() => setPolicyHistory(current => ({ ...current, changed: new Set() })), 650);
+    return () => window.clearTimeout(timer);
+  }, [policyHistory.version, policyHistory.changed]);
+  useLayoutEffect(() => {
+    viewport.current?.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+  }, [policy.id]);
   const options = useMemo(() => Object.fromEntries(EXPLORER_FEATURES.map(feature => [feature.key, getExplorerOptions(feature.key, students, incomeBins)])), [students, incomeBins]);
   const groups = useMemo(() => buildExplorerGroups({ records: students, layout, incomeBins, selectedValues }), [students, layout, incomeBins, selectedValues]);
   const profilePair = useMemo(() => buildExplorerProfilePair(groups, selectedStudent, draftStudent), [groups, selectedStudent, draftStudent]);
@@ -287,15 +317,35 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     };
   }, [profile, policy, lang, t]);
   const descriptions = useMemo(() => new Map(students.map(student => [student.id, `${student.id} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(student, feature.key, options[feature.key], lang, t)}`).join(' · ')} · ${getDecision(student, policy) ? t.admitted : t.rejected}`])), [students, options, lang, policy, t]);
-  const changeLayout = patch => setLayout(current => normalizeExplorerLayout({ ...current, ...patch }));
+  const changeLayout = patch => {
+    const next = normalizeExplorerLayout({ ...layout, ...patch });
+    withExplorerViewTransition(() => setLayout(next), next);
+  };
   const changeBinning = next => { onBinningChange(next); setSelectedValues(current => { const nextValues = { ...current }; delete nextValues.zipIncome; return nextValues; }); };
   const resetView = event => {
     event.stopPropagation();
-    setLayout(getDefaultExplorerLayout(policy));
-    setSelectedValues({});
-    onBinningChange(DEFAULT_INCOME_BINNING);
-    setResetVersion(current => current + 1);
-    viewport.current?.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+    const defaults = getDefaultExplorerLayout(policy);
+    const changedRoles = ['rows', 'columns'].filter(role => layout[role] !== defaults[role]);
+    const sectionsChanged = JSON.stringify(layout.sections) !== JSON.stringify(defaults.sections);
+    const binningChanged = JSON.stringify(binning) !== JSON.stringify(DEFAULT_INCOME_BINNING);
+    const changedFilters = Object.keys(selectedValues).filter(key => selectedValues[key] !== undefined
+      && (selectedValues[key].length !== options[key].length || options[key].some(option => !selectedValues[key].includes(option.value))));
+    const root = event.currentTarget.closest('[data-feature-explorer]');
+    withExplorerViewTransition(() => {
+      flushSync(() => {
+        setLayout(defaults);
+        setSelectedValues({});
+        onBinningChange(DEFAULT_INCOME_BINNING);
+        setResetVersion(current => current + 1);
+      });
+      flashExplorerReset([
+        ...changedRoles.map(role => root.querySelector(`select[data-layout-role="${role}"]`)),
+        sectionsChanged && root.querySelector('.fex-sections-picker > button'),
+        ...[...new Set([...changedFilters, ...(binningChanged ? ['zipIncome'] : [])])]
+          .map(key => root.querySelector(`[data-feature-picker="${key}"] > button`)),
+      ]);
+      viewport.current?.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+    }, defaults);
   };
   const registerPair = (role, element) => { pairButtons.current[role] = element; };
   const navigatePair = role => {
@@ -338,7 +388,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   // Four income columns fit the desktop workspace; narrower screens still scroll.
   const plotWidth = Math.max(220, Math.floor((availableWidth - rowGutter - (columnCount - 1) * MATRIX_COLUMN_GAP) / columnCount));
   const matrixWidth = rowGutter + columnCount * plotWidth + (columnCount - 1) * MATRIX_COLUMN_GAP;
-  return <div lang={lang} className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
+  return <div lang={lang} className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-layout-key={explorerLayoutKey(layout)} data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
     onKeyDown={event => {
       if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) {
         event.preventDefault();
@@ -349,7 +399,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
       <button type="button" className="workspace-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
         <RotateCcw size={12} aria-hidden="true" /><span>{resetCopy.label}</span>
       </button>
-      {['rows', 'columns'].map(role => <label key={role}>{t[role]}<select aria-label={t[role]} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
+      {['rows', 'columns'].map(role => <label key={role}>{t[role]}<select aria-label={t[role]} data-layout-role={role} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
         <option value="">{t.none}</option>{EXPLORER_FEATURES.map(feature => <option key={feature.key} value={feature.key} disabled={activeKeys.includes(feature.key) && layout[role] !== feature.key}>{label(feature.label, lang)}</option>)}
       </select></label>)}
       <ExplorerDropdown key={resetVersion} className="fex-sections-picker" bodyClassName="fex-value-options" label={layout.sections.length ? `${t.sections} · ${layout.sections.length}` : t.add}>
@@ -361,7 +411,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
           <input type="checkbox" disabled={feature.key === layout.columns || feature.key === layout.rows} checked={layout.sections.includes(feature.key)} onChange={event => changeLayout({ sections: event.target.checked ? [...layout.sections, feature.key] : layout.sections.filter(key => key !== feature.key) })} />{label(feature.label, lang)}
         </label>)}
       </ExplorerDropdown>
-      {activeKeys.map(key => <ValuePicker key={key} feature={featureFor(key)} options={options[key]} selected={selectedValues[key]} onChange={values => setSelectedValues(current => ({ ...current, [key]: values }))} binning={binning} onBinningChange={changeBinning} lang={lang} t={t} />)}
+      {activeKeys.map(key => <ValuePicker key={`${resetVersion}:${key}`} feature={featureFor(key)} options={options[key]} selected={selectedValues[key]} onChange={values => setSelectedValues(current => ({ ...current, [key]: values }))} binning={binning} onBinningChange={changeBinning} lang={lang} t={t} />)}
     </div>
     <div className="sr-only" role="status" aria-live="polite">{groups.panelCount} {t.plots}</div>
     <div ref={rowLabelMeasure} className="fex-row-measure" aria-hidden="true">
@@ -378,6 +428,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
               const pairRole = profilePair?.originalPanel?.id === panel.id ? 'original' : profilePair?.draftPanel?.id === panel.id ? 'draft' : null;
               return <ExplorerPlot key={panel.id} panel={panel} width={plotWidth} fillHeight={singlePlot} domains={domains} policy={policy} colors={colors} selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={onSelect} isLight={isLight} edgeIds={edgeIds} isMining={isMining} lang={lang} t={t} descriptions={descriptions} currentCutoff={currentCutoff}
                 onEdit={onEdit} onThresholdChange={onThresholdChange} onRestoreSelection={onRestoreSelection} contextKey={contextKey}
+                highlightedGroup={highlightedGroup} changedDecisions={policyHistory.changed} decisionVersion={policyHistory.version}
                 pairRole={pairRole} peerPanel={pairRole === 'original' ? profilePair?.draftPanel : profilePair?.originalPanel} registerPair={registerPair} navigatePair={navigatePair} />;
             })}
           </div>)}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { EXPLORER_FEATURES, getExplorerOptions } from '../shared/featureExplorer.js';
 import ZipIncomeInfo from './ZipIncomeInfo.jsx';
@@ -105,8 +105,20 @@ export function ExplorerOutcomeColumns({ lang = 'en' }) {
   </div>;
 }
 
-export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en', expandedKeys, onToggle }) {
+export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en', expandedKeys, onToggle, onHighlight, highlightContextKey }) {
   const t = COPY[lang] || COPY.en;
+  const hovered = useRef(null);
+  const focused = useRef(null);
+  // Counts can change continuously while dragging a threshold. Only changes
+  // to the visible grouping or policy invalidate the current highlight.
+  const highlightScope = JSON.stringify([highlightContextKey, expandedKeys,
+    groups.map(feature => [feature.key, feature.groups.map(group => group.option.value)])]);
+  useEffect(() => {
+    hovered.current = null;
+    focused.current = null;
+    onHighlight?.(null);
+    return () => onHighlight?.(null);
+  }, [highlightScope, onHighlight]);
   return <div className="explorer-group-outcomes" data-explorer-group-outcomes>
     {groups.map(feature => <section className="exb-outcome-group" key={feature.key} data-outcome-feature={feature.key}
       aria-labelledby={`explorer-outcome-${feature.key}`}>
@@ -121,19 +133,29 @@ export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en', expan
         {feature.key === 'zipIncome' && <ZipIncomeInfo lang={lang} binning={binning} />}
         <span className="exb-outcome-category-count" id={`explorer-outcome-count-${feature.key}`}>{feature.groups.length}</span>
       </div>
-      <div className="exb-outcome-rows" id={`explorer-outcome-rows-${feature.key}`} hidden={!expandedKeys.includes(feature.key)}>{feature.groups.map(group => {
+      <div className="exb-outcome-collapse" id={`explorer-outcome-rows-${feature.key}`}
+        data-expanded={expandedKeys.includes(feature.key)} aria-hidden={!expandedKeys.includes(feature.key)} inert={!expandedKeys.includes(feature.key)}>
+      <div className="exb-outcome-collapse-inner"><div className="exb-outcome-rows">{feature.groups.map(group => {
         const name = localized(group.option.label, lang);
         const hasStudents = group.total > 0 && Number.isFinite(group.rate);
         const rate = hasStudents ? Math.round(group.rate) : null;
         const accessible = hasStudents ? `${name}: ${group.admitted}/${group.total} ${t.admitted}, ${rate}%` : `${name}: ${t.noStudents}, 0/0`;
+        const context = { key: feature.key, option: group.option };
         return <div className="exb-outcome-row" key={group.option.value} data-outcome-value={group.option.value}
-          data-total={group.total} data-admitted={group.admitted} aria-label={accessible}>
+          data-total={group.total} data-admitted={group.admitted} aria-label={accessible} role="group" tabIndex={onHighlight ? 0 : undefined}
+          onPointerEnter={event => {
+            if (event.pointerType === 'touch') return;
+            hovered.current = context;
+            onHighlight?.(context);
+          }} onPointerLeave={() => { hovered.current = null; onHighlight?.(focused.current); }}
+          onFocus={() => { focused.current = context; hovered.current = null; onHighlight?.(context); }}
+          onBlur={() => { focused.current = null; onHighlight?.(hovered.current); }}>
           <span className="exb-outcome-label" title={name}>{name}</span>
           <span className="exb-outcome-rate">{hasStudents ? `${rate}%` : '—'}</span>
           <span className="exb-outcome-count">{group.admitted}/{group.total}</span>
           <span className="exb-outcome-track" aria-hidden="true"><span style={{ width: `${hasStudents ? Math.max(0, Math.min(100, group.rate)) : 0}%` }} /></span>
         </div>;
-      })}</div>
+      })}</div></div></div>
     </section>)}
   </div>;
 }

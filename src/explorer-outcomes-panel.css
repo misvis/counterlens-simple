@@ -30,7 +30,9 @@
   --exb-rate-width: 60px; --exb-count-width: 68px; --exb-column-gap: 8px;
   align-content: start; padding-inline: 6px;
 }
-.explorer-outcomes-panel .exb-outcome-rows[hidden] { display: none; }
+.exb-outcome-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 180ms ease, opacity 140ms ease; }
+.exb-outcome-collapse[data-expanded="true"] { grid-template-rows: 1fr; opacity: 1; }
+.exb-outcome-collapse-inner { min-height: 0; overflow: hidden; }
 .exb-outcome-accordion-heading { position: relative; display: flex; align-items: center; gap: 2px; border-radius: 5px; }
 .exb-outcome-accordion-heading:has(h3 > button:hover) { background: var(--workspace-highlight-ring); }
 .exb-outcome-accordion-heading h3 { min-width: 0; margin: 0; }
@@ -42,12 +44,17 @@
 /* Stretch the native button's hit area while keeping income help independent. */
 .exb-outcome-accordion-heading h3 > button::after { content: ''; position: absolute; inset: 0; border-radius: inherit; cursor: pointer; }
 .exb-outcome-accordion-heading > .zip-income-help { position: relative; z-index: 1; }
-.exb-outcome-accordion-heading h3 > button svg { flex: none; }
+.exb-outcome-accordion-heading h3 > button svg { flex: none; transition: transform 180ms ease; }
 .exb-outcome-accordion-heading h3 > button[aria-expanded="false"] svg { transform: rotate(-90deg); }
 .exb-outcome-category-count { flex: none; margin-left: auto; color: var(--threshold-muted); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; pointer-events: none; }
 .explorer-outcomes-panel button:focus-visible, .outcomes-panel-scroll:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
 .exb-outcome-accordion-heading h3 > button:focus-visible { outline: none; }
 .exb-outcome-accordion-heading h3 > button:focus-visible::after { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  /* Retain the explicitly requested, shortened feedback over the theme reset. */
+  .simplified-app .exb-outcome-collapse,
+  .simplified-app .exb-outcome-accordion-heading h3 > button svg { transition-duration: 100ms !important; }
+}
 @media (min-width: 1100px) and (min-height: 640px) {
   .simplified-app .workspace-controls.has-editor-drawer:has(.explorer-outcomes-panel) {
     grid-template-rows: auto minmax(0, 1fr); grid-auto-rows: auto; align-content: stretch; overflow: visible;
