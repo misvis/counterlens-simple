@@ -7,7 +7,7 @@ import { EXPLORER_SIMULATION_POLICIES } from './explorerPolicies.js';
 import { admissionBoundary, backgroundBoundaryBand, backgroundScore, confusionMatrix, getDecision, scoreStudent } from './admissionModel.js';
 import {
   EXPLORER_FEATURES, enrichExplorerRecords, buildIncomeBins, getExplorerOptions,
-  normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext, explorerScoringContext, summarizeExplorerOutcomes,
+  getDefaultExplorerLayout, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext, explorerScoringContext, summarizeExplorerOutcomes,
 } from './featureExplorer.js';
 
 const source = toPercentileClassroomView(createSyntheticClassroomView());
@@ -30,6 +30,29 @@ const countMemberships = result => {
   }
   return counts;
 };
+
+test('Policy presets retain every student once and align the two income-policy comparisons', () => {
+  const [academic, holistic, incomeSupport] = EXPLORER_SIMULATION_POLICIES;
+  const grouped = EXPLORER_SIMULATION_POLICIES.map(policy => buildExplorerGroups({
+    records, layout: getDefaultExplorerLayout(policy),
+  }));
+  assert.deepEqual(grouped.map(group => group.panelCount), [1, 8, 8]);
+  for (const group of grouped) {
+    assert.deepEqual(countMemberships(group), new Map(records.map(record => [record.id, 1])));
+  }
+  assert.deepEqual(grouped[1], grouped[2]);
+  assert.deepEqual(grouped[1].rows.map(row => row.value), ['instate', 'outofstate']);
+  assert.deepEqual(grouped[1].columns.map(column => column.min), [1, 40000, 51000, 66000]);
+  for (const policy of [academic, holistic, incomeSupport]) {
+    assert.deepEqual(getDefaultExplorerLayout({ ...policy, threshold: 75 }), getDefaultExplorerLayout(policy));
+  }
+  // A user's edits to one returned layout must not mutate future defaults.
+  const edited = getDefaultExplorerLayout(holistic);
+  edited.sections.push('major');
+  edited.rows = 'transfer';
+  assert.deepEqual(getDefaultExplorerLayout(holistic), getDefaultExplorerLayout(incomeSupport));
+  assert.deepEqual(getDefaultExplorerLayout({ id: 'holistic' }), getDefaultExplorerLayout(academic));
+});
 
 test('Synthetic enrichment is stable by ID, preserves source values and every model decision', () => {
   const snapshot = clone(source);

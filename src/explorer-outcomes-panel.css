@@ -1,0 +1,56 @@
+.simplified-app .workspace-controls > .workspace-comparison:has(.explorer-outcomes-panel) {
+  display: flex; flex-direction: column; min-height: 0;
+}
+.explorer-outcomes-panel {
+  --exb-border: #687488;
+  --exb-rate-width: 60px; --exb-count-width: 68px; --exb-column-gap: 8px;
+  display: flex; flex-direction: column; gap: 8px; min-height: 0; height: min(640px, 72dvh);
+}
+.simplified-daylight .explorer-outcomes-panel { --exb-border: #c1cddd; }
+.outcomes-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
+.outcomes-panel-heading h2 { margin: 0; min-width: 0; }
+.outcomes-toggle-all {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 4px;
+  min-height: 28px; padding: 4px 6px; border: 1px solid var(--workspace-plot-border); border-radius: 6px;
+  background: transparent; color: var(--threshold-muted); font-size: 10px;
+}
+.outcomes-toggle-all:hover { color: var(--threshold-text); background: var(--workspace-highlight-ring); }
+.outcomes-panel-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
+  scrollbar-width: thin; scrollbar-gutter: stable; padding-right: 3px; border-radius: 10px 10px 0 0;
+}
+.outcomes-panel-scroll > .exb-outcome-columns {
+  position: sticky; top: 0; z-index: 2; align-items: center;
+  min-height: 42px; margin-bottom: 8px; padding: 7px 6px;
+  border: 0; border-radius: 10px 10px 0 0;
+  background: color-mix(in srgb, var(--workspace-plot-surface) 94%, var(--threshold-text));
+}
+.simplified-daylight .outcomes-panel-scroll > .exb-outcome-columns { background: #f5f8fc; }
+.outcomes-panel-scroll .explorer-group-outcomes {
+  --exb-rate-width: 60px; --exb-count-width: 68px; --exb-column-gap: 8px;
+  align-content: start; padding-inline: 6px;
+}
+.explorer-outcomes-panel .exb-outcome-rows[hidden] { display: none; }
+.exb-outcome-accordion-heading { position: relative; display: flex; align-items: center; gap: 2px; border-radius: 5px; }
+.exb-outcome-accordion-heading:has(h3 > button:hover) { background: var(--workspace-highlight-ring); }
+.exb-outcome-accordion-heading h3 { min-width: 0; margin: 0; }
+.exb-outcome-accordion-heading h3 > button {
+  position: static;
+  display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 0;
+  border: 0; background: transparent; color: var(--threshold-text); font: inherit; text-align: left;
+}
+/* Stretch the native button's hit area while keeping income help independent. */
+.exb-outcome-accordion-heading h3 > button::after { content: ''; position: absolute; inset: 0; border-radius: inherit; cursor: pointer; }
+.exb-outcome-accordion-heading > .zip-income-help { position: relative; z-index: 1; }
+.exb-outcome-accordion-heading h3 > button svg { flex: none; }
+.exb-outcome-accordion-heading h3 > button[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.exb-outcome-category-count { flex: none; margin-left: auto; color: var(--threshold-muted); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; pointer-events: none; }
+.explorer-outcomes-panel button:focus-visible, .outcomes-panel-scroll:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
+.exb-outcome-accordion-heading h3 > button:focus-visible { outline: none; }
+.exb-outcome-accordion-heading h3 > button:focus-visible::after { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
+@media (min-width: 1100px) and (min-height: 640px) {
+  .simplified-app .workspace-controls.has-editor-drawer:has(.explorer-outcomes-panel) {
+    grid-template-rows: auto minmax(0, 1fr); grid-auto-rows: auto; align-content: stretch; overflow: visible;
+  }
+  .explorer-outcomes-panel { height: auto; flex: 1; }
+}

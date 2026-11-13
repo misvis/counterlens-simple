@@ -69,12 +69,14 @@ export default function useExplorerDrag({
       move(event);
       // Capture retargets click to the plot. Resolve a tap here so it selects
       // its original marker instead of being mistaken for a blank-plot click.
-      if (!current.moved && current.kind === 'student' && !current.isDraft) {
+      if (!current.moved && current.kind === 'student' && current.isDraft) {
+        callbacks.current.onSelect(current.original.id);
+      } else if (!current.moved && current.kind === 'student') {
         const { original, previousId } = current;
         const overlap = students.filter(student => student.gpa === original.gpa && student.sat === original.sat);
         const index = overlap.findIndex(student => student.id === previousId);
         const next = index < 0 ? original : overlap[(index + 1) % overlap.length];
-        if (next.id !== previousId) callbacks.current.onSelect(next.id);
+        callbacks.current.onSelect(next.id);
       }
     }
     finish(cancelled);

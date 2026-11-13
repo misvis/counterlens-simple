@@ -254,7 +254,7 @@ export function ExplorerPointLens({ svgRef, panelId, panelLabel, points, width, 
   }, [points]);
   const pick = (event, record) => {
     event.stopPropagation();
-    if (record.id !== selectedStudentId || !draftStudent) onSelect(record.id);
+    onSelect(record.id);
   };
   const pickPointer = (event, point) => {
     const members = coincident.get(point.coordinateKey);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { EXPLORER_FEATURES, getExplorerOptions } from '../shared/featureExplorer.js';
 import ZipIncomeInfo from './ZipIncomeInfo.jsx';
 import './explorer-background-controls.css';
@@ -52,7 +53,11 @@ function IncomeField({ student, original, onChange, lang, t, feature }) {
       onChange={event => setEntry({ source: student, text: event.target.value, invalid: false })}
       onBlur={commit} onKeyDown={event => {
         if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
-        if (event.key === 'Escape') setEntry({ source: student, text: incomeText(student.zipIncome), invalid: false });
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          setEntry({ source: student, text: incomeText(student.zipIncome), invalid: false });
+        }
       }} />
     <span className="exb-helper">
       {entry.invalid ? <span id="explorer-income-error" className="exb-error" role="alert" title={t.invalid}>{t.invalid}</span>
@@ -93,20 +98,30 @@ export function ExplorerBackgroundEditor({ student, original, students = [], onC
   </div>;
 }
 
-export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en' }) {
-  const t = COPY[lang] || COPY.en;
+export function ExplorerOutcomeColumns({ lang = 'en' }) {
   const columns = OUTCOME_COLUMNS[lang] || OUTCOME_COLUMNS.en;
+  return <div className="exb-outcome-columns">
+    <span>{columns.group}</span><span>{columns.rate}</span><span>{columns.count}</span>
+  </div>;
+}
+
+export function ExplorerGroupOutcomes({ groups = [], binning, lang = 'en', expandedKeys, onToggle }) {
+  const t = COPY[lang] || COPY.en;
   return <div className="explorer-group-outcomes" data-explorer-group-outcomes>
-    <div className="exb-outcome-columns">
-      <span>{columns.group}</span><span>{columns.rate}</span><span>{columns.count}</span>
-    </div>
     {groups.map(feature => <section className="exb-outcome-group" key={feature.key} data-outcome-feature={feature.key}
       aria-labelledby={`explorer-outcome-${feature.key}`}>
-      <div className={feature.key === 'zipIncome' ? 'exb-income-heading' : undefined}>
-        <h3 id={`explorer-outcome-${feature.key}`}>{localized(feature.label, lang)}</h3>
+      <div className="exb-outcome-accordion-heading">
+        <h3 id={`explorer-outcome-${feature.key}`}><button type="button"
+          aria-expanded={expandedKeys.includes(feature.key)} aria-controls={`explorer-outcome-rows-${feature.key}`}
+          aria-describedby={`explorer-outcome-count-${feature.key}`}
+          onClick={() => onToggle(feature.key)}>
+          <ChevronDown size={13} aria-hidden="true" />
+          <span>{localized(feature.label, lang)}</span>
+        </button></h3>
         {feature.key === 'zipIncome' && <ZipIncomeInfo lang={lang} binning={binning} />}
+        <span className="exb-outcome-category-count" id={`explorer-outcome-count-${feature.key}`}>{feature.groups.length}</span>
       </div>
-      <div className="exb-outcome-rows">{feature.groups.map(group => {
+      <div className="exb-outcome-rows" id={`explorer-outcome-rows-${feature.key}`} hidden={!expandedKeys.includes(feature.key)}>{feature.groups.map(group => {
         const name = localized(group.option.label, lang);
         const hasStudents = group.total > 0 && Number.isFinite(group.rate);
         const rate = hasStudents ? Math.round(group.rate) : null;

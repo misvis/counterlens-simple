@@ -1,4 +1,8 @@
 /* The student workspace: a persistent visualizer and one control rail. */
+.simplified-app .workspace-section-title {
+  font-size: 15px;
+}
+
 .simplified-app {
   min-height: 100dvh;
   --workspace-highlight: var(--obs-verdigris, #8ea7ff);

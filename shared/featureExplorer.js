@@ -203,6 +203,14 @@ export const getExplorerOptions = (featureKey, records, incomeBins) => {
   return [...options, ...(missing ? [MISSING_OPTION] : [])];
 };
 
+// Keep the two background-aware policies spatially comparable. Unshown
+// backgrounds still contribute to scoring; this is only a display preset.
+export const getDefaultExplorerLayout = policy => ({
+  rows: isExplorerPolicy(policy) && ['holistic', 'opportunity'].includes(policy.id) ? 'residency' : '',
+  columns: isExplorerPolicy(policy) && ['holistic', 'opportunity'].includes(policy.id) ? 'zipIncome' : '',
+  sections: [],
+});
+
 export const normalizeExplorerLayout = (layout = {}) => {
   const columns = FEATURES_BY_KEY.has(layout.columns) ? layout.columns : '';
   const rows = FEATURES_BY_KEY.has(layout.rows) && layout.rows !== columns ? layout.rows : '';

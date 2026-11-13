@@ -38,15 +38,17 @@ import ScoreBoundaryView from './ScoreBoundaryView.jsx';
 import ScoreBreakdownView from './ScoreBreakdownView.jsx';
 import BackgroundScenariosView from './BackgroundScenariosView.jsx';
 import FeatureExplorer, { ExplorerStudentSelect } from './FeatureExplorer.jsx';
+import ExplorerOutcomesPanel from './ExplorerOutcomesPanel.jsx';
 import ExplorerPolicyDetails from './ExplorerPolicyDetails.jsx';
 import { EXPLORER_POLICY_COPY } from './explorerPolicyCopy.js';
 import { EXPLORER_SIMULATION_POLICIES, isExplorerPolicy } from '../shared/explorerPolicies.js';
 import { buildExplorerDemoView, samePublishedValue } from '../shared/explorerDemoDataset.js';
-import { ExplorerBackgroundEditor, ExplorerGroupOutcomes } from './ExplorerBackgroundControls.jsx';
+import { ExplorerBackgroundEditor } from './ExplorerBackgroundControls.jsx';
 import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, buildIncomeBins, enrichExplorerRecords, getExplorerOptions, summarizeExplorerOutcomes } from '../shared/featureExplorer.js';
 import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
+import EditorPresentation from './EditorPresentation.jsx';
 import { ADMISSION_DOMAINS, scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from '../shared/admissionModel.js';
 import {
   createBundledClassroomView,
@@ -875,6 +877,8 @@ const SimplifiedApp = () => {
   const [isBoundaryDragging, setIsBoundaryDragging] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [draftStudent, setDraftStudent] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const editorReopenRef = useRef(null);
   const [explorerBinning, setExplorerBinning] = useState(DEFAULT_INCOME_BINNING);
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
@@ -889,6 +893,7 @@ const SimplifiedApp = () => {
   useEffect(() => { latestPolicyId.current = policyId; }, [policyId]);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  const editorReopenLabel = { en: 'Edit', zh: '编辑', es: 'Editar' }[lang] || 'Edit';
   const viewCopy = BOUNDARY_VIEWS[lang] || BOUNDARY_VIEWS.en;
   const isFeatureView = boundaryView === 'features';
   const isScenarioView = boundaryView === 'scenarios' || isFeatureView;
@@ -1131,8 +1136,9 @@ const SimplifiedApp = () => {
 
   const selectStudent = (studentId) => {
     const student = students.find((item) => item.id === studentId) || null;
-    setSelectedId(studentId);
-    setDraftStudent(student ? { ...student } : null);
+    setSelectedId(student?.id ?? null);
+    if (!student || student.id !== selectedId) setDraftStudent(student ? { ...student } : null);
+    setEditorOpen(Boolean(student));
     if (student) {
       trackAnonymousEvent('student_selected', {
         datasetId,
@@ -1142,6 +1148,12 @@ const SimplifiedApp = () => {
         theme,
       });
     }
+  };
+
+  const closeEditor = () => {
+    setEditorOpen(false);
+    // The selected sample remains available even when its editor is tucked away.
+    requestAnimationFrame(() => editorReopenRef.current?.focus({ preventScroll: true }));
   };
 
   const { isStudentDragging, studentDragHandlers } = useStudentDrag({
@@ -1333,6 +1345,19 @@ const SimplifiedApp = () => {
                 </div>
                 <div className="workspace-visualizer-actions">
                 <div className="workspace-case-tools">
+                <div className="editor-reopen-slot">
+                  <button type="button" ref={editorReopenRef} className="editor-reopen workspace-reset"
+                    disabled={!selectedStudent} aria-hidden={!selectedStudent} style={{ visibility: selectedStudent ? 'visible' : 'hidden' }}
+                    aria-expanded={editorOpen} aria-controls="counterfactual-editor" onClick={() => {
+                      setEditorOpen(true);
+                      if (!window.matchMedia('(min-width: 1100px) and (min-height: 640px)').matches) {
+                        requestAnimationFrame(() => document.querySelector('.workspace-controls')?.scrollIntoView({ block: 'start' }));
+                      }
+                    }}>
+                    <span aria-hidden="true">↗</span><span>{editorReopenLabel} {selectedId ?? 'S000'}</span>
+                    <span className="editor-edited-dot" style={{ visibility: draftProfileChanged ? 'visible' : 'hidden' }} aria-hidden="true" />
+                  </button>
+                </div>
                 {isFeatureView && <ExplorerStudentSelect students={students} selectedStudent={selectedStudent}
                   onSelect={selectStudent} isMining={isMining} edgeCaseIds={edgeCaseIds} lang={lang} />}
                 <button
@@ -1414,7 +1439,8 @@ const SimplifiedApp = () => {
                 {boundaryView === 'score' ? <ScoreBoundaryView students={students} policy={policy}
                   selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
-                  : isFeatureView ? <FeatureExplorer students={students} policy={policy}
+                  // Reset only view-local state on policy changes; selection and drafts stay here.
+                  : isFeatureView ? <FeatureExplorer key={policy.id} students={students} policy={policy}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     onEdit={applyDraft} onThresholdChange={setThresholdOverride} contextKey={`${datasetId}:${datasetVersion}`}
                     onRestoreSelection={(studentId, draft) => { setSelectedId(studentId); setDraftStudent(draft); }}
@@ -1545,7 +1571,7 @@ const SimplifiedApp = () => {
               <section className={`workspace-threshold ${isBoundaryDragging ? 'is-boundary-dragging' : ''}`} aria-labelledby="threshold-title" style={{ '--threshold-position': `${policy.threshold}%` }}>
                 <div className="workspace-threshold-heading">
                   <div className="workspace-threshold-name">
-                    <label id="threshold-title" htmlFor="admission-threshold">{t.thresholdTitle}</label>
+                    <label id="threshold-title" className="workspace-section-title" htmlFor="admission-threshold">{t.thresholdTitle}</label>
                     <button type="button" className="workspace-inline-help rounded-md" aria-label={t.thresholdHelpTitle} aria-expanded={explainedPolicyId === 'threshold'} aria-controls="threshold-help" onClick={(event) => {
                       policyHelpTrigger.current = event.currentTarget;
                       setExplainedPolicyId(explainedPolicyId === 'threshold' ? null : 'threshold');
@@ -1580,7 +1606,7 @@ const SimplifiedApp = () => {
 
               <section className="workspace-confusion" aria-labelledby="confusion-title">
                 <div className="workspace-confusion-heading">
-                  <h3 id="confusion-title">{t.confusionTitle}</h3>
+                  <h3 id="confusion-title" className="workspace-section-title">{t.confusionTitle}</h3>
                   <span className="workspace-confusion-source" title={!matrix.labeled ? t.matrixMissing : undefined}>
                     <span>{t.matrixSamples} <strong>{matrix.labeled}</strong></span>
                   </span>
@@ -1636,12 +1662,11 @@ const SimplifiedApp = () => {
 
           </section>
 
-          <aside className="workspace-controls" aria-label={t.controlsLabel}>
+          <aside className="workspace-controls has-editor-drawer" aria-label={t.controlsLabel}>
             <section className="workspace-policy simplified-panel rounded-2xl border border-slate-800 bg-slate-900/70 shadow-xl shadow-black/10">
               <div className="workspace-policy-heading mb-2 flex items-start gap-2.5">
-                <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">1</div>
                 <div>
-                  <h2 className="text-base font-bold leading-tight text-white">{t.choosePolicy}</h2>
+                  <h2 className="workspace-section-title font-bold leading-tight text-white">{t.choosePolicy}</h2>
                 </div>
                 <div className="workspace-policy-summary" role="status" aria-live="polite"
                   aria-label={formatCopy(t.admittedCountLabel, { admitted: policyAdmissionCounts[policy.id], total: students.length })}>
@@ -1660,6 +1685,7 @@ const SimplifiedApp = () => {
                         setIsMining(false);
                         if (nextPolicyId !== policy.id) {
                           setThresholdOverride(null);
+                          setExplorerBinning(DEFAULT_INCOME_BINNING);
                           trackAnonymousEvent('policy_selected', {
                             datasetId,
                             datasetVersion,
@@ -1724,16 +1750,13 @@ const SimplifiedApp = () => {
             </section>
 
 
-              <section className={`workspace-counterfactual simplified-panel flex flex-col rounded-2xl border border-blue-400/20 bg-slate-900/65 ${isFeatureView ? 'has-explorer-editor' : ''} ${isStudentDragging ? 'is-student-dragging' : ''}`}>
-                <div className="mb-2.5 flex shrink-0 items-start justify-between gap-2 xl:mb-1.5">
-                  <div className="flex items-start gap-2">
-                    <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">2</div>
-                    <div>
-                      <h2 className="text-[15px] font-bold leading-tight text-white">{t.whatIfTitle}</h2>
-                    </div>
-                  </div>
+              <EditorPresentation open={editorOpen && Boolean(draftStudent)}
+                onClose={closeEditor} title={t.whatIfTitle} lang={lang}>
+                <div className="editor-heading">
+                  <h2 id="counterfactual-editor-title" className="workspace-section-title">{t.whatIfTitle}</h2>
+                  <button type="button" className="editor-close" aria-label={t.close} onClick={closeEditor}><X size={16} /></button>
                 </div>
-
+                <div className="editor-body">
                 {!draftStudent && !isFeatureView ? (
                   <div className="workspace-empty simplified-inset flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/35 text-center">
                     <GraduationCap className="h-8 w-8 text-slate-700" />
@@ -1825,16 +1848,16 @@ const SimplifiedApp = () => {
 
                   </div>
                 )}
-              </section>
-              <section className="workspace-comparison simplified-panel rounded-2xl border border-slate-800 bg-slate-900/65">
-                <div className="mb-1.5 flex items-start gap-2.5">
-                  <div className="simplified-step flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">3</div>
-                  <div>
-                    <h2 className="text-base font-bold leading-tight text-white">{t.compareOutcomes}</h2>
-                  </div>
                 </div>
+              </EditorPresentation>
+              <section className="workspace-comparison simplified-panel rounded-2xl border border-slate-800 bg-slate-900/65">
+                {!isFeatureView && <div className="mb-1.5 flex items-start gap-2.5">
+                  <div>
+                    <h2 className="workspace-section-title font-bold leading-tight text-white">{t.compareOutcomes}</h2>
+                  </div>
+                </div>}
 
-                {isFeatureView ? <ExplorerGroupOutcomes groups={explorerOutcomeGroups} binning={explorerBinning} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
+                {isFeatureView ? <ExplorerOutcomesPanel title={t.compareOutcomes} groups={explorerOutcomeGroups} binning={explorerBinning} policyId={policy.id} lang={lang} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}

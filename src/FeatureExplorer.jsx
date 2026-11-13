@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
-import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
+import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, getDefaultExplorerLayout, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
 import { ExplorerDropdown } from './ExplorerDropdown.jsx';
 import ZipIncomeInfo from './ZipIncomeInfo.jsx';
@@ -245,7 +245,7 @@ export function ExplorerStudentSelect({ students, selectedStudent, onSelect, isM
 export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins }) {
   const t = COPY[lang] || COPY.en;
   const resetCopy = RESET_COPY[lang] || RESET_COPY.en;
-  const [layout, setLayout] = useState({ columns: '', rows: '', sections: [] });
+  const [layout, setLayout] = useState(() => getDefaultExplorerLayout(policy));
   const [selectedValues, setSelectedValues] = useState({});
   const [resetVersion, setResetVersion] = useState(0);
   const viewport = useRef(null);
@@ -291,7 +291,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const changeBinning = next => { onBinningChange(next); setSelectedValues(current => { const nextValues = { ...current }; delete nextValues.zipIncome; return nextValues; }); };
   const resetView = event => {
     event.stopPropagation();
-    setLayout({ columns: '', rows: '', sections: [] });
+    setLayout(getDefaultExplorerLayout(policy));
     setSelectedValues({});
     onBinningChange(DEFAULT_INCOME_BINNING);
     setResetVersion(current => current + 1);
@@ -327,7 +327,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const selectFromEvent = event => {
     const point = event.target.closest?.('[data-explorer-student]');
     if (point) {
-      if (point.dataset.explorerStudent !== selectedStudent?.id) onSelect(point.dataset.explorerStudent);
+      onSelect(point.dataset.explorerStudent);
       return;
     }
     if (event.target.closest?.('.fex-controls, [data-draft-student], [data-explorer-lens], [data-profile-pair]')) return;
@@ -335,13 +335,14 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   };
   const columnCount = Math.max(1, groups.columns.length);
   const singlePlot = groups.panelCount === 1;
-  const plotWidth = Math.max(240, Math.floor((availableWidth - rowGutter - (columnCount - 1) * MATRIX_COLUMN_GAP) / columnCount));
+  // Four income columns fit the desktop workspace; narrower screens still scroll.
+  const plotWidth = Math.max(220, Math.floor((availableWidth - rowGutter - (columnCount - 1) * MATRIX_COLUMN_GAP) / columnCount));
   const matrixWidth = rowGutter + columnCount * plotWidth + (columnCount - 1) * MATRIX_COLUMN_GAP;
   return <div lang={lang} className={`feature-explorer-matrix${isLight ? ' fex-light' : ''}${singlePlot ? ' fex-single' : ''}`} data-feature-explorer data-panel-count={groups.panelCount} data-boundary-ui onPointerDown={event => event.stopPropagation()} onClick={selectFromEvent}
     onKeyDown={event => {
       if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-explorer-student]')) {
         event.preventDefault();
-        if (event.target.dataset.explorerStudent !== selectedStudent?.id) onSelect(event.target.dataset.explorerStudent);
+        onSelect(event.target.dataset.explorerStudent);
       }
     }}>
     <div className="fex-controls">
