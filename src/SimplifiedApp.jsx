@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import EnglishSizedLabel from './EnglishSizedLabel.jsx';
 import { flushSync } from 'react-dom';
 import { flashExplorerReset, withExplorerViewTransition } from './explorerMotion.js';
 import {
@@ -15,7 +16,6 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
   Database,
@@ -30,7 +30,6 @@ import {
   Sun,
   Sunset,
   Target,
-  Telescope,
   Users,
   X,
 } from 'lucide-react';
@@ -51,6 +50,7 @@ import { BOUNDARY_VIEWS } from './boundaryViews.js';
 import useStudentDrag from './useStudentDrag.js';
 import './simplified-workspace.css';
 import EditorPresentation from './EditorPresentation.jsx';
+import BrandMark from './BrandMark.jsx';
 import { ADMISSION_DOMAINS, scoreStudent, getDecision, backgroundScore, admissionBoundary, backgroundBoundaryBand, confusionMatrix } from '../shared/admissionModel.js';
 import {
   createBundledClassroomView,
@@ -60,7 +60,8 @@ import {
 
 const LIGHT_OUTCOME_COLORS = {
   admitted: '#047857',
-  rejected: '#be123c',
+  rejected: '#a95662',
+  rejectedStroke: '#88454e',
 };
 
 const POLICY_PRESENTATION = {
@@ -98,9 +99,9 @@ const DARK_THEME_PALETTES = {
     accent: '#d2a5ff',
     connector: '#d2a5ff',
     admitted: '#60d8a4',
-    rejected: '#ff8690',
+    rejected: '#d89ba1',
     admittedStroke: '#a4eccd',
-    rejectedStroke: '#ffb9be',
+    rejectedStroke: '#e3b2b7',
     selectedGlow: 'rgba(142, 167, 255, 0.85)',
   },
   summer: {
@@ -113,9 +114,9 @@ const DARK_THEME_PALETTES = {
     accent: '#c4acff',
     connector: '#a78bfa',
     admitted: '#48d6a6',
-    rejected: '#ff7f88',
+    rejected: '#d89ba1',
     admittedStroke: '#9be5cf',
-    rejectedStroke: '#ffaaa3',
+    rejectedStroke: '#e3b2b7',
     selectedGlow: 'rgba(67, 211, 193, 0.85)',
   },
 };
@@ -546,15 +547,15 @@ const TRANSLATIONS = {
     thresholdRule: 'Puntuación ≥ umbral → admisión',
     thresholdHelpTitle: 'Acerca del umbral de admisión',
     thresholdHelp: 'Aumenta el umbral para exigir una puntuación más alta.',
-    thresholdPreset: 'Restablecer recupera el umbral predeterminado de la política.',
+    thresholdPreset: 'Reiniciar recupera el umbral predeterminado de la política.',
     thresholdDefault: 'Inicial: {value}',
     thresholdReset: 'Restablecer umbral',
-    outcomeFlipped: 'Resultado cambiado',
+    outcomeFlipped: 'Cambió',
     outcomeComparison: 'Original: {original} → Editado: {edited}. Comparados con la misma política y el mismo umbral.',
     adjustedPosition: 'Posición ajustada',
     adjustedSamePosition: 'Perfil ajustado · misma posición GPA/SAT Percentile',
     chartAxisNote: 'Solo GPA y SAT Percentile determinan la posición del punto. Los puntos de contexto pueden cambiar el resultado sin moverlo.',
-    reset: 'Restablecer',
+    reset: 'Reiniciar',
     selectStudent: 'Selecciona un estudiante en el gráfico',
     selectStudentDesc: 'Arrastra un punto para probar otras notas o usa estos controles. El perfil original se conserva.',
     decisionScore: 'Puntuación de decisión',
@@ -679,7 +680,28 @@ const BackgroundEditor = ({ features, student, original, onChange, t, lang, expl
   );
 };
 
-const StudentTooltip = ({ active, payload, policy, t }) => {
+function AcademicSlider({ field, label, title, value, original, onChange, t }) {
+  const [min, max] = ADMISSION_DOMAINS[field];
+  const digits = field === 'gpa' ? 2 : 0;
+  const changed = value != null && original != null && value !== original;
+  const id = `${field}-slider`;
+  return (
+    <div className="workspace-academic-control">
+      <span className="workspace-academic-current">{value?.toFixed(digits) ?? '—'}</span>
+      <input id={id} type="range" min={min} max={max} step={field === 'gpa' ? 0.01 : 1}
+        value={value ?? min} disabled={value == null}
+        aria-valuetext={value == null ? t.selectStudent : undefined}
+        onInput={event => onChange(field, Number(event.currentTarget.value))} />
+      <label htmlFor={id} title={title}>{label}</label>
+      <span className="workspace-academic-delta" aria-hidden={!changed}
+        title={changed ? formatCopy(t.backgroundOriginal, { value: original.toFixed(digits) }) : undefined}>
+        {changed && `Δ ${value > original ? '+' : ''}${(value - original).toFixed(digits)}`}
+      </span>
+    </div>
+  );
+}
+
+const StudentTooltip = ({ active, payload, policy, colors, t }) => {
   if (!active || !payload?.[0]?.payload) return null;
   const student = payload[0].payload;
   const admitted = getDecision(student, policy);
@@ -690,12 +712,12 @@ const StudentTooltip = ({ active, payload, policy, t }) => {
     <div className="simplified-student-tooltip rounded-xl border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs shadow-2xl">
       <div className="mb-1 flex items-center justify-between gap-4">
         <span className="font-bold text-white">{t.student} {student.id}</span>
-        <span className={admitted ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>
+        <span className="font-semibold" style={{ color: admitted ? colors.admitted : colors.rejected }}>
           {admitted ? t.admitted : t.notAdmitted}
         </span>
       </div>
       <div className="text-slate-300">GPA {student.gpa.toFixed(2)} · SAT Percentile {student.sat}</div>
-      <div className="mt-1 font-mono text-[10px] text-slate-400">
+      <div className="mt-1 tabular-nums text-[10px] text-slate-400">
         {t.decisionScore}: {score.toFixed(1)} · {t.cutoff} {policy.threshold} · {distance.toFixed(1)} {t.fromCutoff}
       </div>
       <div className="mt-1 text-slate-500">
@@ -880,9 +902,10 @@ const SimplifiedApp = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [draftStudent, setDraftStudent] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const editorReopenRef = useRef(null);
+  const studentSelectRef = useRef(null);
   const [explorerBinning, setExplorerBinning] = useState(DEFAULT_INCOME_BINNING);
   const [highlightedOutcome, setHighlightedOutcome] = useState(null);
+  const [outcomeResetVersion, setOutcomeResetVersion] = useState(0);
   const [explainedPolicyId, setExplainedPolicyId] = useState(null);
   const policyHelpTrigger = useRef(null);
   const [classroomView, setClassroomView] = useState(initialWorkspace.view);
@@ -894,9 +917,11 @@ const SimplifiedApp = () => {
   const latestPolicyId = useRef(policyId);
 
   useEffect(() => { latestPolicyId.current = policyId; }, [policyId]);
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  }, [lang]);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
-  const editorReopenLabel = { en: 'Edit', zh: '编辑', es: 'Editar' }[lang] || 'Edit';
   const viewCopy = BOUNDARY_VIEWS[lang] || BOUNDARY_VIEWS.en;
   const isFeatureView = boundaryView === 'features';
   const isScenarioView = boundaryView === 'scenarios' || isFeatureView;
@@ -1108,9 +1133,9 @@ const SimplifiedApp = () => {
     if (!selectedId || previous?.studentId !== selectedId || previous.admitted === draftDecision) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const animation = decisionBadgeRef.current?.animate([
-      { transform: 'perspective(400px) rotateX(-18deg) scale(.97)', boxShadow: '0 0 0 0 var(--workspace-edit-ring)' },
-      { transform: 'perspective(400px) rotateX(0) scale(1.06)', boxShadow: '0 0 0 7px var(--workspace-edit-ring)', offset: .45 },
-      { transform: 'perspective(400px) rotateX(0) scale(1)', boxShadow: '0 0 0 0 var(--workspace-edit-ring)' },
+      { transform: 'perspective(400px) rotateX(-18deg) scale(.97)' },
+      { transform: 'perspective(400px) rotateX(0) scale(1.06)', offset: .45 },
+      { transform: 'perspective(400px) rotateX(0) scale(1)' },
     ], { duration: 650, easing: 'cubic-bezier(.2,.7,.2,1)' });
     return () => animation?.cancel();
   }, [draftDecision, selectedId]);
@@ -1155,8 +1180,7 @@ const SimplifiedApp = () => {
 
   const closeEditor = () => {
     setEditorOpen(false);
-    // The selected sample remains available even when its editor is tucked away.
-    requestAnimationFrame(() => editorReopenRef.current?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => studentSelectRef.current?.focus({ preventScroll: true }));
   };
 
   const { isStudentDragging, studentDragHandlers } = useStudentDrag({
@@ -1180,11 +1204,9 @@ const SimplifiedApp = () => {
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 ring-1 ring-amber-400/30">
-                  <Telescope className="h-5 w-5 text-amber-400" />
-                </div>
+                <BrandMark size={44} />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-amber-400">CounterLens</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-300">CounterLens</div>
                   <h2 id="credits-title" className="text-xl font-bold text-white">{t.creditsTitle}</h2>
                 </div>
               </div>
@@ -1263,12 +1285,10 @@ const SimplifiedApp = () => {
       <div className="simplified-shell">
         <header className="mb-3 flex shrink-0 flex-col justify-between gap-3 border-b border-slate-800 pb-3 md:flex-row md:items-center xl:mb-2.5 xl:pb-2.5">
           <div className="flex items-center gap-3.5">
-            <div className="workspace-brand-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 ring-1 ring-amber-400/30">
-              <Telescope className="h-6 w-6 text-amber-400" />
-            </div>
+            <BrandMark size={48} className="workspace-brand-icon shrink-0" />
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[26px]">CounterLens</h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="workspace-header-actions grid w-max max-w-full gap-1 sm:gap-2">
             <button
               type="button"
               onClick={() => {
@@ -1283,12 +1303,12 @@ const SimplifiedApp = () => {
               }}
               aria-label={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
               title={`${t.switchTheme}: ${themeLabels[nextTheme]}`}
-              className="flex w-[112px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-1.5 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
             >
               <ThemeIcon className="h-3.5 w-3.5 shrink-0" />
               <span>{themeLabels[theme]}</span>
             </button>
-            <div className="flex rounded-xl border border-slate-800 bg-slate-900/70 p-1" role="group" aria-label={t.languageLabel}>
+            <div className="grid grid-cols-3 rounded-xl border border-slate-800 bg-slate-900/70 p-0.5" role="group" aria-label={t.languageLabel}>
               {[
                 ['en', 'EN'],
                 ['zh', '中文'],
@@ -1297,6 +1317,7 @@ const SimplifiedApp = () => {
                 <button
                   key={code}
                   type="button"
+                  lang={code === 'zh' ? 'zh-Hans' : code}
                   aria-pressed={lang === code}
                   onClick={() => {
                     setLang(code);
@@ -1308,7 +1329,7 @@ const SimplifiedApp = () => {
                       theme,
                     });
                   }}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                  className={`whitespace-nowrap rounded-lg text-xs font-bold transition ${
                     lang === code ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'
                   }`}
                 >
@@ -1319,7 +1340,7 @@ const SimplifiedApp = () => {
             <button
               type="button"
               onClick={() => setShowCredits(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
+              className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-800 bg-slate-900/70 px-1 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-white"
             >
               <Info className="h-3.5 w-3.5" /> {t.credits}
             </button>
@@ -1348,21 +1369,14 @@ const SimplifiedApp = () => {
                 </div>
                 <div className="workspace-visualizer-actions">
                 <div className="workspace-case-tools">
-                <div className="editor-reopen-slot">
-                  <button type="button" ref={editorReopenRef} className="editor-reopen workspace-reset"
-                    disabled={!selectedStudent} aria-hidden={!selectedStudent} style={{ visibility: selectedStudent ? 'visible' : 'hidden' }}
-                    aria-expanded={editorOpen} aria-controls="counterfactual-editor" onClick={() => {
-                      setEditorOpen(true);
-                      if (!window.matchMedia('(min-width: 1100px) and (min-height: 640px)').matches) {
-                        requestAnimationFrame(() => document.querySelector('.workspace-controls')?.scrollIntoView({ block: 'start' }));
-                      }
-                    }}>
-                    <span aria-hidden="true">↗</span><span>{editorReopenLabel} {selectedId ?? 'S000'}</span>
-                    <span className="editor-edited-dot" style={{ visibility: draftProfileChanged ? 'visible' : 'hidden' }} aria-hidden="true" />
-                  </button>
-                </div>
                 {isFeatureView && <ExplorerStudentSelect students={students} selectedStudent={selectedStudent}
-                  onSelect={selectStudent} isMining={isMining} edgeCaseIds={edgeCaseIds} lang={lang} />}
+                  selectRef={studentSelectRef} editorOpen={editorOpen} isMining={isMining} edgeCaseIds={edgeCaseIds} lang={lang}
+                  onSelect={studentId => {
+                    selectStudent(studentId);
+                    if (studentId && !window.matchMedia('(min-width: 1100px) and (min-height: 640px)').matches) {
+                      requestAnimationFrame(() => document.querySelector('.workspace-controls')?.scrollIntoView({ block: 'start' }));
+                    }
+                  }} />}
                 <button
                   type="button"
                   aria-pressed={isMining}
@@ -1388,12 +1402,12 @@ const SimplifiedApp = () => {
                 </button>
                 </div>
                 <div className="simplified-outcome-legend grid shrink-0 justify-items-start gap-1 pt-0.5 text-xs font-semibold">
-                  <span className="flex items-center gap-1.5 text-emerald-300">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: outcomeColors.admitted }} />
+                  <span className="flex items-center gap-1.5" style={{ color: outcomeColors.admitted }}>
+                    <span className="h-2.5 w-2.5 rounded-full bg-current" />
                     {t.admitted}
                   </span>
-                  <span className="flex items-center gap-1.5 text-rose-300">
-                    <span className="h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ backgroundColor: outcomeColors.rejected }} />
+                  <span className="flex items-center gap-1.5" style={{ color: outcomeColors.rejected }}>
+                    <span className="h-2.5 w-2.5 rotate-45 rounded-[2px] bg-current" />
                     {t.notAdmitted}
                   </span>
                   <span className="workspace-adjusted-legend flex items-center gap-1.5 font-medium" style={{ visibility: draftProfileChanged && !isScenarioView ? 'visible' : 'hidden' }} aria-hidden={!draftProfileChanged || isScenarioView}>
@@ -1443,6 +1457,10 @@ const SimplifiedApp = () => {
                   selectedStudent={selectedStudent} draftStudent={draftStudent} isMining={isMining} edgeCaseIds={edgeCaseIds}
                   onSelect={selectStudent} onClear={() => selectStudent(null)} isLight={isLight} colors={outcomeColors} lang={lang} />
                   : isFeatureView ? <FeatureExplorer students={students} policy={policy} highlightedGroup={highlightedOutcome}
+                    onReset={() => {
+                      setHighlightedOutcome(null);
+                      setOutcomeResetVersion(version => version + 1);
+                    }}
                     selectedStudent={selectedStudent} draftStudent={draftStudent} onSelect={selectStudent}
                     onEdit={applyDraft} onThresholdChange={setThresholdOverride} contextKey={`${datasetId}:${datasetVersion}`}
                     onRestoreSelection={(studentId, draft) => { setSelectedId(studentId); setDraftStudent(draft); }}
@@ -1504,7 +1522,7 @@ const SimplifiedApp = () => {
                     <Tooltip
                       active={isBoundaryDragging || isStudentDragging ? false : undefined}
                       cursor={false}
-                      content={<StudentTooltip policy={policy} t={t} />}
+                      content={<StudentTooltip policy={policy} colors={outcomeColors} t={t} />}
                       isAnimationActive={false}
                       animationDuration={0}
                       wrapperStyle={{ outline: 'none' }}
@@ -1532,7 +1550,7 @@ const SimplifiedApp = () => {
                                 ? 'var(--workspace-edge)'
                                 : (student.admitted
                                   ? (isLight ? '#065f46' : darkPalette.admittedStroke)
-                                  : (isLight ? '#9f1239' : darkPalette.rejectedStroke))
+                                  : (isLight ? LIGHT_OUTCOME_COLORS.rejectedStroke : darkPalette.rejectedStroke))
                             }
                             strokeWidth={isSelected ? 2.5 : (isMining && isEdgeCase ? 2.5 : 1.15)}
                             className={isMining && isEdgeCase ? 'workspace-edge-case' : ''}
@@ -1586,7 +1604,7 @@ const SimplifiedApp = () => {
                       flushSync(() => setThresholdOverride(null));
                       flashExplorerReset([section.querySelector('input[type="range"]'), section.querySelector('output')]);
                     }}>
-                      <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
+                      <EnglishSizedLabel english={TRANSLATIONS.en.reset} icon={<RotateCcw size={12} aria-hidden="true" />}>{t.reset}</EnglishSizedLabel>
                     </button>
                   </div>
                 </div>
@@ -1761,6 +1779,7 @@ const SimplifiedApp = () => {
 
 
               <EditorPresentation open={editorOpen && Boolean(draftStudent)}
+                decisionColor={draftStudent ? outcomeColors[draftDecision ? 'admitted' : 'rejected'] : undefined}
                 onClose={closeEditor} title={t.whatIfTitle} lang={lang}>
                 <div className="editor-heading">
                   <h2 id="counterfactual-editor-title" className="workspace-section-title">{t.whatIfTitle}</h2>
@@ -1775,92 +1794,41 @@ const SimplifiedApp = () => {
                   </div>
                 ) : (
                   <div className="workspace-draft-controls" data-empty={!draftStudent}>
-                    <div className="workspace-profile-bar rounded-xl bg-slate-950/55 px-3 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="workspace-editor-student text-xs font-semibold text-white">
-                          <span>{t.student}</span><span>{draftStudent?.id ?? '—'}</span>
-                        </div>
+                    <div className="workspace-profile-bar rounded-xl bg-slate-950/55">
+                      <div className="workspace-editor-student text-xs font-semibold text-white">
+                        <span>{t.student}</span><span>{draftStudent?.id ?? '—'}</span>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <div ref={decisionBadgeRef} role="status" aria-live="polite" aria-atomic="true"
-                          title={draftStudent ? formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted }) : undefined}
-                          data-flipped={Boolean(decisionFlipped)} data-admitted={draftStudent ? draftDecision : undefined}
-                          className={`workspace-outcome-badge ${decisionFlipped ? 'is-flipped' : ''} ${!draftStudent ? 'is-empty' : draftDecision ? 'bg-emerald-400/15 text-emerald-300' : 'bg-rose-400/15 text-rose-300'}`}>
-                          <span className="workspace-outcome-main">{!draftStudent ? '—' : draftDecision ? t.admitted : t.notAdmitted}</span>
-                          <span className="workspace-outcome-change" aria-hidden={!decisionFlipped}>
-                            <ArrowRight className="h-3 w-3" aria-hidden="true" />{t.outcomeFlipped}
-                          </span>
-                          {draftStudent && <span className="sr-only">{formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}</span>}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={!draftStudent}
-                          onClick={event => {
-                            const editor = event.currentTarget.closest('.editor-body');
-                            const targets = ['gpa', 'sat', ...EXPLORER_FEATURES.map(feature => feature.key)]
-                              .filter(key => !Object.is(draftStudent[key], selectedStudent[key]))
-                              .map(key => editor.querySelector(key === 'gpa' || key === 'sat' ? `#${key}-slider` : `[data-background-field="${key}"] > :is(select, input)`));
-                            flushSync(() => setDraftStudent({ ...selectedStudent }));
-                            flashExplorerReset(targets);
-                          }}
-                          className="workspace-reset"
-                        >
-                          <RotateCcw size={12} aria-hidden="true" /><span>{t.reset}</span>
-                        </button>
+                      <div ref={decisionBadgeRef} role="status" aria-live="polite" aria-atomic="true"
+                        title={draftStudent ? formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted }) : undefined}
+                        data-flipped={Boolean(decisionFlipped)} data-admitted={draftStudent ? draftDecision : undefined}
+                        className="workspace-outcome-badge">
+                        <span className="workspace-outcome-main">{!draftStudent ? '—' : draftDecision ? t.admitted : t.notAdmitted}</span>
+                        {decisionFlipped && <span className="workspace-outcome-change">{t.outcomeFlipped}</span>}
+                        {draftStudent && <span className="sr-only">{formatCopy(t.outcomeComparison, { original: originalDecision ? t.admitted : t.notAdmitted, edited: draftDecision ? t.admitted : t.notAdmitted })}</span>}
                       </div>
-                    </div>
+                      <button
+                        type="button"
+                        disabled={!draftStudent}
+                        onClick={event => {
+                          const editor = event.currentTarget.closest('.editor-body');
+                          const targets = ['gpa', 'sat', ...EXPLORER_FEATURES.map(feature => feature.key)]
+                            .filter(key => !Object.is(draftStudent[key], selectedStudent[key]))
+                            .map(key => editor.querySelector(key === 'gpa' || key === 'sat' ? `#${key}-slider` : `[data-background-field="${key}"] > :is(select, input)`));
+                          flushSync(() => setDraftStudent({ ...selectedStudent }));
+                          flashExplorerReset(targets);
+                        }}
+                        className="workspace-reset"
+                      >
+                        <EnglishSizedLabel english={TRANSLATIONS.en.reset} icon={<RotateCcw size={12} aria-hidden="true" />}>{t.reset}</EnglishSizedLabel>
+                      </button>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <div>
-                        <div className="workspace-academic-header mb-1 text-xs">
-                          <label htmlFor="gpa-slider" className="font-medium text-slate-300">GPA</label>
-                          <span className="workspace-academic-value font-mono text-blue-300">
-                            <span className="workspace-academic-current">{draftStudent ? draftStudent.gpa.toFixed(2) : '—'}</span>
-                            <span className="workspace-academic-delta" aria-hidden={!draftStudent || draftStudent.gpa === selectedStudent.gpa}
-                              title={selectedStudent ? formatCopy(t.backgroundOriginal, { value: selectedStudent.gpa.toFixed(2) }) : undefined}>
-                              {draftStudent && <>Δ {draftStudent.gpa > selectedStudent.gpa ? '+' : ''}{(draftStudent.gpa - selectedStudent.gpa).toFixed(2)}</>}
-                            </span>
-                          </span>
-                        </div>
-                        <input
-                          id="gpa-slider"
-                          type="range"
-                          min={ADMISSION_DOMAINS.gpa[0]}
-                          max="4"
-                          step="0.01"
-                          value={draftStudent?.gpa ?? ADMISSION_DOMAINS.gpa[0]}
-                          disabled={!draftStudent}
-                          aria-valuetext={!draftStudent ? t.selectStudent : undefined}
-                          onInput={(event) => updateDraft('gpa', Number(event.currentTarget.value))}
-                          className="w-full accent-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <div className="workspace-academic-header mb-1 text-xs">
-                          <label htmlFor="sat-slider" className="font-medium text-slate-300" title="SAT User Group percentile · College Board table, accessed 2026-10-14. Each step is one percentile point.">SAT Percentile</label>
-                          <span className="workspace-academic-value font-mono text-blue-300">
-                            <span className="workspace-academic-current">{draftStudent?.sat ?? '—'}</span>
-                            <span className="workspace-academic-delta" aria-hidden={!draftStudent || draftStudent.sat === selectedStudent.sat}
-                              title={selectedStudent ? formatCopy(t.backgroundOriginal, { value: selectedStudent.sat }) : undefined}>
-                              {draftStudent && <>Δ {draftStudent.sat > selectedStudent.sat ? '+' : ''}{draftStudent.sat - selectedStudent.sat}</>}
-                            </span>
-                          </span>
-                        </div>
-                        <input
-                          id="sat-slider"
-                          type="range"
-                          min={ADMISSION_DOMAINS.sat[0]}
-                          max="100"
-                          step="1"
-                          value={draftStudent?.sat ?? ADMISSION_DOMAINS.sat[0]}
-                          disabled={!draftStudent}
-                          aria-valuetext={!draftStudent ? t.selectStudent : undefined}
-                          onInput={(event) => updateDraft('sat', Number(event.currentTarget.value))}
-                          className="w-full accent-blue-500"
-                        />
-                      </div>
+                    <div className="workspace-academic-sliders">
+                      <AcademicSlider field="gpa" label="GPA" value={draftStudent?.gpa}
+                        original={selectedStudent?.gpa} onChange={updateDraft} t={t} />
+                      <AcademicSlider field="sat" label="SAT Percentile" value={draftStudent?.sat}
+                        original={selectedStudent?.sat} onChange={updateDraft} t={t}
+                        title="SAT User Group percentile · College Board table, accessed 2026-10-14. Each step is one percentile point." />
                     </div>
 
                     {isFeatureView ? <ExplorerBackgroundEditor key={selectedStudent?.id ?? 'unselected'} student={draftStudent}
@@ -1880,7 +1848,8 @@ const SimplifiedApp = () => {
                   </div>
                 </div>}
 
-                {isFeatureView ? <ExplorerOutcomesPanel title={t.compareOutcomes} groups={explorerOutcomeGroups} binning={explorerBinning} policyId={policy.id} lang={lang} onHighlight={setHighlightedOutcome} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
+                {isFeatureView ? <ExplorerOutcomesPanel title={t.compareOutcomes} groups={explorerOutcomeGroups} binning={explorerBinning} policyId={policy.id}
+                  resetVersion={outcomeResetVersion} lang={lang} onHighlight={setHighlightedOutcome} /> : <div className="simplified-inset simplified-rate-table rounded-xl border border-slate-800 bg-slate-950/45 p-1">
                   <RateComparison
                     label={t.firstGenerationShort}
                     leftLabel={t.firstGenerationShort}

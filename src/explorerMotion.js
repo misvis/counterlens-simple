@@ -7,23 +7,27 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 export const explorerLayoutKey = layout => JSON.stringify([layout.rows, layout.columns, layout.sections]);
 
 // Only the plot viewport gets snapshots; controls and statistics stay live.
-export function withExplorerViewTransition(update, nextLayout) {
+export function withExplorerViewTransition(update, nextLayout, afterCommit) {
   const viewport = document.querySelector('.fex-matrix-viewport');
   const currentLayout = document.querySelector('[data-feature-explorer]')?.dataset.layoutKey;
   const sequence = ++transitionSequence;
   activeTransition?.skipTransition();
-  if (!viewport || (nextLayout && currentLayout === explorerLayoutKey(nextLayout))) {
+  const commit = () => {
     flushSync(update);
+    afterCommit?.();
+  };
+  if (!viewport || (nextLayout && currentLayout === explorerLayoutKey(nextLayout))) {
+    commit();
     return;
   }
   if (!document.startViewTransition || document.hidden) {
-    flushSync(update);
+    commit();
     viewport.animate?.([{ opacity: .65 }, { opacity: 1 }], { duration: reducedMotion() ? 90 : 150, easing: 'ease-out' });
     return;
   }
   document.documentElement.classList.add('explorer-layout-transition');
   const transition = document.startViewTransition(() => {
-    if (sequence === transitionSequence) flushSync(update);
+    if (sequence === transitionSequence) commit();
   });
   activeTransition = transition;
   // Rapid input can intentionally skip a snapshot before it becomes ready.

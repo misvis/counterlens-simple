@@ -8,13 +8,20 @@
 .simplified-daylight .explorer-background-editor,
 .simplified-daylight .explorer-group-outcomes { --exb-surface: #fff; --exb-border: #c1cddd; }
 .explorer-background-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
-.exb-field { position: relative; min-width: 0; }
+.exb-field {
+  position: relative; min-width: 0; display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px; column-gap: 2px;
+}
+.exb-field > select, .exb-field > input { grid-area: 1 / 1; }
+.exb-field > .explorer-info { grid-area: 1 / 2; align-self: center; }
+.exb-field-help > .fex-picker-body { width: min(245px, calc(100vw - 24px)); }
+.exb-field-help p { margin: 3px 0 0; }
 /* Persistent inset labels save a separate row without hiding field names. */
 .workspace-controls .exb-field > label {
   /* The inset label must not intercept the native select's click target. */
   pointer-events: none;
-  position: absolute; top: 3px; left: 7px; right: 20px; z-index: 1;
-  display: block; margin: 0; color: var(--threshold-muted); font-size: 11px; font-weight: 600; line-height: 14px;
+  grid-area: 1 / 1; align-self: start; min-width: 0; z-index: 1;
+  display: block; margin: 3px 4px 0 7px; color: var(--threshold-muted); font-size: 11px; font-weight: 600; line-height: 14px;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
 .exb-field > select,
@@ -22,6 +29,11 @@
   width: 100%; min-width: 0; height: 40px; padding: 17px 6px 3px; border: 1px solid var(--exb-border); border-radius: 6px;
   background: var(--exb-surface); color: var(--threshold-text); font-size: 11px; line-height: 1.3; color-scheme: dark;
 }
+.exb-currency {
+  grid-area: 1 / 1; align-self: start; justify-self: start; z-index: 1;
+  margin: 20px 0 0 7px; color: var(--threshold-muted); pointer-events: none; font-size: 11px; line-height: 14px;
+}
+.exb-field > input:not(:disabled) { padding-left: 16px; }
 .simplified-daylight .exb-field > select,
 .simplified-daylight .exb-field > input { color-scheme: light; }
 .exb-field > select:hover,
@@ -33,7 +45,7 @@
 .exb-field[data-edited="true"] > select,
 .exb-field[data-edited="true"] > input { border-color: var(--workspace-edit); background: var(--workspace-edit-surface); }
 /* Reserve one line for an original value or validation message. */
-.exb-helper { display: block; height: 14px; margin-top: 2px; min-width: 0; }
+.exb-helper { grid-column: 1 / -1; display: block; height: 14px; margin-top: 2px; min-width: 0; }
 .exb-original { display: block; color: var(--workspace-edit); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .exb-field > input[aria-invalid="true"] { border-color: var(--workspace-down); }
 .exb-error { display: block; color: var(--workspace-down); font-size: 10px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -48,14 +60,20 @@
 .exb-outcome-group + .exb-outcome-group { border-top: 1px solid color-mix(in srgb, var(--exb-border) 45%, transparent); padding-top: 7px; }
 .exb-outcome-group h3 { margin: 0 0 3px; font-size: 11px; font-weight: 650; line-height: 1.4; }
 .exb-outcome-rows { display: grid; gap: 2px; }
-.exb-outcome-row { position: relative; align-items: baseline; min-height: 23px; padding: 2px 0 5px; font-size: 10px; line-height: 1.4; border-radius: 4px; transition: background-color 120ms ease; }
-.exb-outcome-row:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; background: var(--workspace-highlight-ring); }
-@media (hover: hover) { .exb-outcome-row[tabindex="0"]:hover { background: var(--workspace-highlight-ring); } }
-.exb-outcome-label { min-width: 0; overflow-wrap: anywhere; color: var(--threshold-muted); }
+.exb-outcome-row { position: relative; align-items: baseline; width: 100%; min-height: 23px; padding: 2px 0 5px; border: 0; border-radius: 4px; background: transparent; color: inherit; font-size: 10px; line-height: 1.4; text-align: left; cursor: pointer; transition: background-color 120ms ease; }
+.exb-outcome-row:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
+@media (hover: hover) { .exb-outcome-row:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--workspace-highlight) 9%, transparent); } }
+.exb-outcome-row[aria-pressed="true"] { background: var(--workspace-highlight-ring); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--workspace-highlight) 50%, transparent); }
+.exb-outcome-label { position: relative; min-width: 0; overflow-wrap: anywhere; color: var(--threshold-muted); }
+/* Use the English line count for row height in every language. */
+.exb-outcome-label::before { content: attr(data-english-label); display: block; visibility: hidden; }
+.exb-outcome-label > span { position: absolute; inset: 0; overflow: hidden; }
+/* Translated names can use the empty space before the right-aligned rate. */
+.exb-outcome-label:not(:lang(en)) > span { inset-inline-end: calc(5ch - var(--exb-rate-width)); }
 .exb-outcome-rate { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
 .exb-outcome-count { text-align: right; font-variant-numeric: tabular-nums; color: var(--threshold-muted); }
-.exb-outcome-track { position: absolute; inset: auto calc(var(--exb-rate-width) + var(--exb-count-width) + 2 * var(--exb-column-gap)) 1px 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--exb-border) 30%, transparent); overflow: hidden; }
-.exb-outcome-track > span { display: block; height: 100%; background: var(--workspace-highlight); opacity: .6; transition: width 180ms linear; }
+.exb-outcome-track { position: absolute; inset: auto calc(var(--exb-rate-width) + var(--exb-count-width) + 2 * var(--exb-column-gap)) 1px 0; height: 2px; border-radius: 2px; background: var(--outcome-bar-track); overflow: hidden; }
+.exb-outcome-track > span { display: block; height: 100%; background: var(--outcome-bar-fill); transition: width 180ms linear; }
 /* Retarget directly during continuous input instead of trailing the pointer. */
 .simplified-app:has(#admission-threshold:active) .exb-outcome-track > span,
 .simplified-app:has([data-dragging="threshold"]) .exb-outcome-track > span { transition-duration: 60ms; }
@@ -68,5 +86,4 @@
 @media (max-width: 360px) { .explorer-background-editor { grid-template-columns: minmax(0, 1fr); } }
 @media (min-width: 1100px) and (min-height: 640px) {
   .explorer-group-outcomes { --exb-rate-width: 60px; --exb-count-width: 68px; --exb-column-gap: 8px; }
-  .workspace-controls .exb-field:has(> input) > label { right: 7px; }
 }

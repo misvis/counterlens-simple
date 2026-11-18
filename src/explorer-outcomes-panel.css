@@ -36,24 +36,23 @@
 .exb-outcome-accordion-heading { position: relative; display: flex; align-items: center; gap: 2px; border-radius: 5px; }
 .exb-outcome-accordion-heading:has(h3 > button:hover) { background: var(--workspace-highlight-ring); }
 .exb-outcome-accordion-heading h3 { min-width: 0; margin: 0; }
-.exb-outcome-accordion-heading h3 > button {
-  position: static;
+.exb-outcome-heading-label {
   display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 0;
-  border: 0; background: transparent; color: var(--threshold-text); font: inherit; text-align: left;
+  color: var(--threshold-text);
 }
-/* Stretch the native button's hit area while keeping income help independent. */
-.exb-outcome-accordion-heading h3 > button::after { content: ''; position: absolute; inset: 0; border-radius: inherit; cursor: pointer; }
+.exb-outcome-accordion-heading h3 > button {
+  position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0;
+  background: transparent; border-radius: inherit; cursor: pointer;
+}
 .exb-outcome-accordion-heading > .zip-income-help { position: relative; z-index: 1; }
-.exb-outcome-accordion-heading h3 > button svg { flex: none; transition: transform 180ms ease; }
-.exb-outcome-accordion-heading h3 > button[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.exb-outcome-heading-label svg { flex: none; transition: transform 180ms ease; }
+.exb-outcome-accordion-heading h3:has(> button[aria-expanded="false"]) svg { transform: rotate(-90deg); }
 .exb-outcome-category-count { flex: none; margin-left: auto; color: var(--threshold-muted); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; pointer-events: none; }
 .explorer-outcomes-panel button:focus-visible, .outcomes-panel-scroll:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
-.exb-outcome-accordion-heading h3 > button:focus-visible { outline: none; }
-.exb-outcome-accordion-heading h3 > button:focus-visible::after { outline: 2px solid var(--workspace-highlight); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) {
   /* Retain the explicitly requested, shortened feedback over the theme reset. */
   .simplified-app .exb-outcome-collapse,
-  .simplified-app .exb-outcome-accordion-heading h3 > button svg { transition-duration: 100ms !important; }
+  .simplified-app .exb-outcome-heading-label svg { transition-duration: 100ms !important; }
 }
 @media (min-width: 1100px) and (min-height: 640px) {
   .simplified-app .workspace-controls.has-editor-drawer:has(.explorer-outcomes-panel) {

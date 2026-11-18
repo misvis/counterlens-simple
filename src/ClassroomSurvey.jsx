@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ClipboardList, X, CheckCircle2 } from 'lucide-react';
 import { API_BASE_URL, CLASSROOM_ID, apiRequest } from './data/api.js';
 import './classroom-survey.css';
+import EnglishSizedLabel from './EnglishSizedLabel.jsx';
 
 const COPY = {
   en: {
@@ -130,7 +131,7 @@ export default function ClassroomSurvey({ lang = 'en' }) {
         title={`${t.session}: ${CLASSROOM_ID}`}
       >
         <ClipboardList size={15} />
-        {t.button}
+        <EnglishSizedLabel english={COPY.en.button}>{t.button}</EnglishSizedLabel>
       </button>
       {open && (
         <div

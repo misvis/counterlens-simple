@@ -315,6 +315,9 @@ const INITIAL_POOL = generateData();
 
 const App = () => {
   const [lang, setLang] = useState('en');
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  }, [lang]);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const [showCredits, setShowCredits] = useState(false);
   const [explainer, setExplainer] = useState(null);
@@ -669,7 +672,7 @@ const App = () => {
   };
 
   return (
-    <div className={`h-screen ${isNebula ? 'glass-active' : isEclipse ? 'bg-[#080b11]' : 'theme-daylight'} ${isDark ? 'text-slate-200' : 'text-slate-700'} font-sans p-3 overflow-hidden flex flex-col relative selection:bg-blue-500/30 transition-colors duration-700`}>
+    <div className={`h-screen ${isNebula ? 'glass-active' : isEclipse ? 'bg-[#080b11]' : 'theme-daylight'} ${isDark ? 'text-slate-200' : 'text-slate-700'} p-3 overflow-hidden flex flex-col relative selection:bg-blue-500/30 transition-colors duration-700`}>
       {isNebula && (
         <div className="mesh-bg">
           <div className="mesh-circle w-[600px] h-[600px] bg-blue-600/10 -top-[20%] -left-[10%]"></div>
@@ -831,7 +834,7 @@ const App = () => {
                 </div>
                 {t.params}
               </h2>
-              <div className={`text-[11px] font-mono font-black px-2 py-0.5 rounded border-2 ${Object.values(weights).reduce((a, b) => a + b, 0) === 100 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/50 text-amber-400 bg-amber-500/10'}`}>Σ={Object.values(weights).reduce((a, b) => a + b, 0)}%</div>
+              <div className={`text-[11px] tabular-nums font-black px-2 py-0.5 rounded border-2 ${Object.values(weights).reduce((a, b) => a + b, 0) === 100 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/50 text-amber-400 bg-amber-500/10'}`}>Σ={Object.values(weights).reduce((a, b) => a + b, 0)}%</div>
             </div>
 
             <div className="flex-1 flex flex-col gap-4 overflow-hidden">
@@ -879,7 +882,7 @@ const App = () => {
                       <span className="text-[10px] font-black text-rose-500/60 uppercase tracking-tighter">Master Policy Gateway</span>
                     </div>
                     <div className="text-right flex flex-col">
-                      <span className="text-rose-400 font-mono text-xl font-black leading-none drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]">{threshold}</span>
+                      <span className="text-rose-400 tabular-nums text-xl font-black leading-none drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]">{threshold}</span>
                       <span className="text-[10px] font-bold text-slate-600 uppercase">Percentile</span>
                     </div>
                   </div>
@@ -905,7 +908,7 @@ const App = () => {
                     <div key={k} className="space-y-0 relative group">
                       <div className="flex justify-between text-xs font-bold leading-none mb-0.5">
                         <span className="text-slate-300 capitalize truncate">{t[k] || k}</span>
-                        <span className="text-blue-400 font-mono">{weights[k]}%</span>
+                        <span className="text-blue-400 tabular-nums">{weights[k]}%</span>
                       </div>
                       <input type="range" min="0" max="100" value={weights[k]} onChange={(e) => setWeights(p => ({ ...p, [k]: parseInt(e.target.value) }))} className="w-full h-1" />
                       <div className="absolute -left-1.5 top-0 bottom-0 w-0.5 bg-blue-500/40 rounded opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -947,7 +950,7 @@ const App = () => {
                 </div>
               </div>
             </div>
-            <div className="h-[calc(100%-20px)] w-full relative group">
+            <div className="h-[calc(100%-20px)] w-full relative group tabular-nums">
               {/* Physical Truncation Marks (Standard Scientific Notation) */}
               <div className="absolute bottom-[28px] left-[34px] flex flex-col gap-0.5 rotate-[-20deg] pointer-events-none select-none opacity-50 z-10">
                 <div className="w-3.5 h-[1.5px] bg-slate-500 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.5)]"></div>
@@ -957,8 +960,8 @@ const App = () => {
                 <ScatterChart margin={{ top: 20, right: 40, bottom: 20, left: 30 }}>
 
                   <CartesianGrid strokeDasharray="3 3" stroke={isDaylight ? "#e2e8f0" : isNebula ? "rgba(255,255,255,0.03)" : "#21262d"} vertical={false} />
-                  <XAxis type="number" dataKey={!swapAxes ? "gpa" : "sat"} domain={!swapAxes ? [2.5, 4.0] : [1200, 1600]} stroke={isDaylight ? '#94a3b8' : '#484f58'} fontSize={11} tick={{ fontFamily: 'JetBrains Mono' }} allowDataOverflow={true} label={{ value: !swapAxes ? 'GPA' : 'SAT', position: 'insideBottomRight', offset: -10, fill: isDaylight ? '#475569' : '#94a3b8', fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: '900' }} />
-                  <YAxis type="number" dataKey={!swapAxes ? "sat" : "gpa"} domain={!swapAxes ? [1200, 1600] : [2.5, 4.0]} stroke={isDaylight ? '#94a3b8' : '#484f58'} fontSize={11} tick={{ fontFamily: 'JetBrains Mono' }} allowDataOverflow={true} label={{ value: !swapAxes ? 'SAT' : 'GPA', angle: -90, position: 'insideLeft', offset: 10, fill: isDaylight ? '#475569' : '#94a3b8', fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: '900' }} />
+                  <XAxis type="number" dataKey={!swapAxes ? "gpa" : "sat"} domain={!swapAxes ? [2.5, 4.0] : [1200, 1600]} stroke={isDaylight ? '#94a3b8' : '#484f58'} fontSize={11} allowDataOverflow={true} label={{ value: !swapAxes ? 'GPA' : 'SAT', position: 'insideBottomRight', offset: -10, fill: isDaylight ? '#475569' : '#94a3b8', fontSize: 11, fontWeight: '900' }} />
+                  <YAxis type="number" dataKey={!swapAxes ? "sat" : "gpa"} domain={!swapAxes ? [1200, 1600] : [2.5, 4.0]} stroke={isDaylight ? '#94a3b8' : '#484f58'} fontSize={11} allowDataOverflow={true} label={{ value: !swapAxes ? 'SAT' : 'GPA', angle: -90, position: 'insideLeft', offset: 10, fill: isDaylight ? '#475569' : '#94a3b8', fontSize: 11, fontWeight: '900' }} />
                   {boundaryVal !== null && (
                     <ReferenceLine y={boundaryVal} stroke="#3b82f6" strokeDasharray="4 4" strokeWidth={2}
                       label={(props) => (
@@ -982,7 +985,6 @@ const App = () => {
                           value: !swapAxes ? originalStudent.gpa.toFixed(2) : Math.round(originalStudent.sat),
                           fill: '#3b82f6',
                           fontSize: 10,
-                          fontFamily: 'JetBrains Mono',
                           fontWeight: 'bold'
                         }}
                       />
@@ -992,7 +994,7 @@ const App = () => {
                         strokeDasharray="3 3"
                         opacity={0.3}
                         label={(props) => (
-                          <text x={props.viewBox.x + props.viewBox.width} y={props.viewBox.y} dy={-12} textAnchor="end" fill="#60a5fa" fontSize={10} fontWeight="bold" fontFamily="JetBrains Mono" style={{ paintOrder: 'stroke', stroke: '#070a0f', strokeWidth: '3px', strokeLinejoin: 'round' }}>
+                          <text x={props.viewBox.x + props.viewBox.width} y={props.viewBox.y} dy={-12} textAnchor="end" fill="#60a5fa" fontSize={10} fontWeight="bold" style={{ paintOrder: 'stroke', stroke: '#070a0f', strokeWidth: '3px', strokeLinejoin: 'round' }}>
                             {!swapAxes ? Math.round(originalStudent.sat) : originalStudent.gpa.toFixed(2)}
                           </text>
                         )}
@@ -1113,7 +1115,7 @@ const App = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setExplainer('slices')} className="w-5 h-5 rounded-full bg-slate-700/50 border border-white/10 flex items-center justify-center hover:bg-slate-600/80 transition-all cursor-pointer btn-tactile"><span className="text-[11px] font-black text-slate-300">?</span></button>
-                <div className="px-2 py-0.5 rounded bg-slate-800/60 text-[10px] text-slate-400 font-mono font-black border border-white/5 uppercase">N={INITIAL_POOL.length}</div>
+                <div className="px-2 py-0.5 rounded bg-slate-800/60 text-[10px] text-slate-400 tabular-nums font-black border border-white/5 uppercase">N={INITIAL_POOL.length}</div>
               </div>
             </div>
 
@@ -1133,7 +1135,7 @@ const App = () => {
                       <span className="w-[24px] flex-shrink-0" />
                       <span className="w-3 flex-shrink-0" />
                       <span className="w-[60px] flex-shrink-0 text-[8px] font-bold text-slate-600 uppercase">{lang === 'zh' ? '分组' : 'Slice'}</span>
-                      <div className="flex-1 flex items-center text-[8px] font-mono text-slate-600 relative">
+                      <div className="flex-1 flex items-center text-[8px] tabular-nums text-slate-600 relative">
                         <span>0</span>
                         <span className="flex-1 text-center text-[7px] text-slate-600/60 uppercase tracking-widest">{lang === 'zh' ? '← 录取分数 →' : '← Score →'}</span>
                         <span>100</span>
@@ -1150,7 +1152,7 @@ const App = () => {
                     return (
                       <button key={g.name} onClick={() => setFilterMode(prev => (prev?.type === 'slice' && prev?.value === g.name) ? null : { type: 'slice', value: g.name })}
                         className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg transition-all cursor-pointer ${isActive ? 'bg-blue-500/10 border border-blue-400/25' : 'hover:bg-white/[0.03] border border-transparent'}`}>
-                        <span className="text-[9px] font-mono text-slate-600 w-[24px] text-right flex-shrink-0">({g.count})</span>
+                        <span className="text-[9px] tabular-nums text-slate-600 w-[24px] text-right flex-shrink-0">({g.count})</span>
                         <div className={`w-3 h-3 rounded-[3px] border-2 flex-shrink-0 flex items-center justify-center transition-all ${isActive ? 'border-blue-400 bg-blue-500/30' : 'border-slate-600 bg-transparent'}`}>
                           {isActive && <div className="w-1.5 h-1.5 rounded-[1px] bg-blue-400" />}
                         </div>
@@ -1187,7 +1189,7 @@ const App = () => {
                         <div key={f.key} className="bg-slate-800/30 rounded-lg px-2.5 py-2 border border-white/[0.03]">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[11px] font-black text-slate-200 uppercase tracking-wide">{f.label}</span>
-                            <div className="flex gap-2 text-[9px] font-mono text-slate-500">
+                            <div className="flex gap-2 text-[9px] tabular-nums text-slate-500">
                               <span>{t.statMean}:<span className="text-slate-300 ml-0.5">{f.mean}</span></span>
                               <span>{t.statStd}:<span className="text-slate-300 ml-0.5">{f.std}</span></span>
                             </div>
@@ -1208,7 +1210,7 @@ const App = () => {
                               );
                             })}
                           </div>
-                          <div className="flex justify-between text-[8px] font-mono text-slate-600 mt-0.5">
+                          <div className="flex justify-between text-[8px] tabular-nums text-slate-600 mt-0.5">
                             <span>{f.min}</span><span>{f.max}</span>
                           </div>
                         </div>
@@ -1225,7 +1227,7 @@ const App = () => {
                           <div key={f.key} className="bg-slate-800/30 rounded-lg px-2.5 py-2 border border-white/[0.03]">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[11px] font-black text-slate-200 uppercase tracking-wide">{f.label}</span>
-                              <span className="text-[9px] font-mono text-slate-500">{t.statUnique}:<span className="text-slate-300 ml-0.5">{f.unique}</span></span>
+                              <span className="text-[9px] tabular-nums text-slate-500">{t.statUnique}:<span className="text-slate-300 ml-0.5">{f.unique}</span></span>
                             </div>
                             <div className="space-y-1">
                               {f.bars.map((bar, i) => (
@@ -1237,7 +1239,7 @@ const App = () => {
                                     {/* Rejected portion (stacked after admit) */}
                                     <div className="absolute top-0 bottom-0 rounded-sm" style={{ left: `${(bar.admit / maxCount) * 100}%`, width: `${((bar.count - bar.admit) / maxCount) * 100}%`, background: 'rgba(239,68,68,0.3)' }} />
                                   </div>
-                                  <span className="text-[9px] font-mono text-slate-500 w-[44px] text-right flex-shrink-0">{bar.rate}% <span className="text-slate-600">({bar.count})</span></span>
+                                  <span className="text-[9px] tabular-nums text-slate-500 w-[44px] text-right flex-shrink-0">{bar.rate}% <span className="text-slate-600">({bar.count})</span></span>
                                 </div>
                               ))}
                             </div>
@@ -1278,7 +1280,7 @@ const App = () => {
                               {cfProfile.gpa > originalStudent.gpa ? '+' : ''}{(cfProfile.gpa - originalStudent.gpa).toFixed(2)}
                             </span>
                           )}
-                          <span className="font-mono bg-blue-500/10 px-1 rounded">{cfProfile.gpa.toFixed(2)}</span>
+                          <span className="tabular-nums bg-blue-500/10 px-1 rounded">{cfProfile.gpa.toFixed(2)}</span>
                         </div>
                       </div>
                       <div className="relative h-5 flex items-center">
@@ -1300,7 +1302,7 @@ const App = () => {
                               {cfProfile.sat > originalStudent.sat ? '+' : ''}{cfProfile.sat - originalStudent.sat}
                             </span>
                           )}
-                          <span className="font-mono bg-blue-500/10 px-1 rounded">{cfProfile.sat}</span>
+                          <span className="tabular-nums bg-blue-500/10 px-1 rounded">{cfProfile.sat}</span>
                         </div>
                       </div>
                       <div className="relative h-5 flex items-center">
@@ -1353,7 +1355,7 @@ const App = () => {
                         </div>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-sm font-mono font-black text-indigo-400">{cfMarginStats?.margin || "0.00"}</span>
+                        <span className="text-sm tabular-nums font-black text-indigo-400">{cfMarginStats?.margin || "0.00"}</span>
                       </div>
                     </div>
 
@@ -1365,7 +1367,7 @@ const App = () => {
                       )}
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-60">SIMULATED {t.fate}</span>
                       <div className="text-2xl font-black italic uppercase tracking-tighter mb-1">{isAdmitted(cfProfile) ? t.admit : t.reject}</div>
-                      <div className="text-[11px] font-mono font-black opacity-80 border-t border-current/20 pt-1 mt-1 w-[80%] text-center">
+                      <div className="text-[11px] tabular-nums font-black opacity-80 border-t border-current/20 pt-1 mt-1 w-[80%] text-center">
                         SCORE: {calcScore(cfProfile, weights).toFixed(1)} / {threshold}.0
                       </div>
                     </div>
@@ -1402,7 +1404,7 @@ const App = () => {
               </p>
               <button onClick={() => setExplainer('confusion')} className="text-slate-500 hover:text-white transition-colors btn-tactile p-0.5"><HelpCircle className="w-4 h-4" /></button>
             </div>
-            <div className="grid grid-cols-2 gap-1.5 text-center font-mono flex-1 min-h-0 pt-1">
+            <div className="grid grid-cols-2 gap-1.5 text-center tabular-nums flex-1 min-h-0 pt-1">
               {[
                 { l: 'TP', v: stats.tp, r: stats.tpRate, c: 'emerald', rgb: '16, 185, 129' },
                 { l: 'FP', v: stats.fp, r: stats.fpRate, c: 'amber', rgb: '245, 158, 11' },

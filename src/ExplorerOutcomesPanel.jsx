@@ -3,6 +3,7 @@ import { createOutcomeExpansion, outcomeExpansionReducer } from '../shared/outco
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { ExplorerGroupOutcomes, ExplorerOutcomeColumns } from './ExplorerBackgroundControls.jsx';
 import './explorer-outcomes-panel.css';
+import EnglishSizedLabel from './EnglishSizedLabel.jsx';
 
 const COPY = {
   en: { expand: 'Expand all', collapse: 'Collapse all' },
@@ -10,7 +11,7 @@ const COPY = {
   es: { expand: 'Expandir todo', collapse: 'Contraer todo' },
 };
 
-export default function ExplorerOutcomesPanel({ title, groups, binning, policyId, lang = 'en', onHighlight }) {
+export default function ExplorerOutcomesPanel({ title, groups, binning, policyId, resetVersion = 0, lang = 'en', onHighlight }) {
   const t = COPY[lang] || COPY.en;
   const id = useId();
   const scrollport = useRef(null);
@@ -33,14 +34,16 @@ export default function ExplorerOutcomesPanel({ title, groups, binning, policyId
           dispatchExpansion({ type: 'all', keys });
           scrollport.current?.scrollTo({ top: 0, behavior: 'instant' });
         }}>
-        <ToggleIcon size={12} aria-hidden="true" /><span>{allExpanded ? t.collapse : t.expand}</span>
+        <ToggleIcon size={12} aria-hidden="true" /><EnglishSizedLabel english={allExpanded ? COPY.en.collapse : COPY.en.expand}>
+          {allExpanded ? t.collapse : t.expand}
+        </EnglishSizedLabel>
       </button>
     </div>
     <div ref={scrollport} className="outcomes-panel-scroll" tabIndex={0} role="region" aria-label={title}>
       <ExplorerOutcomeColumns lang={lang} />
       <div id={`${id}-groups`}>
         <ExplorerGroupOutcomes groups={groups} binning={binning} lang={lang} expandedKeys={expanded}
-          onHighlight={onHighlight} highlightContextKey={policyId}
+          onHighlight={onHighlight} highlightContextKey={`${policyId}:${resetVersion}`}
           onToggle={key => dispatchExpansion({ type: 'toggle', key })} />
       </div>
     </div>

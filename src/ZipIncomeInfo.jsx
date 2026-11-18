@@ -44,7 +44,7 @@ export default function ZipIncomeInfo({ lang, binning, scoring = false }) {
   else if (binning?.method === 'quantile') note = t.quantile;
   else if (binning?.method === 'custom') note = t.custom;
 
-  return <ExplorerDropdown className="zip-income-help" accessibleLabel={t.title} icon={<CircleAlert size={15} aria-hidden="true" />}>
+  return <ExplorerDropdown className="explorer-info zip-income-help" accessibleLabel={t.title} icon={<CircleAlert size={15} aria-hidden="true" />}>
     <strong>{t.title}</strong>
     <p>{t.definition}</p>
     <p>{t.source} {note}</p>

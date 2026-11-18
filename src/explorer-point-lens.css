@@ -2,7 +2,7 @@
   --exl-surface: #1b1f27; --exl-border: #66748a; --exl-text: #e2e8f0; --exl-accent: #8ea7ff;
   position: fixed; z-index: 1000; box-sizing: border-box; display: block;
   padding: 0; border: 1px solid var(--exl-border); border-radius: 50%; background: var(--exl-surface); color: var(--exl-text);
-  font: 11px/1.35 system-ui, sans-serif; overflow: hidden; box-shadow: 0 5px 18px #0f172a24;
+  font-size: 11px; line-height: 1.35; overflow: hidden; box-shadow: 0 5px 18px #0f172a24;
 }
 .explorer-point-lens.is-light { --exl-surface: #fff; --exl-border: #94a3b8; --exl-text: #334155; --exl-accent: #2563eb; }
 .exl-source-overlay { position: absolute; inset: 0; pointer-events: none; }

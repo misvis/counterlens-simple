@@ -25,8 +25,8 @@
   --threshold-track: #606d88;
   --workspace-plot-surface: var(--obs-inset-bg, #0e1117);
   --workspace-plot-border: #3d485b;
-  --matrix-meter-fill: #fbbf65;
-  --matrix-meter-track: #554633;
+  --outcome-bar-fill: color-mix(in srgb, var(--workspace-highlight) 60%, transparent);
+  --outcome-bar-track: rgb(104 116 136 / 30%);
 }
 
 .simplified-daylight {
@@ -50,8 +50,7 @@
   --threshold-track: #cbd5e1;
   --workspace-plot-surface: #f6f8fb;
   --workspace-plot-border: #dbe3ee;
-  --matrix-meter-fill: #b45309;
-  --matrix-meter-track: #e5d8c7;
+  --outcome-bar-track: rgb(193 205 221 / 30%);
 }
 
 .simplified-summer {
@@ -579,7 +578,7 @@
 }
 
 .workspace-editor-student > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace-outcome-badge.is-empty { background: var(--threshold-track); color: var(--threshold-muted); }
+.workspace-outcome-badge:not([data-admitted]) { background: var(--threshold-track); color: var(--threshold-muted); }
 .workspace-draft-controls[data-empty="true"] button:disabled { opacity: .45; cursor: default; }
 .workspace-draft-controls input[type="range"]:disabled { opacity: .4; cursor: default; }
 .workspace-draft-controls input[type="range"]:disabled::-webkit-slider-thumb { opacity: 0; }
@@ -667,11 +666,6 @@
   font-weight: 600;
 }
 
-.workspace-profile-bar {
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
 .workspace-profile-status {
   min-height: 1.4em;
   margin-top: 3px;
@@ -684,49 +678,39 @@
 }
 
 .workspace-outcome-badge {
+  position: relative;
   display: grid;
-  grid-template-rows: 12px 16px 12px;
-  align-items: center;
-  justify-items: center;
-  flex-shrink: 0;
-  min-width: 138px;
+  place-items: center;
+  text-align: center;
+  min-width: 0;
   height: 48px;
-  padding: 3px 10px;
+  padding-inline: 6px;
   border: 1px solid transparent;
   border-radius: 10px;
   font-weight: 700;
 }
 
+.workspace-outcome-badge[data-admitted] {
+  color: var(--decision-color);
+  background-color: color-mix(in srgb, var(--decision-color) var(--decision-tint), Canvas);
+  border-color: var(--decision-edge);
+  box-shadow: var(--decision-glow);
+}
+
 .workspace-outcome-main {
-  grid-row: 2;
   font-size: 12px;
   line-height: 16px;
 }
 
 .workspace-outcome-change {
-  grid-row: 3;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  position: absolute;
+  top: calc(50% + 8px);
+  inset-inline: 0;
+  color: var(--workspace-edit);
   font-size: 10px;
   line-height: 12px;
   font-weight: 600;
   white-space: nowrap;
-}
-
-/* Reserve the flipped caption's space so the result never shifts. */
-.workspace-outcome-change[aria-hidden="true"] {
-  visibility: hidden;
-}
-
-.workspace-outcome-badge.is-flipped {
-  border-color: var(--workspace-edit);
-  outline: 2px solid var(--workspace-edit-ring);
-  outline-offset: 1px;
-}
-
-.workspace-outcome-badge.is-flipped .workspace-outcome-change {
-  color: var(--workspace-edit);
 }
 
 .workspace-analysis-bar {
@@ -828,7 +812,9 @@
   white-space: nowrap;
 }
 
-.simplified-app button.workspace-reset > svg {
+.workspace-reset .english-sized-label { --label-room: 7px; }
+.workspace-reset .english-sized-label > span { display: flex; align-items: center; justify-content: center; gap: inherit; }
+.simplified-app button.workspace-reset svg {
   width: 12px;
   height: 12px;
   flex: none;
@@ -1023,14 +1009,14 @@
   height: 4px;
   overflow: hidden;
   border-radius: 3px;
-  background: var(--matrix-meter-track);
+  background: var(--outcome-bar-track);
 }
 
 .workspace-confusion-meter > span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--matrix-meter-fill);
+  background: var(--outcome-bar-fill);
   transition: width 180ms ease;
 }
 
@@ -1277,10 +1263,6 @@
     font-size: 22px;
   }
 
-  .workspace-profile-bar {
-    padding-top: 4px;
-    padding-bottom: 4px;
-  }
 }
 
 @media (max-width: 639px) {
@@ -1395,8 +1377,6 @@
 .workspace-background-selects label { min-height: 2.7em; display: flex; align-items: end; }
 .workspace-background-original { margin-top: 4px; color: var(--threshold-muted); font-size: 10px; line-height: 1.4; }
 .workspace-background-original[data-edited="true"] { color: var(--workspace-edit); }
-.workspace-academic-value { display: flex; align-items: baseline; gap: 6px; }
-.workspace-academic-delta { color: var(--workspace-edit); font-size: 10px; }
 @media (max-width: 380px) {
   .workspace-background-selects { grid-template-columns: 1fr; }
   .workspace-background-selects label { min-height: 0; }
@@ -1435,9 +1415,8 @@
 
 /* Keep choosing a student beside mining cases; let the toolbar wrap before it crowds. */
 .workspace-case-tools { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.workspace-case-tools > .workspace-edge-button { flex-shrink: 0; }
 .workspace-student-select {
-  width: 210px; min-width: 0; height: 28px; padding: 3px 6px;
+  contain: inline-size; contain-intrinsic-inline-size: 0; min-width: 0; height: 100%; padding: 3px 6px;
   border: 1px solid var(--threshold-border); border-radius: 6px;
   background: var(--threshold-surface); color: var(--threshold-text);
   font-size: 11px; line-height: 16px; color-scheme: dark; cursor: pointer;
@@ -1446,21 +1425,24 @@
 .workspace-student-select:hover { border-color: var(--workspace-highlight); }
 .workspace-student-select:focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 .has-feature-explorer .workspace-visualizer-actions { display: flex; flex-wrap: wrap; flex-shrink: 1; max-width: 100%; row-gap: 6px; }
-.has-feature-explorer .workspace-case-tools { flex: 1 1 360px; }
-.has-feature-explorer .workspace-student-select { flex: 1 1 210px; max-width: 210px; }
+/* Use the English Mine Edge Cases width in every locale. */
+.has-feature-explorer .workspace-case-tools { --case-tool-width: 9.082rem; display: grid; grid-template-columns: repeat(2, minmax(0, var(--case-tool-width))); width: max-content; max-width: 100%; }
+.workspace-case-tools > .workspace-edge-button { justify-content: center; padding-inline: 3px; column-gap: 4px; }
+@media (max-width: 639px) {
+  .has-feature-explorer .workspace-visualizer-actions { width: 100%; }
+  .workspace-visualizer-actions > .simplified-outcome-legend { display: flex; flex-wrap: wrap; column-gap: 12px; }
+}
 @media (max-width: 360px) {
-  .has-feature-explorer .workspace-visualizer-actions { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 6px 10px; }
-  .has-feature-explorer .workspace-case-tools { display: contents; }
-  .has-feature-explorer .workspace-student-select { grid-column: 1 / -1; width: 100%; max-width: none; }
-  .has-feature-explorer .workspace-case-tools > .workspace-edge-button { justify-self: start; }
+  .has-feature-explorer .workspace-case-tools { grid-template-columns: minmax(0, var(--case-tool-width)); grid-auto-rows: 1fr; }
 }
 
 /* Compact chrome leaves more vertical space for the comparison plots. */
 .simplified-shell { padding-top: 8px; padding-bottom: 8px; }
 .simplified-shell > header { margin-bottom: 6px; padding-bottom: 6px; gap: 6px; }
-.simplified-shell .workspace-brand-icon { width: 32px; height: 32px; border-radius: 10px; }
-.workspace-brand-icon svg { width: 20px; height: 20px; }
+.simplified-shell .workspace-brand-icon { width: 32px; height: 32px; }
 .simplified-shell > header h1 { font-size: 23px; }
+/* Each header control uses the English Credits button width. */
+.workspace-header-actions { grid-template-columns: repeat(3, minmax(0, 5.46rem)); }
 .workspace-controls .workspace-policy-name { padding-right: 20px; min-height: 2.6em; }
 .workspace-controls .workspace-policy-info { top: 6px; bottom: auto; right: 3px; width: 22px; height: 22px; }
 .workspace-controls .workspace-policy-count { flex-direction: row; align-items: center; gap: 4px; }
@@ -1541,7 +1523,6 @@
 .workspace-controls > .workspace-counterfactual.has-explorer-editor { padding-top: 10px; padding-bottom: 8px; }
 .has-explorer-editor > :first-child { margin-bottom: 4px; }
 .has-explorer-editor .workspace-draft-controls { flex: none; justify-content: flex-start; gap: 6px; }
-.has-explorer-editor .workspace-profile-bar { padding-block: 2px; }
 .workspace-controls > .workspace-comparison:has(.explorer-group-outcomes) { padding-top: 10px; }
 .workspace-comparison:has(.explorer-group-outcomes) > :first-child { margin-bottom: 2px; }
 @media (min-width: 1100px) and (min-height: 640px) {
@@ -1550,8 +1531,4 @@
   .workspace-controls { grid-template-columns: minmax(0, 1fr); }
   .workspace-controls > .simplified-panel { min-width: 0; padding-inline: 12px; }
   .workspace-policy-heading > div:has(> h2) { min-width: 0; }
-  .has-explorer-editor .workspace-profile-bar { padding-inline: 4px; }
-  .has-explorer-editor .workspace-profile-bar > div { gap: 6px; }
-  .has-explorer-editor .workspace-outcome-badge { min-width: 116px; padding-inline: 6px; }
-  .has-explorer-editor .workspace-outcome-change > svg { display: none; }
 }

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { ADMISSION_DOMAINS, getDecision } from '../shared/admissionModel.js';
 import { DEFAULT_INCOME_BINNING, EXPLORER_FEATURES, getExplorerOptions, getDefaultExplorerLayout, normalizeExplorerLayout, buildExplorerGroups, buildExplorerProfilePair, recordMatchesExplorerContext } from '../shared/featureExplorer.js';
 import { ExplorerPointLens } from './ExplorerPointLens.jsx';
 import { ExplorerDropdown } from './ExplorerDropdown.jsx';
+import EnglishSizedLabel from './EnglishSizedLabel.jsx';
 import ZipIncomeInfo from './ZipIncomeInfo.jsx';
 import { cutoffMatchesContext, getExplorerCutoff } from './explorerCutoff.js';
 import useExplorerDrag from './useExplorerDrag.js';
@@ -13,6 +14,7 @@ import './feature-explorer-matrix.css';
 
 const ROW_LABEL_MAX_WIDTH = 102;
 const MATRIX_COLUMN_GAP = 6;
+const POLICY_HIGHLIGHT_MS = 2000;
 const PLOT_MARGIN = { left: 43, right: 16, top: 22, bottom: 42 };
 const hasCoordinates = student => Number.isFinite(student?.gpa) && Number.isFinite(student?.sat);
 
@@ -29,7 +31,7 @@ const PAIR_COPY = {
 const RESET_COPY = {
   en: { label: 'Reset', accessible: 'Reset visualizer' },
   zh: { label: '重置', accessible: '重置可视化视图' },
-  es: { label: 'Restablecer', accessible: 'Restablecer visualizador' },
+  es: { label: 'Reiniciar', accessible: 'Restablecer visualizador' },
 };
 const SHARED_CUTOFF_COPY = {
   en: 'Shared threshold line (GPA and SAT only)',
@@ -44,6 +46,9 @@ const DRAG_COPY = {
 const label = (value, lang) => typeof value === 'string' ? value : value?.[lang] || value?.en || '';
 const featureFor = key => EXPLORER_FEATURES.find(feature => feature.key === key);
 const featureLabel = (key, lang) => label(featureFor(key)?.label, lang);
+const COMPACT_SPANISH_FEATURES = { mathStatus: 'Matemáticas', zipIncome: 'Ingresos ZIP' };
+const compactFeatureLabel = (feature, lang) =>
+  (lang === 'es' && COMPACT_SPANISH_FEATURES[feature.key]) || label(feature.label, lang);
 const formatValue = (value, key) => key === 'gpa' ? Number(value.toFixed(2)).toString() : String(Math.round(value));
 const ticks = domain => Array.from({ length: 4 }, (_, index) => domain[0] + (domain[1] - domain[0]) * index / 3);
 const contextLabel = (context, lang) => EXPLORER_FEATURES.flatMap(feature => {
@@ -80,7 +85,11 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
     setCustomInput(thresholds.join(', '));
     onBinningChange({ ...binning, method: 'custom', thresholds });
   };
-  const picker = <ExplorerDropdown featureKey={feature.key} label={<>{label(feature.label, lang)}<span className="fex-picker-selection">{all ? t.all : `${chosen.length} ${t.values}`}</span></>}>
+  const summary = copy => all ? copy.all : `${chosen.length} ${copy.values}`;
+  const picker = <ExplorerDropdown featureKey={feature.key} accessibleLabel={`${label(feature.label, lang)} ${summary(t)}`}
+    label={<EnglishSizedLabel english={<>{feature.label.en}<span className="fex-picker-selection">{summary(COPY.en)}</span></>}>
+      {compactFeatureLabel(feature, lang)}<wbr /><span className="fex-picker-selection">{summary(t)}</span>
+    </EnglishSizedLabel>}>
       {feature.key === 'zipIncome' && <div className="fex-binning">
         <label>{t.bins}<select aria-label={t.bins} value={binning.method} onChange={event => {
           setInvalid(false);
@@ -95,13 +104,16 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
           {(binning.method === 'hcup2014' ? [4, 3] : [3, 4, 5, 6]).map(count => <option key={count} value={count}>{count}</option>)}
         </select></label> : <div className="fex-custom-bins">
           <label>{t.cutPoints}<input aria-label={t.cutPoints} value={customInput} onChange={event => { setCustomInput(event.target.value); setInvalid(false); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyCuts(); } }} /></label>
-          <button type="button" onClick={applyCuts}>{t.apply}</button>
+          <button type="button" onClick={applyCuts}><EnglishSizedLabel english={COPY.en.apply}>{t.apply}</EnglishSizedLabel></button>
         </div>}
         {binning.method === 'hcup2014' && binning.count === 3 && <small className="fex-bin-note">{t.mergeMiddle}</small>}
         {invalid && <span className="fex-error" role="alert">{t.invalid}</span>}
       </div>}
       {options.length > 4 && <input type="search" className="fex-value-search" aria-label={`${t.search}: ${label(feature.label, lang)}`} placeholder={t.search} value={search} onChange={event => setSearch(event.target.value)} />}
-      <div className="fex-value-actions"><button type="button" onClick={() => onChange(undefined)}>{t.all}</button><button type="button" onClick={() => onChange([])}>{t.clear}</button></div>
+      <div className="fex-value-actions">
+        <button type="button" onClick={() => onChange(undefined)}><EnglishSizedLabel english={COPY.en.all}>{lang === 'es' ? 'Todo' : t.all}</EnglishSizedLabel></button>
+        <button type="button" onClick={() => onChange([])}><EnglishSizedLabel english={COPY.en.clear}>{t.clear}</EnglishSizedLabel></button>
+      </div>
       <div className="fex-value-options">{filtered.map(option => <label key={option.value}>
         <input type="checkbox" checked={chosen.includes(option.value)} onChange={event => onChange(event.target.checked ? [...chosen, option.value] : chosen.filter(value => value !== option.value))} />
         <span>{label(option.label, lang)}</span>
@@ -114,6 +126,36 @@ function ValuePicker({ feature, options, selected, onChange, binning, onBinningC
 
 function OutcomeMark({ admitted, cx, cy, color, size = 4 }) {
   return admitted ? <circle cx={cx} cy={cy} r={size} fill={color} /> : <path d={`M${cx},${cy - size - 1} L${cx + size + 1},${cy} L${cx},${cy + size + 1} L${cx - size - 1},${cy} Z`} fill={color} />;
+}
+
+function revealExplorerTarget(target) {
+  if (!target) return;
+  const plot = target.closest('[data-explorer-panel]');
+  const scrollport = plot.closest('.fex-matrix-viewport');
+  const bounds = plot.getBoundingClientRect();
+  const view = scrollport.getBoundingClientRect();
+  const rowLabel = plot.parentElement.querySelector('.fex-row-label');
+  const gutter = rowLabel ? rowLabel.offsetWidth + MATRIX_COLUMN_GAP : 0;
+  const left = view.left + scrollport.clientLeft + gutter;
+  const right = view.left + scrollport.clientLeft + scrollport.clientWidth;
+  const top = view.top + scrollport.clientTop;
+  const bottom = top + scrollport.clientHeight;
+  // Show the plot when it fits. In a smaller viewport keep the student mark
+  // (or the cross-panel navigation button) clear of the sticky row label.
+  const mark = target.getBoundingClientRect();
+  const horizontal = bounds.width <= right - left ? bounds : mark;
+  const vertical = bounds.height <= bottom - top ? bounds : mark;
+  const dx = horizontal.left < left ? horizontal.left - left : Math.max(0, horizontal.right - right);
+  const dy = vertical.top < top ? vertical.top - top : Math.max(0, vertical.bottom - bottom);
+  scrollport.scrollBy({ left: dx, top: dy, behavior: 'instant' });
+  // On narrow screens the page itself scrolls vertically.
+  const pageTarget = bounds.height <= window.innerHeight ? plot : target;
+  const visible = pageTarget.getBoundingClientRect();
+  if (visible.top < 0 || visible.bottom > window.innerHeight) {
+    const alignedLeft = scrollport.scrollLeft;
+    pageTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    scrollport.scrollLeft = alignedLeft;
+  }
 }
 
 function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, policy, colors, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, edgeIds, isMining, lang, t, descriptions, currentCutoff, pairRole, peerPanel, registerPair, navigatePair, highlightedGroup, changedDecisions, decisionVersion }) {
@@ -204,7 +246,7 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
           <circle className="fex-hit" cx={cx} cy={cy} r={11} />
           <circle className="fex-outcome-ring" cx={cx} cy={cy} r={7}
             data-highlighted={Boolean(highlightedGroup && !highlightedFacet && recordMatchesExplorerContext(student, [highlightedGroup]))} />
-          {changedDecisions.has(student.id) && <circle key={decisionVersion} className="fex-policy-change-ring" cx={cx} cy={cy} r={7.5} />}
+          {changedDecisions.has(student.id) && <circle key={decisionVersion} className="fex-policy-change-ring" cx={cx} cy={cy} r={student.id === selectedStudent?.id ? 14 : 7.5} />}
           {isMining && edgeIds.has(student.id) && <circle className="fex-edge-case" cx={cx} cy={cy} r={8} />}
           {student.id === selectedStudent?.id && <circle className="fex-original-ring" cx={cx} cy={cy} r={8} />}
           <OutcomeMark admitted={admitted} cx={cx} cy={cy} color={admitted ? colors.admitted : colors.rejected} />
@@ -232,8 +274,10 @@ function ExplorerPlot({ panel, width: requestedWidth, fillHeight, domains, polic
   </div>;
 }
 
-export function ExplorerStudentSelect({ students, selectedStudent, onSelect, isMining, edgeCaseIds, lang = 'en' }) {
+export function ExplorerStudentSelect({ students, selectedStudent, editorOpen, selectRef, onSelect, isMining, edgeCaseIds, lang = 'en' }) {
   const t = COPY[lang] || COPY.en;
+  const closedValue = useId();
+  const editorClosedForStudent = selectedStudent && !editorOpen;
   const edgeIds = useMemo(() => edgeCaseIds instanceof Set ? edgeCaseIds : new Set(edgeCaseIds || []), [edgeCaseIds]);
   const studentChoices = useMemo(() => {
     if (!isMining) return students;
@@ -243,13 +287,16 @@ export function ExplorerStudentSelect({ students, selectedStudent, onSelect, isM
       ...students.filter(student => !edgeIds.has(student.id)),
     ];
   }, [students, edgeIds, isMining]);
-  return <select className="workspace-student-select" aria-label={t.student} value={selectedStudent?.id || ''} onChange={event => onSelect(event.target.value || null)}>
+  return <select ref={selectRef} className="workspace-student-select" aria-label={t.student} aria-controls="counterfactual-editor"
+    value={editorClosedForStudent ? closedValue : selectedStudent?.id || ''} onChange={event => onSelect(event.target.value || null)}>
+    {/* A separate displayed value lets choosing the same student fire a native change after closing the editor. */}
+    {editorClosedForStudent && <option value={closedValue} hidden disabled>{t.student} {selectedStudent.id}</option>}
     <option value="">{t.choose}</option>
     {studentChoices.map(student => <option key={student.id} value={student.id}>{student.id} · GPA {student.gpa} · SAT {student.sat}{isMining && edgeIds.has(student.id) ? ` · ${t.closest}` : ''}</option>)}
   </select>;
 }
 
-export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins, highlightedGroup }) {
+export default function FeatureExplorer({ students, policy, selectedStudent, draftStudent, onSelect, onEdit, onThresholdChange, onRestoreSelection, onReset, contextKey, isLight, colors, lang = 'en', isMining, edgeCaseIds, binning, onBinningChange, incomeBins, highlightedGroup }) {
   const t = COPY[lang] || COPY.en;
   const resetCopy = RESET_COPY[lang] || RESET_COPY.en;
   const [layout, setLayout] = useState(() => getDefaultExplorerLayout(policy));
@@ -260,8 +307,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   // The guarded render update resets view-local state before React commits it.
   if (policyHistory.policy !== policy || policyHistory.contextKey !== contextKey) {
     const policyChanged = policyHistory.policy.id !== policy.id;
-    const comparable = policyChanged && policyHistory.contextKey === contextKey
-      && explorerLayoutKey(layout) === explorerLayoutKey(getDefaultExplorerLayout(policy));
+    const comparable = policyChanged && policyHistory.contextKey === contextKey;
     setPolicyHistory({ policy, contextKey, version: policyHistory.version + (policyChanged ? 1 : 0),
       changed: new Set(comparable ? students.filter(student => getDecision(student, policyHistory.policy) !== getDecision(student, policy)).map(student => student.id) : []) });
     if (policyChanged) {
@@ -271,13 +317,18 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     }
   }
   const viewport = useRef(null);
+  const requestedLayout = useRef(layout);
+  useLayoutEffect(() => { requestedLayout.current = layout; }, [layout]);
   const rowLabelMeasure = useRef(null);
   const pairButtons = useRef({});
   const [availableWidth, setAvailableWidth] = useState(800);
   const [rowLabelWidth, setRowLabelWidth] = useState(ROW_LABEL_MAX_WIDTH);
   useEffect(() => {
     if (!policyHistory.changed.size) return undefined;
-    const timer = window.setTimeout(() => setPolicyHistory(current => ({ ...current, changed: new Set() })), 650);
+    const changed = policyHistory.changed;
+    const timer = window.setTimeout(() => setPolicyHistory(current =>
+      current.changed === changed ? { ...current, changed: new Set() } : current
+    ), POLICY_HIGHLIGHT_MS);
     return () => window.clearTimeout(timer);
   }, [policyHistory.version, policyHistory.changed]);
   useLayoutEffect(() => {
@@ -318,8 +369,14 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   }, [profile, policy, lang, t]);
   const descriptions = useMemo(() => new Map(students.map(student => [student.id, `${student.id} · GPA ${student.gpa} · SAT Percentile ${student.sat} · ${EXPLORER_FEATURES.map(feature => `${label(feature.label, lang)}: ${profileValueLabel(student, feature.key, options[feature.key], lang, t)}`).join(' · ')} · ${getDecision(student, policy) ? t.admitted : t.rejected}`])), [students, options, lang, policy, t]);
   const changeLayout = patch => {
-    const next = normalizeExplorerLayout({ ...layout, ...patch });
-    withExplorerViewTransition(() => setLayout(next), next);
+    // Consecutive row/column choices can arrive before the previous snapshot commits.
+    const next = normalizeExplorerLayout({ ...requestedLayout.current, ...patch });
+    requestedLayout.current = next;
+    const changedAxis = 'rows' in patch || 'columns' in patch;
+    withExplorerViewTransition(() => setLayout(next), next, changedAxis ? () => {
+      const selectedMark = viewport.current?.querySelector('[data-explorer-student][aria-pressed="true"]');
+      revealExplorerTarget(selectedMark);
+    } : undefined);
   };
   const changeBinning = next => { onBinningChange(next); setSelectedValues(current => { const nextValues = { ...current }; delete nextValues.zipIncome; return nextValues; }); };
   const resetView = event => {
@@ -336,6 +393,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
         setLayout(defaults);
         setSelectedValues({});
         onBinningChange(DEFAULT_INCOME_BINNING);
+        onReset?.();
         setResetVersion(current => current + 1);
       });
       flashExplorerReset([
@@ -350,29 +408,8 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
   const registerPair = (role, element) => { pairButtons.current[role] = element; };
   const navigatePair = role => {
     const target = pairButtons.current[role];
-    const scrollport = viewport.current;
-    if (!target || !scrollport) return;
-    const plot = target.closest('[data-explorer-panel]');
-    const bounds = plot.getBoundingClientRect();
-    const view = scrollport.getBoundingClientRect();
-    // Keep navigation inside the matrix and clear its sticky row-label gutter.
-    const left = view.left + scrollport.clientLeft + rowGutter;
-    const right = view.left + scrollport.clientLeft + scrollport.clientWidth;
-    const top = view.top + scrollport.clientTop;
-    const bottom = top + scrollport.clientHeight;
-    const dx = bounds.left < left ? bounds.left - left : bounds.right > right ? Math.min(bounds.right - right, bounds.left - left) : 0;
-    const dy = bounds.top < top ? bounds.top - top : bounds.bottom > bottom ? Math.min(bounds.bottom - bottom, bounds.top - top) : 0;
-    scrollport.scrollBy({ left: dx, top: dy, behavior: 'instant' });
-    // Narrow layouts scroll with the page rather than a fixed-height matrix.
-    const visiblePlot = plot.getBoundingClientRect();
-    if (visiblePlot.top < 0 || visiblePlot.bottom > window.innerHeight) {
-      const alignedLeft = scrollport.scrollLeft;
-      plot.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-      // Native horizontal alignment can hide the badge under a sticky row
-      // label when a full plot does not fit beside that label on mobile.
-      scrollport.scrollLeft = alignedLeft;
-    }
-    target.focus({ preventScroll: true });
+    revealExplorerTarget(target);
+    target?.focus({ preventScroll: true });
   };
   const selectFromEvent = event => {
     const point = event.target.closest?.('[data-explorer-student]');
@@ -397,15 +434,20 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     }}>
     <div className="fex-controls">
       <button type="button" className="workspace-reset" data-explorer-reset aria-label={resetCopy.accessible} title={resetCopy.accessible} onClick={resetView}>
-        <RotateCcw size={12} aria-hidden="true" /><span>{resetCopy.label}</span>
+        <EnglishSizedLabel english={RESET_COPY.en.label} icon={<RotateCcw size={12} aria-hidden="true" />}>{resetCopy.label}</EnglishSizedLabel>
       </button>
-      {['rows', 'columns'].map(role => <label key={role}>{t[role]}<select aria-label={t[role]} data-layout-role={role} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
-        <option value="">{t.none}</option>{EXPLORER_FEATURES.map(feature => <option key={feature.key} value={feature.key} disabled={activeKeys.includes(feature.key) && layout[role] !== feature.key}>{label(feature.label, lang)}</option>)}
+      {['rows', 'columns'].map(role => <label key={role} onClick={event => event.stopPropagation()}>
+        <EnglishSizedLabel english={COPY.en[role]}>{t[role]}</EnglishSizedLabel>
+        <select aria-label={t[role]} data-layout-role={role} value={layout[role]} onChange={event => changeLayout({ [role]: event.target.value })}>
+        <option value="">{t.none}</option>{EXPLORER_FEATURES.map(feature => <option key={feature.key} value={feature.key} title={label(feature.label, lang)} disabled={activeKeys.includes(feature.key) && layout[role] !== feature.key}>{compactFeatureLabel(feature, lang)}</option>)}
       </select></label>)}
-      <ExplorerDropdown key={resetVersion} className="fex-sections-picker" bodyClassName="fex-value-options" label={layout.sections.length ? `${t.sections} · ${layout.sections.length}` : t.add}>
+      <ExplorerDropdown key={resetVersion} className="fex-sections-picker" bodyClassName="fex-value-options"
+        label={<EnglishSizedLabel english={layout.sections.length ? `${COPY.en.sections} · ${layout.sections.length}` : COPY.en.add}>
+          {layout.sections.length ? `${t.sections} · ${layout.sections.length}` : t.add}
+        </EnglishSizedLabel>}>
         <div className="fex-value-actions">
-          <button type="button" onClick={() => changeLayout({ sections: EXPLORER_FEATURES.map(feature => feature.key).filter(key => key !== layout.rows && key !== layout.columns) })}>{t.all}</button>
-          <button type="button" onClick={() => changeLayout({ sections: [] })}>{t.clear}</button>
+          <button type="button" onClick={() => changeLayout({ sections: EXPLORER_FEATURES.map(feature => feature.key).filter(key => key !== layout.rows && key !== layout.columns) })}><EnglishSizedLabel english={COPY.en.all}>{lang === 'es' ? 'Todo' : t.all}</EnglishSizedLabel></button>
+          <button type="button" onClick={() => changeLayout({ sections: [] })}><EnglishSizedLabel english={COPY.en.clear}>{t.clear}</EnglishSizedLabel></button>
         </div>
         {EXPLORER_FEATURES.map(feature => <label key={feature.key}>
           <input type="checkbox" disabled={feature.key === layout.columns || feature.key === layout.rows} checked={layout.sections.includes(feature.key)} onChange={event => changeLayout({ sections: event.target.checked ? [...layout.sections, feature.key] : layout.sections.filter(key => key !== feature.key) })} />{label(feature.label, lang)}
@@ -417,7 +459,7 @@ export default function FeatureExplorer({ students, policy, selectedStudent, dra
     <div ref={rowLabelMeasure} className="fex-row-measure" aria-hidden="true">
       {layout.rows && groups.rows.map(row => <span key={row.value}>{label(row.label, lang)}</span>)}
     </div>
-    <div className="fex-matrix-viewport" ref={viewport}>
+    <div className="fex-matrix-viewport" ref={viewport} style={{ '--fex-policy-highlight-duration': `${POLICY_HIGHLIGHT_MS}ms` }}>
       {!groups.panelCount ? <p className="fex-no-values">{t.noValues}</p> : groups.sections.map(section => <section className="fex-section" key={`${resetVersion}:${section.id}`} data-explorer-section={section.id}>
         {!!section.context.length && <h3>{contextLabel(section.context, lang)}</h3>}
         <div className="fex-grid" style={{ width: matrixWidth, columnGap: MATRIX_COLUMN_GAP, gridTemplateColumns: `${layout.rows ? `${rowLabelWidth}px ` : ''}repeat(${columnCount}, ${plotWidth}px)`, gridTemplateRows: singlePlot && layout.columns ? 'auto minmax(0, 1fr)' : undefined }}>

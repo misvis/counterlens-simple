@@ -3,7 +3,7 @@ import './editor-presentation.css';
 
 // Measure the rail's visible viewport, independently of its scrolling content.
 // A clipped overlay lets the drawer slide over outcomes without moving them.
-export default function EditorPresentation({ open, onClose, title, lang = 'en', children }) {
+export default function EditorPresentation({ open, onClose, title, lang = 'en', decisionColor, children }) {
   const dialogRef = useRef(null);
   const layerRef = useRef(null);
 
@@ -105,7 +105,7 @@ export default function EditorPresentation({ open, onClose, title, lang = 'en', 
   return <div ref={layerRef} className="editor-drawer-layer" data-open={open} inert={!open}>
     <dialog ref={dialogRef} id="counterfactual-editor"
     className="workspace-counterfactual simplified-panel has-explorer-editor editor-surface"
-    aria-label={title} lang={lang}
+    aria-label={title} lang={lang} style={{ '--decision-color': decisionColor }}
     onCancel={event => {
       event.preventDefault();
       onClose();

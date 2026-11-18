@@ -14,7 +14,6 @@ import {
   Radio,
   RefreshCw,
   Server,
-  Telescope,
 } from 'lucide-react';
 import {
   Area,
@@ -28,6 +27,7 @@ import {
   YAxis,
 } from 'recharts';
 import { API_BASE_URL, apiRequest } from './data/api.js';
+import BrandMark from './BrandMark.jsx';
 import './console.css';
 
 const BASE =
@@ -249,9 +249,7 @@ export default function ConsoleApp() {
     <div className="console-shell">
       <aside className="console-sidebar">
         <a className="console-brand" href={import.meta.env.BASE_URL}>
-          <span>
-            <Telescope size={25} />
-          </span>
+          <BrandMark size={43} />
           <div>
             CounterLens<small>CLASSROOM CONSOLE</small>
           </div>

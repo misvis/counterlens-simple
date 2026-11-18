@@ -6,7 +6,7 @@
   overflow-x: hidden;
 }
 .editor-drawer-layer {
-  --editor-paint-margin: 8px;
+  --editor-paint-margin: 10px;
   position: fixed;
   z-index: 1010;
   /* Give the floating edge room to paint across the rail's alignment line. */
@@ -15,6 +15,9 @@
   pointer-events: none;
 }
 .simplified-app .workspace-controls .editor-surface {
+  --decision-tint: 14%;
+  --decision-edge: color-mix(in srgb, var(--decision-color, transparent) 42%, transparent);
+  --decision-glow: 0 0 8px color-mix(in srgb, var(--decision-color, transparent) 22%, transparent);
   position: relative;
   inset: auto;
   display: flex;
@@ -29,37 +32,22 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--workspace-plot-border);
+  border: 1px solid;
   border-radius: 16px;
   background: #191e27;
   color: var(--threshold-text);
   text-align: left;
   color-scheme: dark;
   pointer-events: auto;
-  box-shadow: 0 8px 24px #0003;
+  /* The daylight panel theme sets both properties with !important. */
+  border-color: var(--decision-edge) !important;
+  box-shadow: var(--decision-glow), 0 6px 16px #0002 !important;
 }
-.simplified-app.simplified-daylight .workspace-controls .editor-surface { color-scheme: light; }
+.simplified-app.simplified-daylight .workspace-controls .editor-surface { color-scheme: light; --decision-tint: 6%; }
 .simplified-app .workspace-controls .editor-surface:not([open]) { display: none; }
 /* Keep this explicitly requested drawer motion even with reduced motion enabled. */
 .editor-drawer-layer[data-open="true"] > .editor-surface { animation: editor-slide-in 380ms cubic-bezier(.25,.1,.25,1); }
 .editor-drawer-layer[data-open="false"] > .editor-surface { animation: editor-slide-out 300ms cubic-bezier(.4,0,.8,.35) forwards; pointer-events: none; }
-.editor-surface::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  padding: 1.5px;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(125deg, #dbe6ffb3 0%, #8ea7ff66 32%, #a8bcff33 58%, #d2a5ff80 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-.simplified-daylight .editor-surface::after {
-  background: linear-gradient(125deg, #b8ccf0c0 0%, #91adea99 32%, #b6c7e355 58%, #a68bdc99 100%);
-}
 .has-editor-drawer > .workspace-policy:has([data-policy-help]) { z-index: 1020; }
 .editor-surface > .editor-heading {
   display: flex;
@@ -74,37 +62,51 @@
 .editor-close:hover { background: var(--threshold-surface); color: var(--threshold-text); }
 .editor-surface > .editor-body { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 0 12px 10px; }
 .editor-surface > .editor-heading { flex-shrink: 0; }
-.workspace-controls .editor-surface .workspace-draft-controls { gap: 6px; }
-.editor-surface .workspace-profile-bar { padding: 2px 4px; }
-.editor-surface .workspace-profile-bar > div { gap: 6px; }
-.editor-surface .workspace-editor-student { display: block; }
-.editor-surface .workspace-outcome-badge { min-width: 116px; padding-inline: 6px; }
-.editor-surface .workspace-outcome-change > svg { display: none; }
+.workspace-controls .editor-surface .workspace-draft-controls { gap: 6.9px; }
+.editor-surface .workspace-profile-bar {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(min-content, 116px) minmax(max-content, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.editor-surface .workspace-editor-student { min-width: 0; }
+.editor-surface .workspace-profile-bar .workspace-reset { justify-self: end; }
 .editor-surface .explorer-background-editor { gap: 8px 10px; }
-/* Reserve the difference line so value changes never move a slider mid-drag. */
-.editor-surface .workspace-academic-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; min-height: 28px; }
-.editor-surface .workspace-academic-header > label { white-space: nowrap; line-height: 16px; }
-.editor-surface .workspace-academic-value { display: flex; flex-direction: column; align-items: flex-end; gap: 0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.editor-surface .workspace-academic-current { line-height: 16px; }
-.editor-surface .workspace-academic-delta { height: 12px; line-height: 12px; white-space: nowrap; }
-.editor-surface .workspace-academic-delta[aria-hidden="true"] { visibility: hidden; }
+.workspace-academic-sliders {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin-block-start: 11.5px;
+  padding-inline: 4px;
+}
+.workspace-academic-sliders::before {
+  content: '';
+  position: absolute;
+  inset-block: 2px 14px;
+  inset-inline-start: 50%;
+  border-inline-start: 1px solid var(--workspace-plot-border);
+}
+.workspace-academic-control {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+  min-width: 0;
+}
+.workspace-academic-current {
+  color: var(--workspace-highlight);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.workspace-academic-control input { width: 100%; min-width: 0; }
+.workspace-academic-control label { color: var(--threshold-text); font-size: 12px; font-weight: 600; line-height: 16px; }
+/* Keep the same space below the sliders whether or not a change is shown. */
+.workspace-academic-delta { min-height: 13.8px; align-content: end; color: var(--workspace-edit); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; }
 .editor-surface :is(button, select, input):focus-visible { outline: 2px solid var(--workspace-highlight); outline-offset: 2px; }
 
-/* Reserve identical toolbar geometry for empty, selected and edited states. */
-.editor-reopen-slot { display: flex; flex: 0 0 104px; width: 104px; height: 28px; }
-.simplified-app button.editor-reopen.workspace-reset {
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  width: 100%; height: 28px; min-height: 28px; padding: 4px 8px;
-  font-size: 11px; line-height: 16px; white-space: nowrap;
-}
-.editor-edited-dot { flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--workspace-edit); }
-@media (max-width: 639px) {
-  .has-feature-explorer .workspace-visualizer-actions { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; gap: 6px; }
-  .has-feature-explorer .workspace-case-tools { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px 8px; }
-  .has-feature-explorer .workspace-student-select { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: none; }
-  .editor-reopen-slot { grid-column: 1; grid-row: 2; }
-  .workspace-case-tools > .workspace-edge-button { grid-column: 2; grid-row: 2; justify-self: start; }
-  .workspace-visualizer-actions > .simplified-outcome-legend { display: flex; flex-wrap: wrap; column-gap: 12px; }
-}
 @keyframes editor-slide-in { from { transform: translateX(calc(100% + var(--editor-paint-margin))); } to { transform: translateX(0); } }
 @keyframes editor-slide-out { from { transform: translateX(0); } to { transform: translateX(calc(100% + var(--editor-paint-margin))); } }
